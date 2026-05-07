@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT 1 AS dummy FROM teams WHERE id = $1 AND name NOT LIKE 'Group %' AND name NOT LIKE 'Quarterfinal %' AND name NOT LIKE 'Semifinal %' AND name NOT LIKE 'Round of %' AND name NOT LIKE 'Third Place %'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "dummy",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "26e5855976111c9fa6fd998ae11bc51bbb10568d733b0248fc4dc8957a1f8388"
+}

@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT team_home_id as \"team_home_id?\",\n                   team_away_id as \"team_away_id?\",\n                   score_home   as \"score_home?\",\n                   score_away   as \"score_away?\",\n                   status\n            FROM matches\n            WHERE stage = 'final'::match_stage AND status = 'finished'\n            ORDER BY kickoff_time DESC\n            LIMIT 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "team_home_id?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "team_away_id?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "score_home?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "score_away?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "status",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "1cafc24bbfcde0e286d76145967619d94e4ebebf7ab93d416e47fb76f7821058"
+}

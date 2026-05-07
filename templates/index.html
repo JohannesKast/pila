@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+
+{% macro match_card(m) %}
+<div class="match-card bg-slate-800 rounded-lg border border-slate-700 {% if m.is_final() %}border-t-2 border-t-fifa-gold{% else if m.is_third_place() %}border-t-2 border-t-amber-700{% else if m.is_knockout() %}border-t-2 border-t-fifa-blue{% else %}border-t border-t-emerald-700/40{% endif %} overflow-hidden mb-3 shadow">
+    <div class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-700/60 bg-slate-900/40 text-[10px]">
+        <div class="flex items-center gap-2 min-w-0">
+            {% if m.is_final() %}
+            <span class="text-fifa-gold font-bold uppercase tracking-wider whitespace-nowrap">🏆 Finale</span>
+            {% else %}
+            <span class="font-bold uppercase tracking-wider whitespace-nowrap text-fifa-blue">
+                {% match m.group_letter %}
+                {% when Some with (g) %}Gruppe {{ g }}
+                {% when None %}{{ m.stage_label }}
+                {% endmatch %}
+            </span>
+            {% endif %}
+            <span class="text-slate-500">×{{ m.multiplier }}</span>
+            <span class="text-slate-500 truncate">📅 {{ m.kickoff_display }}</span>
+        </div>
+        {% if m.locked %}<span class="text-red-400 flex-shrink-0">🔒</span>{% else %}<span class="text-emerald-400 flex-shrink-0">✏️</span>{% endif %}
+    </div>
+
+    <div class="flex items-center gap-3 px-3 py-2 text-slate-200">
+        {% if m.home_flag.is_empty() == false %}<img src="{{ m.home_flag }}" alt="" class="w-7 h-5 flex-shrink-0 object-cover rounded" onerror="this.style.display='none'">{% endif %}
+        <span class="flex-1 text-sm truncate">{{ m.home_name }}</span>
+        <span class="text-xl font-black w-7 text-center">
+            {% match m.score_home %}{% when Some with (s) %}{{ s }}{% when None %}-{% endmatch %}
+        </span>
+    </div>
+    <div class="flex items-center gap-3 px-3 py-2 border-t border-slate-700/30 text-slate-200">
+        {% if m.away_flag.is_empty() == false %}<img src="{{ m.away_flag }}" alt="" class="w-7 h-5 flex-shrink-0 object-cover rounded" onerror="this.style.display='none'">{% endif %}
+        <span class="flex-1 text-sm truncate">{{ m.away_name }}</span>
+        <span class="text-xl font-black w-7 text-center">
+            {% match m.score_away %}{% when Some with (s) %}{{ s }}{% when None %}-{% endmatch %}
+        </span>
+    </div>
+
+    <div id="tip-form-{{ m.id }}" class="px-3 py-2 border-t border-slate-700/40 bg-slate-900/30">
+        {% if m.locked %}
+        <div class="space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+                <span class="text-slate-400">Dein Tipp</span>
+                <div class="flex items-center gap-2">
+                    {% match m.predicted_home %}
+                    {% when Some with (ph) %}
+                    <span class="font-bold text-fifa-gold">{{ ph }}:{% match m.predicted_away %}{% when Some with (pa) %}{{ pa }}{% when None %}-{% endmatch %}</span>
+                    {% match m.own_points %}
+                    {% when Some with (pts) %}<span class="font-bold {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
+                    {% when None %}{% endmatch %}
+                    {% when None %}<span class="text-slate-600 italic">Kein Tipp</span>
+                    {% endmatch %}
+                </div>
+            </div>
+            {% if m.other_preds.len() > 0 %}
+            <div class="border-t border-slate-700/40 pt-1 space-y-0.5">
+                {% for pred in m.other_preds %}
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="flex-1 truncate text-slate-500">{{ pred.name }}</span>
+                    <span class="text-slate-400 font-mono">{{ pred.home }}:{{ pred.away }}</span>
+                    {% match pred.points %}
+                    {% when Some with (pts) %}<span class="w-7 text-right font-bold {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
+                    {% when None %}<span class="w-7 text-right text-slate-700">—</span>
+                    {% endmatch %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <form hx-post="/predict/{{ m.id }}" hx-swap="outerHTML" hx-target="#tip-form-{{ m.id }}" class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">Dein Tipp</span>
+            <div class="ml-auto flex items-center gap-1.5">
+                <input type="number" name="score_home" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" min="0" max="20" class="score-input w-12 bg-slate-900/80 border border-slate-600 focus:border-fifa-blue rounded text-center py-1.5 text-sm font-bold outline-none text-white" required>
+                <span class="text-slate-600">:</span>
+                <input type="number" name="score_away" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" min="0" max="20" class="score-input w-12 bg-slate-900/80 border border-slate-600 focus:border-fifa-blue rounded text-center py-1.5 text-sm font-bold outline-none text-white" required>
+                <button type="submit" class="bg-fifa-blue hover:opacity-90 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors">Tipp</button>
+            </div>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endmacro %}
+
+{% macro stage_section(sg) %}
+{% if sg.groups.len() > 0 %}
+{% for entry in sg.groups %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Gruppe {{ entry.0 }}</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ entry.1.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">
+        {% for m in entry.1 %}{% call match_card(m) %}{% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% if sg.round_of_32.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Sechzehntelfinale</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_32.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% if sg.round_of_16.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Achtelfinale</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_16.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% if sg.quarter_final.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Viertelfinale</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.quarter_final.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% if sg.semi_final.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Halbfinale</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.semi_final.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% if sg.third_place.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-amber-500 uppercase tracking-widest">Spiel um Platz 3</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.third_place.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% if sg.final_.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black text-fifa-gold uppercase tracking-widest">🏆 Finale</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.final_.len() }}</span>
+        <span class="flex-1 h-px bg-slate-700/50"></span>
+    </div>
+    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m) %}{% endfor %}</div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block content %}
+
+<div id="tab-container" data-default-tab="{{ default_tab }}">
+    <div class="sticky top-0 z-30 -mx-2 sm:-mx-4 lg:-mx-6 bg-slate-900/95 backdrop-blur border-b border-slate-700/60 shadow">
+        <div class="px-2 sm:px-4 lg:px-6 pt-2 pb-1.5 flex items-center gap-2">
+            <span class="text-xl">⚽</span>
+            <span class="text-sm sm:text-base font-bold leading-tight">Willkommen, <span class="text-fifa-gold">{{ user_name }}</span></span>
+        </div>
+        <div class="px-2 sm:px-4 lg:px-6 pb-2">
+            <div class="bg-slate-800 rounded-lg border border-slate-700 flex overflow-x-auto">
+                <button type="button" data-tab="table" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">Tabelle</button>
+                <button type="button" data-tab="started" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">
+                    Aktuell{% if started_count > 0 %} <span class="text-[10px] text-slate-500">({{ started_count }})</span>{% endif %}
+                </button>
+                <button type="button" data-tab="open" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">
+                    Offen{% if open_count > 0 %} <span class="text-[10px] text-emerald-400">({{ open_count }})</span>{% endif %}
+                </button>
+                <button type="button" data-tab="special" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">Spezial</button>
+            </div>
+        </div>
+    </div>
+
+    {# ===== TAB: TABELLE ===== #}
+    <section data-panel="table" class="tab-panel mt-3 hidden">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden mb-4">
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-700 bg-slate-800/80">
+                <span class="text-lg">🏆</span>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">Leaderboard</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-700/40 text-slate-400 uppercase text-xs tracking-wider">
+                            <th class="px-3 py-2 font-semibold w-10 text-center">#</th>
+                            <th class="px-3 py-2 font-semibold">Name</th>
+                            <th class="px-3 py-2 font-semibold text-right">Punkte</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-700/40">
+                        {% if leaderboard.len() == 0 %}
+                        <tr><td colspan="3" class="px-3 py-4 text-center text-slate-500 text-sm">Noch keine Punkte vergeben.</td></tr>
+                        {% else %}
+                        {% for entry in leaderboard %}
+                        <tr class="hover:bg-slate-700/20 {% if loop.index0 == 0 %}bg-fifa-blue/15{% endif %}">
+                            <td class="px-3 py-2 text-center font-bold text-slate-400 text-sm">
+                                {% if loop.index0 == 0 %}🥇
+                                {% else if loop.index0 == 1 %}🥈
+                                {% else if loop.index0 == 2 %}🥉
+                                {% else %}{{ loop.index0 + 1 }}
+                                {% endif %}
+                            </td>
+                            <td class="px-3 py-2 font-semibold text-sm {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-white{% endif %}">{{ entry.name }}</td>
+                            <td class="px-3 py-2 text-right">
+                                <span class="font-black text-lg {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-slate-200{% endif %}">{{ entry.total_points }}</span>
+                                {% if entry.max_potential_points > entry.total_points %}
+                                <span class="ml-1 text-xs text-slate-500" title="Maximal noch erreichbar: {{ entry.max_potential_points }}">
+                                    <span class="text-slate-600">/</span> <span class="text-amber-400/70">{{ entry.max_potential_points }}</span>
+                                </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if group_standings.len() > 0 %}
+        <h3 class="text-xs font-bold text-fifa-blue uppercase tracking-widest mb-2 px-1">Gruppentabellen</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {% for gt in group_standings %}
+            <div class="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
+                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/40 text-xs font-bold text-fifa-blue uppercase tracking-wider">Gruppe {{ gt.letter }}</div>
+                <table class="w-full text-[11px] border-collapse">
+                    <thead>
+                        <tr class="bg-slate-700/30 text-slate-400 text-[10px]">
+                            <th class="px-2 py-1 text-left font-semibold">Team</th>
+                            <th class="px-1 py-1 text-right font-semibold">Sp</th>
+                            <th class="px-1 py-1 text-right font-semibold">S</th>
+                            <th class="px-1 py-1 text-right font-semibold">U</th>
+                            <th class="px-1 py-1 text-right font-semibold">N</th>
+                            <th class="px-1 py-1 text-right font-semibold">TD</th>
+                            <th class="px-2 py-1 text-right font-semibold">Pkt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in gt.rows %}
+                        <tr class="border-t border-slate-700/30">
+                            <td class="px-2 py-1 truncate flex items-center gap-1">
+                                {% if r.flag.is_empty() == false %}<img src="{{ r.flag }}" class="w-4 h-3 object-cover rounded" alt="" onerror="this.style.display='none'">{% endif %}
+                                <span class="truncate">{{ r.team_name }}</span>
+                            </td>
+                            <td class="px-1 py-1 text-right text-slate-400">{{ r.played }}</td>
+                            <td class="px-1 py-1 text-right text-slate-400">{{ r.wins }}</td>
+                            <td class="px-1 py-1 text-right text-slate-400">{{ r.draws }}</td>
+                            <td class="px-1 py-1 text-right text-slate-400">{{ r.losses }}</td>
+                            <td class="px-1 py-1 text-right text-slate-400">{{ r.goal_diff }}</td>
+                            <td class="px-2 py-1 text-right font-bold text-white">{{ r.points }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </section>
+
+    {# ===== TAB: AKTUELL ===== #}
+    <section data-panel="started" class="tab-panel mt-3 hidden">
+        {% if started_in_progress.is_empty() && started_finished.is_empty() %}
+        <p class="text-slate-500 text-sm text-center py-12">Noch kein Spiel angepfiffen.</p>
+        {% else %}
+            {% if !started_in_progress.is_empty() %}
+            <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 px-1">Laufend</h3>
+            {% call stage_section(started_in_progress) %}
+            {% endif %}
+
+            {% if !started_finished.is_empty() %}
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6 px-1">Abgeschlossen</h3>
+            {% call stage_section(started_finished) %}
+            {% endif %}
+        {% endif %}
+    </section>
+
+    {# ===== TAB: OFFEN ===== #}
+    <section data-panel="open" class="tab-panel mt-3 hidden">
+        {% if open_matches.is_empty() %}
+        <p class="text-slate-500 text-sm text-center py-12">Aktuell keine offenen Tipps.</p>
+        {% else %}
+        {% call stage_section(open_matches) %}
+        {% endif %}
+    </section>
+
+    {# ===== TAB: SPEZIAL ===== #}
+    <section data-panel="special" class="tab-panel mt-3 hidden">
+        <div class="mb-2 text-center">
+            <h3 class="text-sm font-bold text-white uppercase tracking-widest inline-flex items-center gap-2">🏆 Weltmeister</h3>
+            <p class="text-slate-500 text-[11px] mt-0.5">10 Punkte</p>
+        </div>
+
+        <div class="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-fifa-gold p-4 shadow-lg shadow-yellow-900/10">
+            {% if tournament_locked %}
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-xl">🏆</span>
+                <h4 class="font-black text-fifa-gold text-sm uppercase tracking-widest">Weltmeister-Tipps</h4>
+            </div>
+            <div class="space-y-1">
+                {% for pred in champ_preds %}
+                <div class="flex items-center gap-2 text-xs {% if pred.name == user_name %}text-fifa-gold font-semibold{% else %}text-slate-400{% endif %}">
+                    <span class="flex-1 truncate">{{ pred.name }}</span>
+                    <span class="flex items-center gap-1 text-slate-300" style="max-width:50%">
+                        {% if pred.team_flag.is_empty() == false %}<img src="{{ pred.team_flag }}" class="w-4 h-3 object-cover rounded" alt="" onerror="this.style.display='none'">{% endif %}
+                        <span class="truncate">{{ pred.team_name }}</span>
+                    </span>
+                    {% match pred.points %}
+                    {% when Some with (pts) %}<span class="font-bold w-7 text-right {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
+                    {% when None %}<span class="w-7 text-right text-slate-700">—</span>
+                    {% endmatch %}
+                </div>
+                {% endfor %}
+                {% if champ_preds.is_empty() %}<p class="text-slate-600 text-xs text-center">Keine Tipps</p>{% endif %}
+            </div>
+            {% else %}
+            <form action="/predict_special" method="POST" class="space-y-3">
+                <div class="flex items-center gap-2">
+                    <span class="text-xl">🏆</span>
+                    <h4 class="font-black text-fifa-gold text-sm uppercase tracking-widest">Wer wird Weltmeister?</h4>
+                </div>
+                <select name="champion_id" class="w-full bg-slate-900 border border-yellow-700/50 text-white text-base font-semibold rounded p-3 outline-none focus:border-fifa-gold">
+                    <option value="">-- Wähle den Sieger --</option>
+                    {% for t in team_options %}
+                    <option value="{{ t.id }}" {% if special_preds.is_champion(t.id) %}selected{% endif %}>{{ t.name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg">
+                    Speichern
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </section>
+
+</div>
+
+<style>
+    .tab-btn.active {
+        color: #fff;
+        border-bottom-color: #FFD700;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+        appearance: textfield;
+    }
+</style>
+
+<script>
+    (function () {
+        const VALID = ["table", "started", "open", "special"];
+        const container = document.getElementById("tab-container");
+        if (!container) return;
+
+        function activate(tab) {
+            if (!VALID.includes(tab)) tab = container.dataset.defaultTab || "table";
+            document.querySelectorAll(".tab-btn").forEach(function (btn) {
+                btn.classList.toggle("active", btn.dataset.tab === tab);
+            });
+            document.querySelectorAll(".tab-panel").forEach(function (panel) {
+                panel.classList.toggle("hidden", panel.dataset.panel !== tab);
+            });
+        }
+
+        function tabFromHash() {
+            return (location.hash || "").replace(/^#/, "");
+        }
+
+        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+                const tab = btn.dataset.tab;
+                history.replaceState(null, "", "#" + tab);
+                activate(tab);
+            });
+        });
+
+        window.addEventListener("hashchange", function () {
+            activate(tabFromHash());
+        });
+
+        const initial = tabFromHash() || container.dataset.defaultTab || "table";
+        activate(initial);
+    })();
+</script>
+
+{% endblock %}

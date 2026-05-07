@@ -1,0 +1,21 @@
+[package]
+name = "pila"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.7"
+axum-extra = { version = "0.9", features = ["cookie"] }
+tokio = { version = "1.36", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "chrono", "uuid"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.9"
+async-trait = "0.1"
+uuid = { version = "1.7", features = ["v4", "serde"] }
+askama = "0.12"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+dotenvy = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }

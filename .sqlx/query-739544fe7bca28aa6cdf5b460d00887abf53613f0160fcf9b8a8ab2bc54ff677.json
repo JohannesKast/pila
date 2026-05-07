@@ -1,0 +1,41 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT p.match_id, u.name as user_name,\n                   p.predicted_home, p.predicted_away\n            FROM predictions p\n            JOIN users u ON u.id = p.user_id\n            JOIN matches m ON m.id = p.match_id\n            WHERE m.kickoff_time IS NOT NULL\n              AND m.kickoff_time < $1\n              AND u.id != $2\n            ORDER BY u.name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "match_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "user_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "predicted_home",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "predicted_away",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "739544fe7bca28aa6cdf5b460d00887abf53613f0160fcf9b8a8ab2bc54ff677"
+}

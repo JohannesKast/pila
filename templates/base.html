@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="de" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pila — WM Tippspiel</title>
+    <link rel="icon" type="image/png" href="https://flagcdn.com/w40/un.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        fifa: {
+                            blue: '#326295',
+                            gold: '#FFD700',
+                            dark: '#0f172a',
+                            light: '#f8fafc'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+    <main class="w-full mx-auto px-2 sm:px-4 lg:px-6 pb-6">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="mt-8 text-center text-slate-500 py-4 border-t border-slate-800">
+        <p>&copy; 2026 Pila — WM Tippspiel</p>
+    </footer>
+</body>
+</html>

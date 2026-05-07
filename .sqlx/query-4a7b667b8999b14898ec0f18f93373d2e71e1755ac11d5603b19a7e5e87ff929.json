@@ -1,0 +1,68 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT m.group_letter as \"letter!\",\n                   m.team_home_id as \"home_id!\",\n                   m.team_away_id as \"away_id!\",\n                   m.score_home   as \"score_home!\",\n                   m.score_away   as \"score_away!\",\n                   th.name        as \"home_name!\",\n                   th.flag_code   as \"home_flag?\",\n                   ta.name        as \"away_name!\",\n                   ta.flag_code   as \"away_flag?\"\n            FROM matches m\n            JOIN teams th ON th.id = m.team_home_id\n            JOIN teams ta ON ta.id = m.team_away_id\n            WHERE m.stage = 'group'::match_stage\n              AND m.status = 'finished'\n              AND m.group_letter IS NOT NULL\n              AND m.score_home IS NOT NULL\n              AND m.score_away IS NOT NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "letter!",
+        "type_info": "Bpchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "home_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "away_id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "score_home!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
+        "name": "score_away!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "home_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "home_flag?",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "away_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 8,
+        "name": "away_flag?",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "4a7b667b8999b14898ec0f18f93373d2e71e1755ac11d5603b19a7e5e87ff929"
+}

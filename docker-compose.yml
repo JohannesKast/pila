@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: pila_db
+    environment:
+      POSTGRES_USER: pila
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: pila_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pila -d pila_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: pila_app
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://pila:${POSTGRES_PASSWORD}@db:5432/pila_db
+      RUST_LOG: info
+      SIGNAL_API_URL: ${SIGNAL_API_URL:-http://signal-cli:8080}
+      SIGNAL_FROM_NUMBER: ${SIGNAL_FROM_NUMBER:-}
+      SIGNAL_GROUP_ID: ${SIGNAL_GROUP_ID:-}
+      BASE_URL: ${BASE_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+      signal-cli:
+        condition: service_healthy
+    restart: unless-stopped
+
+  signal-cli:
+    image: bbernhard/signal-cli-rest-api:latest
+    container_name: pila_signal
+    environment:
+      MODE: native
+    volumes:
+      - signal_cli_config:/home/.local/share/signal-cli
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q ':1F90' /proc/net/tcp /proc/net/tcp6"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  pgdata:
+  signal_cli_config:

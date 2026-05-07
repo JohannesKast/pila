@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO predictions (user_id, match_id, predicted_home, predicted_away, updated_at)\n            VALUES ($1, $2, $3, $4, NOW())\n            ON CONFLICT (user_id, match_id) DO UPDATE SET\n                predicted_home = EXCLUDED.predicted_home,\n                predicted_away = EXCLUDED.predicted_away,\n                updated_at = NOW()\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int4",
+        "Int4",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "962e44f8954a87b0b683037fb16c19e6738b5d0a15c3c1f015ceb73135756b38"
+}

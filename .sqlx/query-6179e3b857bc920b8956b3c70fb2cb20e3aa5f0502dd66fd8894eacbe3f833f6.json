@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO sent_notifications (kind, ref_id) VALUES ($1, $2)\n         ON CONFLICT (kind, ref_id) DO NOTHING\n         RETURNING ref_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "ref_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "6179e3b857bc920b8956b3c70fb2cb20e3aa5f0502dd66fd8894eacbe3f833f6"
+}

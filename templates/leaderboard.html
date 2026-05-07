@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="rounded-xl bg-slate-800 border border-slate-700 p-8 shadow-xl relative overflow-hidden">
+    <div class="relative z-10">
+        <h2 class="text-4xl font-extrabold mb-2">Leaderboard</h2>
+        <p class="text-xl text-slate-300 mb-6">Wer wird Tipp-Weltmeister?</p>
+
+        <div class="flex gap-4">
+            <a href="/"
+                class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors border border-slate-600">
+                Zurück zu den Tipps
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="mt-8 bg-slate-800 rounded-xl border border-slate-700 shadow-xl overflow-hidden">
+    <table class="w-full text-left border-collapse">
+        <thead>
+            <tr class="bg-slate-700/50 text-slate-300 uppercase text-sm tracking-wider">
+                <th class="px-6 py-4 font-semibold w-16 text-center">#</th>
+                <th class="px-6 py-4 font-semibold">Name</th>
+                <th class="px-6 py-4 font-semibold text-right">Punkte</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700/50 text-lg">
+            {% if entries.len() == 0 %}
+            <tr>
+                <td colspan="3" class="px-6 py-8 text-center text-slate-400">Noch keine Spieler oder Punkte vergeben.
+                </td>
+            </tr>
+            {% else %}
+            {% for entry in entries %}
+            <tr class="hover:bg-slate-700/30 transition-colors {% if loop.index0 == 0 %}bg-fifa-blue/20{% endif %}">
+                <td class="px-6 py-4 text-center font-bold text-slate-400">
+                    {% if loop.index0 == 0 %}🏆
+                    {% else if loop.index0 == 1 %}🥈
+                    {% else if loop.index0 == 2 %}🥉
+                    {% else %}{{ loop.index0 + 1 }}
+                    {% endif %}
+                </td>
+                <td class="px-6 py-4 font-bold text-white {% if loop.index0 == 0 %}text-fifa-gold{% endif %}">
+                    {{ entry.name }}
+                </td>
+                <td class="px-6 py-4 text-right">
+                    <span
+                        class="font-black text-2xl {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-slate-200{% endif %}">{{
+                        entry.total_points }}</span>
+                    {% if entry.max_potential_points > entry.total_points %}
+                    <span class="ml-2 text-sm text-slate-400 cursor-help"
+                        title="Maximal noch erreichbar: {{ entry.max_potential_points }} Punkte">
+                        <span class="text-slate-500">/</span> <span class="text-amber-400/80">{{
+                            entry.max_potential_points }}</span>
+                    </span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

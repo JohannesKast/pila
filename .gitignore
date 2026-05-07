@@ -1,0 +1,5 @@
+/target
+/backups
+.env
+.env.*
+docker-compose.override.yml
