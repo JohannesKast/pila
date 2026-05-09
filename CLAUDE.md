@@ -68,6 +68,20 @@ Idempotency: `(kind, ref_id)` PK on `sent_notifications` inside a transaction wi
 
 **Scoring** (`scoring.rs`) is intentionally SQL-free, takes plain ints, returns ints. Per-match base points are 4 (exact) / 2 (correct goal-diff) / 1 (correct tendency) / 0, multiplied by `Stage::multiplier()` (Group=1, R32=2, R16=3, QF=4, ThirdPlace=4, SF=5, Final=6). Champion pick is flat 10 points. **Note**: K.O. matches store the result *before* penalty shootout (90 min + ET) — a draw at that point is a valid stored score and counts for exact-result points.
 
+**Badges** (`badges.rs`) sind die Hero-Panel-Gamification und bewusst vom Scoring entkoppelt — Badges ändern keine Punkte, sie aggregieren nur über vorhandene Predictions. **Werte werden bei jedem Request on-the-fly berechnet, nichts wird persistiert** (keine `badges`-Tabelle, kein Cache). So bleibt jeder Badge konsistent zur Realität — auch wenn ein Admin Ergebnisse nachträglich korrigiert.
+
+Architektur:
+
+- `Badge`-Trait: jeder Badge ist ein Unit-Struct mit statischen Metadaten (`icon`, `title`, `how_to_earn`) und `compute(&BadgeContext) -> BadgeDisplay`. Pure, kein DB-Zugriff in Badges.
+- `BadgeDisplay` hat zwei Varianten:
+  - `Achievement { times_earned }` — wiederholbar (z.B. Solo-Treffer pro Match); Renderer zeigt Icon + Titel groß und `×N` in der Ecke. `times_earned == 0` rendert ausgegraut.
+  - `Metric(BadgeValue)` — Quoten/Streaks/Deltas; ein Wert prominent (`Count`, `Fraction`, `Percent`, `Streak`, `Delta`, `Champion`, `Empty`).
+- `BadgeContext` ist ein einmal pro Request gebauter Read-only-Snapshot (alle Tipps × fertige Matches, Special-Picks, Champion-Status). Drei Queries — alle Badges teilen ihn (siehe `build_badge_context` in `main.rs`).
+- `registry()` listet alle Badges in Anzeige-Reihenfolge. Neuer Badge = Struct + Trait-Impl + Eintrag in `registry()` + Tests. Handler und Template bleiben unverändert.
+- Rendering: `templates/partials/badge.html` macht Pattern-Match auf `BadgeDisplay` und nutzt Helfer-Methoden (`is_achievement()`, `metric_kind()` etc.) statt direktem Enum-Match.
+
+**Wichtig**: Badges sind sichtbar und „prahlerisch" — falsche Werte untergraben das Vertrauen ins parallel angezeigte Punkte-System. Jeder Badge MUSS Tests haben (Happy Path, Leerdaten, Edge Case wie Tie/Threshold/fehlender Vorgängertag). `cargo test --lib badges` ist Pflicht-Gate vor dem Mergen.
+
 **Templates**: Askama compile-time templates in `templates/` (`base.html`, `index.html`, `leaderboard.html`). HTMX is used inline in handlers (e.g. `predict_match` returns a partial form fragment for `hx-swap`).
 
 ## Database

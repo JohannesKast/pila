@@ -1,0 +1,28 @@
+{% import "partials/jersey.html" as j %}
+<div class="pl-sheet-backdrop"
+     hx-get="/profile/jersey-picker/close" hx-trigger="click" hx-target="#sheet" hx-swap="innerHTML">
+  <div class="pl-sheet" onclick="event.stopPropagation()">
+    <div class="pl-sheet__handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px">
+      <div style="min-width:0">
+        <div class="pl-display" style="font-size:18px;line-height:1">Dein Trikot</div>
+        <div class="pl-mono" style="font-size:9px;color:var(--pl-mute);letter-spacing:.12em;margin-top:4px">WIRD IN TABELLE & KOMMENTAREN ANGEZEIGT</div>
+      </div>
+      <button type="button"
+              hx-get="/profile/jersey-picker/close" hx-target="#sheet" hx-swap="innerHTML"
+              class="pl-mono"
+              style="background:none;border:0;color:var(--pl-mute);font-size:11px;letter-spacing:.08em;cursor:pointer;padding:4px 6px;flex-shrink:0">FERTIG ✓</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:52vh;overflow-y:auto;padding:4px">
+      {% for option in options %}
+      <button type="button"
+              hx-post="/profile/jersey?preset={{ option.key }}"
+              hx-target="#sheet" hx-swap="innerHTML"
+              style="background:{% if option.key == current %}rgba(255,230,0,.08){% else %}var(--pl-bg-3){% endif %};border:1.5px solid {% if option.key == current %}var(--pl-yellow){% else %}var(--pl-line){% endif %};border-radius:8px;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:var(--pl-fg-2)">
+        {% call j::jersey_svg(option.preset.body, option.preset.accent, option.preset.pattern, 48, option.key) %}
+        <span class="pl-mono" style="font-size:8px;text-align:center;line-height:1.2;letter-spacing:.04em">{{ option.preset.name }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+</div>

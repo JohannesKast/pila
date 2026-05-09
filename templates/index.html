@@ -1,83 +1,105 @@
 {% extends "base.html" %}
+{% import "partials/jersey.html" as j %}
+
+{% block topbar %}
+<header style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; background:var(--pl-bg);">
+    <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+        <img src="/static/pila-logo.svg" width="32" height="32" alt="Pila" style="flex-shrink:0;">
+        <div style="min-width:0;">
+            <div class="pl-display" style="font-size:16px; line-height:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tipprunden_name }}</div>
+            <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.12em; margin-top:2px;">PILA · {{ user_name|upper }}</div>
+        </div>
+    </div>
+    <button hx-get="/profile/jersey-picker" hx-target="#sheet" hx-swap="innerHTML" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px;">Trikot</button>
+</header>
+{% endblock %}
 
 {% macro match_card(m) %}
-<div class="match-card bg-slate-800 rounded-lg border border-slate-700 {% if m.is_final() %}border-t-2 border-t-fifa-gold{% else if m.is_third_place() %}border-t-2 border-t-amber-700{% else if m.is_knockout() %}border-t-2 border-t-fifa-blue{% else %}border-t border-t-emerald-700/40{% endif %} overflow-hidden mb-3 shadow">
-    <div class="flex items-center justify-between gap-2 px-3 py-1.5 border-b border-slate-700/60 bg-slate-900/40 text-[10px]">
-        <div class="flex items-center gap-2 min-w-0">
-            {% if m.is_final() %}
-            <span class="text-fifa-gold font-bold uppercase tracking-wider whitespace-nowrap">🏆 Finale</span>
-            {% else %}
-            <span class="font-bold uppercase tracking-wider whitespace-nowrap text-fifa-blue">
-                {% match m.group_letter %}
-                {% when Some with (g) %}Gruppe {{ g }}
-                {% when None %}{{ m.stage_label }}
-                {% endmatch %}
-            </span>
-            {% endif %}
-            <span class="text-slate-500">×{{ m.multiplier }}</span>
-            <span class="text-slate-500 truncate">📅 {{ m.kickoff_display }}</span>
-        </div>
-        {% if m.locked %}<span class="text-red-400 flex-shrink-0">🔒</span>{% else %}<span class="text-emerald-400 flex-shrink-0">✏️</span>{% endif %}
+<div class="pl-card{% if m.is_live %} pl-card--live{% endif %}" style="padding:14px; margin-bottom:10px;">
+  {# top tag row #}
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;">
+    <span class="pl-tag">
+      {% match m.group_letter %}
+      {% when Some with (g) %}GRUPPE {{ g }} · ×{{ m.multiplier }}
+      {% when None %}{{ m.stage_label|upper }} · ×{{ m.multiplier }}
+      {% endmatch %}
+    </span>
+    {% if m.is_live %}
+      <span class="pl-tag pl-tag--live pl-tag--yellow">LIVE</span>
+    {% else if m.is_finished %}
+      {% match m.own_points %}
+      {% when Some with (p) %}
+        {% if p.is_positive() %}<span class="pl-tag pl-tag--green">+{{ p }} PKT</span>
+        {% else %}<span class="pl-tag pl-tag--red">+0 PKT</span>{% endif %}
+      {% when None %}<span class="pl-tag">ABPFIFF</span>
+      {% endmatch %}
+    {% else if m.locked %}
+      {% if m.has_prediction() %}<span class="pl-tag pl-tag--green">✓ TIPP {{ m.predicted_str() }}</span>
+      {% else %}<span class="pl-tag pl-tag--red">KEIN TIPP</span>{% endif %}
+    {% else %}
+      <span class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.06em;">{{ m.kickoff_display }}</span>
+    {% endif %}
+  </div>
+
+  {# 3-col grid: home | score/form | away #}
+  <div style="display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px;">
+    <div style="display:flex; align-items:center; justify-content:flex-end; gap:6px; min-width:0;">
+      <span class="pl-display" style="font-size:14px; line-height:1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.home_name }}</span>
+      {% if m.home_flag.is_empty() == false %}<img src="{{ m.home_flag }}" alt="" style="width:22px; height:16px; object-fit:cover; border-radius:2px; flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
     </div>
 
-    <div class="flex items-center gap-3 px-3 py-2 text-slate-200">
-        {% if m.home_flag.is_empty() == false %}<img src="{{ m.home_flag }}" alt="" class="w-7 h-5 flex-shrink-0 object-cover rounded" onerror="this.style.display='none'">{% endif %}
-        <span class="flex-1 text-sm truncate">{{ m.home_name }}</span>
-        <span class="text-xl font-black w-7 text-center">
-            {% match m.score_home %}{% when Some with (s) %}{{ s }}{% when None %}-{% endmatch %}
-        </span>
-    </div>
-    <div class="flex items-center gap-3 px-3 py-2 border-t border-slate-700/30 text-slate-200">
-        {% if m.away_flag.is_empty() == false %}<img src="{{ m.away_flag }}" alt="" class="w-7 h-5 flex-shrink-0 object-cover rounded" onerror="this.style.display='none'">{% endif %}
-        <span class="flex-1 text-sm truncate">{{ m.away_name }}</span>
-        <span class="text-xl font-black w-7 text-center">
-            {% match m.score_away %}{% when Some with (s) %}{{ s }}{% when None %}-{% endmatch %}
-        </span>
-    </div>
-
-    <div id="tip-form-{{ m.id }}" class="px-3 py-2 border-t border-slate-700/40 bg-slate-900/30">
-        {% if m.locked %}
-        <div class="space-y-1.5">
-            <div class="flex items-center justify-between text-xs">
-                <span class="text-slate-400">Dein Tipp</span>
-                <div class="flex items-center gap-2">
-                    {% match m.predicted_home %}
-                    {% when Some with (ph) %}
-                    <span class="font-bold text-fifa-gold">{{ ph }}:{% match m.predicted_away %}{% when Some with (pa) %}{{ pa }}{% when None %}-{% endmatch %}</span>
-                    {% match m.own_points %}
-                    {% when Some with (pts) %}<span class="font-bold {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
-                    {% when None %}{% endmatch %}
-                    {% when None %}<span class="text-slate-600 italic">Kein Tipp</span>
-                    {% endmatch %}
-                </div>
-            </div>
-            {% if m.other_preds.len() > 0 %}
-            <div class="border-t border-slate-700/40 pt-1 space-y-0.5">
-                {% for pred in m.other_preds %}
-                <div class="flex items-center gap-2 text-xs">
-                    <span class="flex-1 truncate text-slate-500">{{ pred.name }}</span>
-                    <span class="text-slate-400 font-mono">{{ pred.home }}:{{ pred.away }}</span>
-                    {% match pred.points %}
-                    {% when Some with (pts) %}<span class="w-7 text-right font-bold {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
-                    {% when None %}<span class="w-7 text-right text-slate-700">—</span>
-                    {% endmatch %}
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
-        </div>
-        {% else %}
-        <form hx-post="/predict/{{ m.id }}" hx-swap="outerHTML" hx-target="#tip-form-{{ m.id }}" class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">Dein Tipp</span>
-            <div class="ml-auto flex items-center gap-1.5">
-                <input type="number" name="score_home" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" min="0" max="20" class="score-input w-12 bg-slate-900/80 border border-slate-600 focus:border-fifa-blue rounded text-center py-1.5 text-sm font-bold outline-none text-white" required>
-                <span class="text-slate-600">:</span>
-                <input type="number" name="score_away" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" min="0" max="20" class="score-input w-12 bg-slate-900/80 border border-slate-600 focus:border-fifa-blue rounded text-center py-1.5 text-sm font-bold outline-none text-white" required>
-                <button type="submit" class="bg-fifa-blue hover:opacity-90 text-white text-xs font-bold px-3 py-1.5 rounded transition-colors">Tipp</button>
-            </div>
+    <div style="display:flex; align-items:center; justify-content:center; min-width:120px;">
+      {% if m.is_finished %}
+        <span class="pl-score">{{ m.score_str() }}</span>
+      {% else if m.is_live %}
+        <span class="pl-score pl-score--live">{{ m.score_str() }}</span>
+      {% else if m.locked %}
+        <span class="pl-score pl-score--muted">– : –</span>
+      {% else %}
+        <form id="tip-form-{{ m.id }}" hx-post="/predict/{{ m.id }}" hx-swap="outerHTML" hx-target="#tip-form-{{ m.id }}" style="display:flex; align-items:center; gap:6px;">
+          <input class="pl-num" type="number" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+          <span class="pl-mono" style="color:var(--pl-mute);">:</span>
+          <input class="pl-num" type="number" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+          <button type="submit" class="pl-btn pl-btn--primary" style="height:42px; padding:0 12px; font-size:11px;">OK</button>
         </form>
-        {% endif %}
+      {% endif %}
     </div>
+
+    <div style="display:flex; align-items:center; justify-content:flex-start; gap:6px; min-width:0;">
+      {% if m.away_flag.is_empty() == false %}<img src="{{ m.away_flag }}" alt="" style="width:22px; height:16px; object-fit:cover; border-radius:2px; flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
+      <span class="pl-display" style="font-size:14px; line-height:1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.away_name }}</span>
+    </div>
+  </div>
+
+  {# sub-line for live: user's tip #}
+  {% if m.is_live && m.has_prediction() %}
+  <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-yellow); letter-spacing:.06em; text-align:center;">
+    DEIN TIPP {{ m.predicted_str() }}
+  </div>
+  {% endif %}
+
+  {# sub-line for finished: user's tip #}
+  {% if m.is_finished %}
+  <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
+    {% if m.has_prediction() %}DEIN TIPP {{ m.predicted_str() }}{% else %}KEIN TIPP ABGEGEBEN{% endif %}
+  </div>
+  {% endif %}
+
+  {# other users' predictions (when locked) #}
+  {% if m.locked && m.other_preds.len() > 0 %}
+  <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--pl-line); display:flex; flex-direction:column; gap:4px;">
+    {% for pred in m.other_preds %}
+    <div style="display:flex; align-items:center; gap:8px; font-size:11px;">
+      <span style="flex:1; color:var(--pl-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.name }}</span>
+      <span class="pl-mono" style="color:var(--pl-fg-2);">{{ pred.home }}:{{ pred.away }}</span>
+      {% match pred.points %}
+      {% when Some with (p) %}<span class="pl-num" style="width:28px; text-align:right; color:{% if p.is_positive() %}var(--pl-green){% else %}var(--pl-mute){% endif %};">+{{ p }}</span>
+      {% when None %}<span style="width:28px; text-align:right; color:var(--pl-mute-2);">—</span>
+      {% endmatch %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% endmacro %}
 
@@ -159,72 +181,88 @@
 {% block content %}
 
 <div id="tab-container" data-default-tab="{{ default_tab }}">
-    <div class="sticky top-0 z-30 -mx-2 sm:-mx-4 lg:-mx-6 bg-slate-900/95 backdrop-blur border-b border-slate-700/60 shadow">
-        <div class="px-2 sm:px-4 lg:px-6 pt-2 pb-1.5 flex items-center gap-2">
-            <span class="text-xl">⚽</span>
-            <span class="text-sm sm:text-base font-bold leading-tight">Willkommen, <span class="text-fifa-gold">{{ user_name }}</span></span>
-        </div>
-        <div class="px-2 sm:px-4 lg:px-6 pb-2">
-            <div class="bg-slate-800 rounded-lg border border-slate-700 flex overflow-x-auto">
-                <button type="button" data-tab="table" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">Tabelle</button>
-                <button type="button" data-tab="started" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">
-                    Aktuell{% if started_count > 0 %} <span class="text-[10px] text-slate-500">({{ started_count }})</span>{% endif %}
-                </button>
-                <button type="button" data-tab="open" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">
-                    Offen{% if open_count > 0 %} <span class="text-[10px] text-emerald-400">({{ open_count }})</span>{% endif %}
-                </button>
-                <button type="button" data-tab="special" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">Spezial</button>
-                {% if is_admin %}
-                <button type="button" data-tab="admin" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-fifa-gold/80 border-b-2 border-transparent transition-colors whitespace-nowrap">⚙️ Admin</button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
+    <nav class="pl-tabs">
+        <button type="button" data-tab="table" class="pl-tab" data-active="false">Tabelle</button>
+        <button type="button" data-tab="started" class="pl-tab" data-active="false">
+            Aktuell{% if started_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ started_count }})</span>{% endif %}
+        </button>
+        <button type="button" data-tab="open" class="pl-tab" data-active="false">
+            Offen{% if open_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ open_count }})</span>{% endif %}
+        </button>
+        <button type="button" data-tab="special" class="pl-tab" data-active="false">Spezial</button>
+        {% if is_admin %}
+        <button type="button" data-tab="admin" class="pl-tab" data-active="false">⚙️ Admin</button>
+        {% endif %}
+    </nav>
 
     {# ===== TAB: TABELLE ===== #}
     <section data-panel="table" class="tab-panel mt-3 hidden">
-        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden mb-4">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-700 bg-slate-800/80">
-                <span class="text-lg">🏆</span>
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider">Leaderboard</h3>
+        {# Pitch-Hero section with live ticker + stats #}
+        <div class="pl-pitch-hero" style="padding:16px; margin-bottom:16px; border-radius:12px; position:relative;">
+            {# News ticker (RSS feed) #}
+            {% if news_items.len() > 0 %}
+            <div class="pl-news-ticker" style="display:flex; align-items:center; gap:8px; margin-bottom:12px; position:relative; z-index:2; min-height:18px; overflow:hidden;">
+                <span style="display:inline-flex; align-items:center; justify-content:center; width:8px; height:8px; border-radius:50%; background:var(--pl-green); animation:pl-pulse 1.6s ease-in-out infinite; flex-shrink:0;"></span>
+                <div data-news-ticker style="position:relative; flex:1; min-width:0; height:14px;">
+                    {% for n in news_items %}
+                    <a href="{{ n.link }}" target="_blank" rel="noopener noreferrer"
+                       data-news-item="{{ loop.index0 }}"
+                       class="pl-mono"
+                       style="position:absolute; inset:0; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--pl-mute); text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:{% if loop.index0 == 0 %}1{% else %}0{% endif %}; transition:opacity .4s ease;">
+                        <span style="color:var(--pl-fg-2);">{{ n.title }}</span>
+                        <span style="color:var(--pl-mute-2); margin-left:6px;">· {{ n.published_relative }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-slate-700/40 text-slate-400 uppercase text-xs tracking-wider">
-                            <th class="px-3 py-2 font-semibold w-10 text-center">#</th>
-                            <th class="px-3 py-2 font-semibold">Name</th>
-                            <th class="px-3 py-2 font-semibold text-right">Punkte</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-700/40">
-                        {% if leaderboard.len() == 0 %}
-                        <tr><td colspan="3" class="px-3 py-4 text-center text-slate-500 text-sm">Noch keine Punkte vergeben.</td></tr>
-                        {% else %}
-                        {% for entry in leaderboard %}
-                        <tr class="hover:bg-slate-700/20 {% if loop.index0 == 0 %}bg-fifa-blue/15{% endif %}">
-                            <td class="px-3 py-2 text-center font-bold text-slate-400 text-sm">
-                                {% if loop.index0 == 0 %}🥇
-                                {% else if loop.index0 == 1 %}🥈
-                                {% else if loop.index0 == 2 %}🥉
-                                {% else %}{{ loop.index0 + 1 }}
-                                {% endif %}
-                            </td>
-                            <td class="px-3 py-2 font-semibold text-sm {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-white{% endif %}">{{ entry.name }}</td>
-                            <td class="px-3 py-2 text-right">
-                                <span class="font-black text-lg {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-slate-200{% endif %}">{{ entry.total_points }}</span>
-                                {% if entry.max_potential_points > entry.total_points %}
-                                <span class="ml-1 text-xs text-slate-500" title="Maximal noch erreichbar: {{ entry.max_potential_points }}">
-                                    <span class="text-slate-600">/</span> <span class="text-amber-400/70">{{ entry.max_potential_points }}</span>
-                                </span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+            {% endif %}
+
+            {# Rank + Points layout (side by side) #}
+            <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:16px; position:relative; z-index:2;">
+                <div>
+                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">Dein Rang</div>
+                    <div class="pl-display" style="font-size:64px; line-height:0.9;">{{ user_rank }}<span style="font-size:20px; color:var(--pl-mute);">/{{ leaderboard.len() }}</span></div>
+                </div>
+                <div style="text-align:right;">
+                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">Punkte</div>
+                    <div class="pl-score" style="font-size:44px; text-shadow:0 0 18px rgba(116,255,140,.45);">{{ user_total_points }}</div>
+                </div>
+            </div>
+
+            {# Badge-Grid: alle Werte werden bei jedem Request frisch aus predictions × matches berechnet (siehe src/badges.rs). #}
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; position:relative; z-index:2;">
+                {% for b in badges %}
+                {% include "partials/badge.html" %}
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Leaderboard as pl-card list #}
+        <div class="pl-card" style="padding:0; overflow:hidden; margin-bottom:16px;">
+            <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
+                <span class="pl-display" style="font-size:16px;">🏆</span>
+                <span class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.12em; text-transform:uppercase;">Leaderboard</span>
+            </div>
+            {% if leaderboard.len() == 0 %}
+            <div style="padding:16px; text-align:center; color:var(--pl-mute); font-size:14px;">Noch keine Punkte vergeben.</div>
+            {% else %}
+            <div>
+                {% for entry in leaderboard %}
+                <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-line); {% if entry.name == user_name %}background:rgba(255,230,0,.04){% endif %}" id="leaderboard-entry-{{ entry.name|lower }}">
+                    <span class="pl-num" style="font-size:14px; color:{% if loop.index <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center;">
+                        {% if loop.index == 1 %}🥇
+                        {% else if loop.index == 2 %}🥈
+                        {% else if loop.index == 3 %}🥉
+                        {% else %}{{ loop.index }}
                         {% endif %}
-                    </tbody>
-                </table>
+                    </span>
+                    {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}
+                    <span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
+                    <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} PKT</span>
+                </div>
+                {% endfor %}
             </div>
+            {% endif %}
         </div>
 
         {% if group_standings.len() > 0 %}
@@ -287,6 +325,26 @@
 
     {# ===== TAB: OFFEN ===== #}
     <section data-panel="open" class="tab-panel mt-3 hidden">
+        {% if !open_matches.is_empty() %}
+        <div class="pl-card" style="margin-bottom:14px; overflow:hidden; border-color:rgba(255,230,0,.4);">
+            <div class="pl-deadline-stripe"></div>
+            <div style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <div style="min-width:0;">
+                    <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; text-transform:uppercase;">Nächste Deadline</div>
+                    {% match next_deadline_iso %}
+                    {% when Some with (iso) %}
+                    <div class="pl-display" data-deadline="{{ iso }}" style="font-size:22px; line-height:1.1; margin-top:4px; font-variant-numeric:tabular-nums;">--:--:--</div>
+                    {% when None %}
+                    <div class="pl-display" style="font-size:22px; line-height:1.1; margin-top:4px;">—</div>
+                    {% endmatch %}
+                </div>
+                <div style="text-align:right;">
+                    <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); text-transform:uppercase;">Spiele offen</div>
+                    <div class="pl-display" style="font-size:22px; color:var(--pl-yellow); line-height:1.1; margin-top:4px;">{{ open_count }}</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% if open_matches.is_empty() %}
         <p class="text-slate-500 text-sm text-center py-12">Aktuell keine offenen Tipps.</p>
         {% else %}
@@ -297,41 +355,41 @@
     {% if is_admin %}
     {# ===== TAB: ADMIN ===== #}
     <section data-panel="admin" class="tab-panel mt-3 hidden">
-        <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-lg p-4 mb-4">
-            <div class="flex items-center gap-2 mb-3">
-                <span class="text-lg">➕</span>
-                <h3 class="text-sm font-bold text-fifa-gold uppercase tracking-widest">Neuen User anlegen</h3>
+        <div class="pl-card" style="padding:16px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="font-size:18px;">➕</span>
+                <span class="pl-display" style="font-size:14px;">Neuen User anlegen</span>
             </div>
             {% if !signal_enabled %}
-            <p class="text-[11px] text-amber-400 mb-2">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</p>
+            <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; margin-bottom:10px;">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</div>
             {% endif %}
-            <form hx-post="/admin/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <form hx-post="/admin/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px;">
                 <input type="text" name="name" placeholder="Name" required maxlength="255"
-                       class="bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded px-3 py-2 text-sm text-white outline-none">
+                       style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
                 <input type="text" name="phone_number" placeholder="Telefon (+49…) optional" maxlength="32"
-                       class="bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded px-3 py-2 text-sm text-white outline-none">
-                <button type="submit" class="bg-fifa-blue hover:opacity-90 text-white font-bold px-4 py-2 rounded text-sm transition-colors">Anlegen</button>
+                       style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
+                <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">Anlegen</button>
             </form>
         </div>
 
-        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
-            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-700 bg-slate-800/80">
-                <span class="text-lg">👥</span>
-                <h3 class="text-sm font-bold text-white uppercase tracking-wider">User-Verwaltung</h3>
-                <span class="text-[10px] text-slate-500 font-mono ml-auto">{{ admin_users.len() }}</span>
+        <div class="pl-card" style="padding:0; overflow:hidden;">
+            <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">👥</span>
+                <span class="pl-display" style="font-size:14px;">User-Verwaltung</span>
+                <span class="pl-mono" style="font-size:9px; color:var(--pl-mute); margin-left:auto;">{{ admin_users.len() }}</span>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full border-collapse text-left">
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
                     <thead>
-                        <tr class="bg-slate-700/40 text-slate-400 uppercase text-[10px] tracking-wider">
-                            <th class="px-2 py-2 font-semibold">Name</th>
-                            <th class="px-2 py-2 font-semibold">Telefon</th>
-                            <th class="px-2 py-2 font-semibold">Rolle</th>
-                            <th class="px-2 py-2 font-semibold">Magic-Link</th>
-                            <th class="px-2 py-2 font-semibold">Aktionen</th>
+                        <tr style="background:rgba(116,255,140,.04); border-bottom:1px solid var(--pl-line);">
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Name</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Telefon</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Rolle</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Magic-Link</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Aktionen</th>
                         </tr>
                     </thead>
-                    <tbody id="admin-user-list" class="divide-y divide-slate-700/40">
+                    <tbody id="admin-user-list" style="border-top:1px solid var(--pl-line);">
                         {% for u in admin_users %}
                             {% include "admin_row.html" %}
                         {% endfor %}
@@ -344,46 +402,49 @@
 
     {# ===== TAB: SPEZIAL ===== #}
     <section data-panel="special" class="tab-panel mt-3 hidden">
-        <div class="mb-2 text-center">
-            <h3 class="text-sm font-bold text-white uppercase tracking-widest inline-flex items-center gap-2">🏆 Weltmeister</h3>
-            <p class="text-slate-500 text-[11px] mt-0.5">10 Punkte</p>
-        </div>
-
-        <div class="bg-slate-800 rounded-lg border border-slate-700 border-t-2 border-t-fifa-gold p-4 shadow-lg shadow-yellow-900/10">
-            {% if tournament_locked %}
-            <div class="flex items-center gap-2 mb-3">
-                <span class="text-xl">🏆</span>
-                <h4 class="font-black text-fifa-gold text-sm uppercase tracking-widest">Weltmeister-Tipps</h4>
+        <div class="pl-card" style="padding:16px;">
+            <div style="margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+                    <span style="font-size:20px;">🏆</span>
+                    <span class="pl-display" style="font-size:16px;">Weltmeister</span>
+                </div>
+                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.08em;">10 PUNKTE</div>
             </div>
-            <div class="space-y-1">
+
+            {% if tournament_locked %}
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span style="font-size:16px;">🏆</span>
+                <span class="pl-mono" style="font-size:11px; color:var(--pl-yellow); letter-spacing:.1em; text-transform:uppercase;">Weltmeister-Tipps</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
                 {% for pred in champ_preds %}
-                <div class="flex items-center gap-2 text-xs {% if pred.name == user_name %}text-fifa-gold font-semibold{% else %}text-slate-400{% endif %}">
-                    <span class="flex-1 truncate">{{ pred.name }}</span>
-                    <span class="flex items-center gap-1 text-slate-300" style="max-width:50%">
-                        {% if pred.team_flag.is_empty() == false %}<img src="{{ pred.team_flag }}" class="w-4 h-3 object-cover rounded" alt="" onerror="this.style.display='none'">{% endif %}
-                        <span class="truncate">{{ pred.team_name }}</span>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
+                    <span style="flex:1; color:{% if pred.name == user_name %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.name }}</span>
+                    <span style="display:flex; align-items:center; gap:6px; color:var(--pl-fg-2); max-width:50%;">
+                        {% if pred.team_flag.is_empty() == false %}<img src="{{ pred.team_flag }}" style="width:18px; height:13px; object-fit:cover; border-radius:2px;" alt="" onerror="this.style.display='none'">{% endif %}
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.team_name }}</span>
                     </span>
                     {% match pred.points %}
-                    {% when Some with (pts) %}<span class="font-bold w-7 text-right {% if pts.is_positive() %}text-emerald-400{% else %}text-slate-600{% endif %}">+{{ pts }}</span>
-                    {% when None %}<span class="w-7 text-right text-slate-700">—</span>
+                    {% when Some with (pts) %}<span class="pl-num" style="width:32px; text-align:right; color:{% if pts.is_positive() %}var(--pl-green){% else %}var(--pl-mute){% endif %}; font-size:12px;">+{{ pts }}</span>
+                    {% when None %}<span style="width:32px; text-align:right; color:var(--pl-mute-2); font-size:12px;">—</span>
                     {% endmatch %}
                 </div>
                 {% endfor %}
-                {% if champ_preds.is_empty() %}<p class="text-slate-600 text-xs text-center">Keine Tipps</p>{% endif %}
+                {% if champ_preds.is_empty() %}<div style="text-align:center; color:var(--pl-mute); font-size:12px; padding:8px;">Keine Tipps</div>{% endif %}
             </div>
             {% else %}
-            <form action="/predict_special" method="POST" class="space-y-3">
-                <div class="flex items-center gap-2">
-                    <span class="text-xl">🏆</span>
-                    <h4 class="font-black text-fifa-gold text-sm uppercase tracking-widest">Wer wird Weltmeister?</h4>
+            <form action="/predict_special" method="POST" style="display:flex; flex-direction:column; gap:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size:18px;">🏆</span>
+                    <span class="pl-display" style="font-size:14px;">Wer wird Weltmeister?</span>
                 </div>
-                <select name="champion_id" class="w-full bg-slate-900 border border-yellow-700/50 text-white text-base font-semibold rounded p-3 outline-none focus:border-fifa-gold">
+                <select name="champion_id" style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:14px; border-radius:8px; padding:10px 12px; outline:none; cursor:pointer;">
                     <option value="">-- Wähle den Sieger --</option>
                     {% for t in team_options %}
                     <option value="{{ t.id }}" {% if special_preds.is_champion(t.id) %}selected{% endif %}>{{ t.name }}</option>
                     {% endfor %}
                 </select>
-                <button type="submit" class="w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg">
+                <button type="submit" class="pl-btn pl-btn--primary" style="width:100%; padding:10px;">
                     Speichern
                 </button>
             </form>
@@ -394,10 +455,6 @@
 </div>
 
 <style>
-    .tab-btn.active {
-        color: #fff;
-        border-bottom-color: #FFD700;
-    }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
         -webkit-appearance: none;
@@ -417,8 +474,8 @@
 
         function activate(tab) {
             if (!VALID.includes(tab)) tab = container.dataset.defaultTab || "table";
-            document.querySelectorAll(".tab-btn").forEach(function (btn) {
-                btn.classList.toggle("active", btn.dataset.tab === tab);
+            document.querySelectorAll(".pl-tab").forEach(function (btn) {
+                btn.setAttribute("data-active", btn.dataset.tab === tab ? "true" : "false");
             });
             document.querySelectorAll(".tab-panel").forEach(function (panel) {
                 panel.classList.toggle("hidden", panel.dataset.panel !== tab);
@@ -429,7 +486,7 @@
             return (location.hash || "").replace(/^#/, "");
         }
 
-        document.querySelectorAll(".tab-btn").forEach(function (btn) {
+        document.querySelectorAll(".pl-tab").forEach(function (btn) {
             btn.addEventListener("click", function () {
                 const tab = btn.dataset.tab;
                 history.replaceState(null, "", "#" + tab);
@@ -443,6 +500,40 @@
 
         const initial = tabFromHash() || container.dataset.defaultTab || "table";
         activate(initial);
+    })();
+
+    // Countdown ticker — updates every second for elements with [data-deadline]
+    (function () {
+        function tick() {
+            const now = Date.now();
+            document.querySelectorAll("[data-deadline]").forEach(function (el) {
+                const target = Date.parse(el.getAttribute("data-deadline"));
+                if (Number.isNaN(target)) return;
+                const remaining = Math.max(0, target - now);
+                const total = Math.floor(remaining / 1000);
+                const days = Math.floor(total / 86400);
+                const h = String(Math.floor((total % 86400) / 3600)).padStart(2, "0");
+                const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+                const s = String(total % 60).padStart(2, "0");
+                el.textContent = (days > 0 ? days + "d " : "") + h + ":" + m + ":" + s;
+            });
+        }
+        tick();
+        setInterval(tick, 1000);
+    })();
+
+    // News ticker rotator — cycles RSS items every 6s
+    (function () {
+        const ticker = document.querySelector("[data-news-ticker]");
+        if (!ticker) return;
+        const items = ticker.querySelectorAll("[data-news-item]");
+        if (items.length <= 1) return;
+        let idx = 0;
+        setInterval(function () {
+            items[idx].style.opacity = "0";
+            idx = (idx + 1) % items.length;
+            items[idx].style.opacity = "1";
+        }, 6000);
     })();
 </script>
 

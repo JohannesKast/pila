@@ -1,9 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, Default)]
 #[sqlx(type_name = "match_stage", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
 pub enum Stage {
+    #[default]
     Group,
     #[sqlx(rename = "round_of_32")]
     #[serde(rename = "round_of_32")]

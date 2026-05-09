@@ -1,0 +1,60 @@
+{# Badge-Card-Renderer.
+   Erwartet `b: BadgeView` aus dem äußeren Scope.
+   - Achievement: Icon groß + Titel + ×N in der Ecke. Ausgegraut bei times_earned == 0.
+   - Metric: Wert prominent, Label oben. Pattern-Match auf metric_kind().
+   how_to_earn überall als HTML-`title=""` (Tooltip). #}
+{% if b.display.is_achievement() %}
+{% let earned = b.display.times_earned() %}
+<div class="pl-card" title="{{ b.how_to_earn }}"
+     style="position:relative; padding:10px 8px; border-radius:8px; text-align:center; {% if earned == 0 %}opacity:.45;{% endif %}">
+  {% if earned > 0 %}
+  <span class="pl-mono"
+        style="position:absolute; top:4px; right:6px; font-size:10px; color:{{ b.accent_css() }}; letter-spacing:.04em;">×{{ earned }}</span>
+  {% endif %}
+  <div style="font-size:24px; line-height:1; margin-bottom:4px;">{{ b.icon }}</div>
+  <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ b.title }}</div>
+</div>
+{% else %}
+<div class="pl-card" title="{{ b.how_to_earn }}"
+     style="padding:10px; border-radius:8px;">
+  <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ b.title }}</div>
+  {% match b.display.metric_kind() %}
+  {% when "count" %}
+  <div class="pl-display" style="font-size:22px; color:{{ b.accent_css() }};">{{ b.display.count() }}</div>
+  {% when "fraction" %}
+  <div class="pl-display" style="font-size:22px; color:{{ b.accent_css() }};">{{ b.display.fraction_num() }}<span style="font-size:10px; color:var(--pl-mute);">/{{ b.display.fraction_denom() }}</span></div>
+  {% when "percent" %}
+  {% match b.display.percent() %}
+  {% when Some with (p) %}<div class="pl-display" style="font-size:22px; color:{{ b.accent_css() }};">{{ p }}<span style="font-size:10px; color:var(--pl-mute);">%</span></div>
+  {% when None %}<div class="pl-display" style="font-size:22px; color:var(--pl-mute);">—</div>
+  {% endmatch %}
+  {% when "streak" %}
+  {% if b.display.streak() > 0 %}
+  <div class="pl-display" style="font-size:22px; color:{{ b.accent_css() }};">×{{ b.display.streak() }}</div>
+  {% else %}
+  <div class="pl-display" style="font-size:22px; color:var(--pl-mute);">—</div>
+  {% endif %}
+  {% when "delta" %}
+  {% match b.display.delta() %}
+  {% when Some with (d) %}
+  {% if d.is_positive() %}
+  <div class="pl-display" style="font-size:22px; color:var(--pl-green);">↑{{ d }}</div>
+  {% else if d.is_negative() %}
+  <div class="pl-display" style="font-size:22px; color:var(--pl-red);">↓{{ d.abs() }}</div>
+  {% else %}
+  <div class="pl-display" style="font-size:22px; color:var(--pl-mute);">±0</div>
+  {% endif %}
+  {% when None %}<div class="pl-display" style="font-size:22px; color:var(--pl-mute);">—</div>
+  {% endmatch %}
+  {% when "champion" %}
+  <div style="display:flex; align-items:center; gap:8px;">
+    {% if b.display.champion_flag() != "" %}
+    <img src="{{ b.display.champion_flag() }}" alt="" width="24" height="16" style="border-radius:2px; flex-shrink:0;">
+    {% endif %}
+    <span class="pl-display" style="font-size:14px; color:{{ b.accent_css() }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ b.display.champion_team() }}</span>
+  </div>
+  {% when _ %}
+  <div class="pl-display" style="font-size:22px; color:var(--pl-mute);">—</div>
+  {% endmatch %}
+</div>
+{% endif %}

@@ -1,12 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT u.name, sp.champion_id FROM special_predictions sp\n             JOIN users u ON u.id = sp.user_id",
+  "query": "SELECT user_id, champion_id FROM special_predictions WHERE champion_id IS NOT NULL",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "name",
-        "type_info": "Varchar"
+        "name": "user_id",
+        "type_info": "Uuid"
       },
       {
         "ordinal": 1,
@@ -22,5 +22,5 @@
       true
     ]
   },
-  "hash": "2bdedf190b1d066032de1aeabe4f1911c2c06b063be301821377fa9779213396"
+  "hash": "de5101bf20571245ea2015f11f44293e5bb7ee2b20deb2b413e0099059a2692f"
 }

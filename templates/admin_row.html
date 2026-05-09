@@ -1,0 +1,63 @@
+<tr id="admin-row-{{ u.id }}" class="border-t border-slate-700/40 align-top">
+    <td class="px-2 py-2 align-top">
+        <form hx-post="/admin/users/{{ u.id }}/rename" hx-swap="outerHTML" hx-target="#admin-row-{{ u.id }}" class="flex items-center gap-1">
+            <input type="text" name="name" value="{{ u.name }}" required maxlength="255"
+                   class="flex-1 min-w-0 bg-slate-900 border border-slate-600 focus:border-fifa-blue rounded px-2 py-1 text-xs text-white outline-none">
+            <button type="submit" title="Speichern" class="text-emerald-400 hover:text-emerald-300 text-xs px-1">💾</button>
+        </form>
+    </td>
+    <td class="px-2 py-2 align-top">
+        <span class="text-xs text-slate-300">{% match u.phone_number %}{% when Some with (p) %}{{ p }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
+    </td>
+    <td class="px-2 py-2 align-top">
+        {% if u.is_admin %}
+        <span class="inline-flex items-center gap-1 text-fifa-gold text-[11px] font-bold uppercase tracking-wider">★ Admin</span>
+        {% else %}
+        <span class="text-slate-500 text-[11px]">User</span>
+        {% endif %}
+    </td>
+    <td class="px-2 py-2 align-top">
+        <div class="flex items-center gap-1">
+            <input type="text" readonly value="{{ u.magic_link }}" id="magic-link-{{ u.id }}"
+                   class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 font-mono outline-none">
+            <button type="button" title="Link kopieren"
+                    onclick="navigator.clipboard.writeText(document.getElementById('magic-link-{{ u.id }}').value); this.textContent='✓'; setTimeout(()=>this.textContent='📋',1500);"
+                    class="text-slate-300 hover:text-white text-xs px-1.5 py-1 bg-slate-700/60 rounded">📋</button>
+        </div>
+    </td>
+    <td class="px-2 py-2 align-top whitespace-nowrap">
+        <div class="flex flex-wrap items-center gap-1">
+            {% if !u.is_self %}
+            <button type="button"
+                    hx-post="/admin/users/{{ u.id }}/promote"
+                    hx-swap="outerHTML"
+                    hx-target="#admin-row-{{ u.id }}"
+                    title="Admin-Rechte umschalten"
+                    class="text-[10px] font-bold uppercase px-2 py-1 rounded {% if u.is_admin %}bg-amber-700/40 hover:bg-amber-700/60 text-amber-200{% else %}bg-fifa-blue/30 hover:bg-fifa-blue/50 text-blue-200{% endif %}">
+                {% if u.is_admin %}Demote{% else %}Promote{% endif %}
+            </button>
+            {% endif %}
+            {% if u.phone_number.is_some() %}
+            <button type="button"
+                    hx-post="/admin/users/{{ u.id }}/resend"
+                    hx-swap="innerHTML"
+                    hx-target="#resend-status-{{ u.id }}"
+                    {% if !signal_enabled %}disabled title="Signal nicht konfiguriert"{% endif %}
+                    class="text-[10px] font-bold uppercase px-2 py-1 rounded bg-emerald-700/40 hover:bg-emerald-700/60 text-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                Resend
+            </button>
+            {% endif %}
+            {% if !u.is_self %}
+            <button type="button"
+                    hx-post="/admin/users/{{ u.id }}/delete"
+                    hx-confirm="User '{{ u.name }}' inkl. Tipps wirklich löschen?"
+                    hx-swap="outerHTML"
+                    hx-target="#admin-row-{{ u.id }}"
+                    class="text-[10px] font-bold uppercase px-2 py-1 rounded bg-red-700/40 hover:bg-red-700/60 text-red-200">
+                Löschen
+            </button>
+            {% endif %}
+            <span id="resend-status-{{ u.id }}" class="ml-1"></span>
+        </div>
+    </td>
+</tr>

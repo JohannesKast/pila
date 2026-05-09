@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12 sm:mt-20">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">⚙️</span>
+            <h1 class="text-lg font-black text-fifa-gold uppercase tracking-widest">Setup</h1>
+        </div>
+        <p class="text-slate-400 text-sm mb-5">
+            Es existiert noch kein Account. Lege jetzt den ersten Admin an.
+        </p>
+
+        <form action="/setup" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Name</label>
+                <input type="text" name="name" required maxlength="255"
+                       class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                    Telefonnummer <span class="text-slate-500 normal-case">(optional, E.164 z.B. +49…)</span>
+                </label>
+                <input type="text" name="phone_number" maxlength="32" placeholder="+49…"
+                       class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+                <p class="text-[11px] text-slate-500 mt-1">
+                    Falls Signal konfiguriert ist, wird der Login-Link direkt gesendet.
+                </p>
+            </div>
+            <button type="submit"
+                    class="w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg">
+                Admin anlegen
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

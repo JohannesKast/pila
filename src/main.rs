@@ -2,9 +2,11 @@ use askama::Template;
 use axum::{extract::State, routing::get, Router};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
+use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use pila::{auth, notifier, scoring, stage::Stage, worker, AppState};
+use pila::repo::{self, Repos};
+use pila::{auth, badges, jersey::JerseyPreset, news, notifier, scoring, stage::Stage, worker, AppState};
 use uuid::Uuid;
 
 #[tokio::main]
@@ -33,7 +35,11 @@ async fn main() {
         .await
         .expect("Failed to run DB migrations");
 
-    let state = AppState { db: pool.clone() };
+    let state = AppState {
+        jerseys: pila::jersey::load(),
+        news: news::NewsCache::from_env(),
+        repos: Repos::from_pool(pool.clone()),
+    };
 
     if let Err(e) = worker::bootstrap_notifications(&pool).await {
         tracing::warn!("Notification bootstrap failed: {:?}", e);
@@ -59,6 +65,18 @@ async fn main() {
         )
         .route("/leaderboard", get(handlers::leaderboard))
         .route(
+            "/profile/jersey-picker",
+            get(handlers::jersey_picker_get),
+        )
+        .route(
+            "/profile/jersey-picker/close",
+            get(handlers::jersey_picker_close),
+        )
+        .route(
+            "/profile/jersey",
+            axum::routing::post(handlers::jersey_post),
+        )
+        .route(
             "/admin/users",
             axum::routing::post(handlers::admin_create_user),
         )
@@ -78,6 +96,7 @@ async fn main() {
             "/admin/users/:id/resend",
             axum::routing::post(handlers::admin_resend_invite),
         )
+        .nest_service("/static", ServeDir::new("static"))
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".into());
@@ -132,13 +151,8 @@ mod handlers {
         pub is_self: bool,
     }
 
-    async fn fetch_admin_users(db: &sqlx::PgPool, current_user_id: Uuid) -> Vec<AdminUserView> {
-        let rows = sqlx::query!(
-            "SELECT id, name, token, phone_number, is_admin FROM users ORDER BY name"
-        )
-        .fetch_all(db)
-        .await
-        .unwrap_or_default();
+    async fn fetch_admin_users(repos: &Repos, current_user_id: Uuid) -> Vec<AdminUserView> {
+        let rows = repos.users.list_for_admin().await.unwrap_or_default();
 
         rows.into_iter()
             .map(|r| AdminUserView {
@@ -169,20 +183,28 @@ mod handlers {
         pub predicted_away: Option<i32>,
         pub kickoff_display: String,
         pub locked: bool,
+        pub is_live: bool,
+        pub is_finished: bool,
         pub own_points: Option<i32>,
         pub multiplier: i32,
         pub other_preds: Vec<UserPrediction>,
     }
 
     impl MatchView {
-        pub fn is_final(&self) -> bool {
-            matches!(self.stage, Stage::Final)
+        pub fn predicted_str(&self) -> String {
+            match (self.predicted_home, self.predicted_away) {
+                (Some(h), Some(a)) => format!("{h}:{a}"),
+                _ => "–".to_string(),
+            }
         }
-        pub fn is_third_place(&self) -> bool {
-            matches!(self.stage, Stage::ThirdPlace)
+        pub fn score_str(&self) -> String {
+            match (self.score_home, self.score_away) {
+                (Some(h), Some(a)) => format!("{h} : {a}"),
+                _ => "– : –".to_string(),
+            }
         }
-        pub fn is_knockout(&self) -> bool {
-            self.stage.is_knockout()
+        pub fn has_prediction(&self) -> bool {
+            self.predicted_home.is_some() && self.predicted_away.is_some()
         }
     }
 
@@ -277,10 +299,14 @@ mod handlers {
         pub rows: Vec<GroupRow>,
     }
 
+    #[derive(Clone)]
     pub struct LeaderboardEntry {
         pub name: String,
         pub total_points: i32,
         pub max_potential_points: i32,
+        pub jersey_body: String,
+        pub jersey_accent: String,
+        pub jersey_pattern: String,
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -302,39 +328,89 @@ mod handlers {
         }
     }
 
-    async fn fetch_actual_champion(db: &sqlx::PgPool) -> Option<i32> {
-        let row = sqlx::query!(
-            r#"
-            SELECT team_home_id as "team_home_id?",
-                   team_away_id as "team_away_id?",
-                   score_home   as "score_home?",
-                   score_away   as "score_away?",
-                   status
-            FROM matches
-            WHERE stage = 'final'::match_stage AND status = 'finished'
-            ORDER BY kickoff_time DESC
-            LIMIT 1
-            "#
-        )
-        .fetch_optional(db)
-        .await
-        .unwrap_or_default()?;
+    async fn fetch_actual_champion(repos: &Repos) -> Option<i32> {
+        repos.matches.actual_champion().await.unwrap_or_default()
+    }
 
-        match (row.score_home, row.score_away, row.team_home_id, row.team_away_id) {
-            (Some(sh), Some(sa), Some(hid), _) if sh > sa => Some(hid),
-            (Some(sh), Some(sa), _, Some(aid)) if sa > sh => Some(aid),
-            _ => None,
+    async fn build_badge_context(
+        repos: &Repos,
+        user_id: Uuid,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> badges::BadgeContextOwned {
+        let finished_predictions: Vec<badges::PredictionRow> = repos
+            .predictions
+            .list_finished_join()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|r| badges::PredictionRow {
+                user_id: r.user_id,
+                match_id: r.match_id,
+                stage: r.stage,
+                kickoff: r.kickoff,
+                score_h: r.score_home,
+                score_a: r.score_away,
+                pred_h: r.predicted_home,
+                pred_a: r.predicted_away,
+            })
+            .collect();
+
+        let started_matches_total = repos
+            .matches
+            .started_with_both_teams_count(now)
+            .await
+            .unwrap_or(0) as i32;
+
+        let user_started_tips = repos
+            .predictions
+            .count_user_started(user_id, now)
+            .await
+            .unwrap_or(0) as i32;
+
+        let all_user_ids = repos.users.list_ids().await.unwrap_or_default();
+
+        let all_special_picks = repos
+            .special_predictions
+            .list_all_picks()
+            .await
+            .unwrap_or_default();
+
+        let actual_champion_id = fetch_actual_champion(repos).await;
+
+        let user_champion = repos
+            .special_predictions
+            .user_champion_view(user_id)
+            .await
+            .unwrap_or_default()
+            .map(|c| badges::ChampionView {
+                team_name: c.team_name,
+                flag_url: flag_url(&c.flag_code),
+            });
+
+        let berlin_today = now
+            .with_timezone(&chrono_tz::Europe::Berlin)
+            .date_naive();
+
+        badges::BadgeContextOwned {
+            user_id,
+            now,
+            berlin_today,
+            finished_predictions,
+            all_user_ids,
+            started_matches_total,
+            user_started_tips,
+            actual_champion_id,
+            all_special_picks,
+            user_champion,
         }
     }
 
     async fn fetch_leaderboard(
-        db: &sqlx::PgPool,
+        repos: &Repos,
+        jerseys: &std::collections::HashMap<String, JerseyPreset>,
         now: chrono::DateTime<chrono::Utc>,
     ) -> Vec<LeaderboardEntry> {
-        let users = sqlx::query!("SELECT id, name FROM users")
-            .fetch_all(db)
-            .await
-            .unwrap_or_default();
+        let users = repos.users.list_basic().await.unwrap_or_default();
 
         let mut user_scores: std::collections::BTreeMap<String, (i32, i32)> =
             std::collections::BTreeMap::new();
@@ -342,27 +418,14 @@ mod handlers {
             user_scores.insert(u.name.clone(), (0, 0));
         }
 
-        let pred_rows = sqlx::query!(
-            r#"
-            SELECT u.name,
-                   m.stage as "stage: Stage",
-                   m.kickoff_time,
-                   m.status,
-                   m.score_home as "score_home?",
-                   m.score_away as "score_away?",
-                   p.predicted_home,
-                   p.predicted_away
-            FROM predictions p
-            JOIN users u ON u.id = p.user_id
-            JOIN matches m ON m.id = p.match_id
-            "#
-        )
-        .fetch_all(db)
-        .await
-        .unwrap_or_default();
+        let pred_rows = repos
+            .predictions
+            .list_leaderboard_join()
+            .await
+            .unwrap_or_default();
 
         for r in pred_rows {
-            let entry = user_scores.entry(r.name.clone()).or_insert((0, 0));
+            let entry = user_scores.entry(r.user_name.clone()).or_insert((0, 0));
             let started = r.kickoff_time.is_some_and(|dt| dt < now);
             let finished = r.status == "finished";
 
@@ -385,17 +448,15 @@ mod handlers {
             }
         }
 
-        let actual_champion = fetch_actual_champion(db).await;
-        let sp_rows = sqlx::query!(
-            "SELECT u.name, sp.champion_id FROM special_predictions sp
-             JOIN users u ON u.id = sp.user_id"
-        )
-        .fetch_all(db)
-        .await
-        .unwrap_or_default();
+        let actual_champion = fetch_actual_champion(repos).await;
+        let sp_rows = repos
+            .special_predictions
+            .list_with_user_names()
+            .await
+            .unwrap_or_default();
 
         for sp in sp_rows {
-            let entry = user_scores.entry(sp.name).or_insert((0, 0));
+            let entry = user_scores.entry(sp.user_name).or_insert((0, 0));
             if let Some(cid) = sp.champion_id {
                 if actual_champion.is_some() {
                     entry.0 += scoring::champion_points(Some(cid), actual_champion);
@@ -405,50 +466,45 @@ mod handlers {
             }
         }
 
+        let user_jerseys: std::collections::HashMap<String, String> = users
+            .iter()
+            .map(|u| (u.name.clone(), u.jersey_preset.clone()))
+            .collect();
+
         let mut leaderboard: Vec<LeaderboardEntry> = user_scores
             .into_iter()
-            .map(|(name, (total, potential))| LeaderboardEntry {
-                name,
-                total_points: total,
-                max_potential_points: total + potential,
+            .map(|(name, (total, potential))| {
+                let jersey_preset = user_jerseys
+                    .get(&name)
+                    .and_then(|p| jerseys.get(p))
+                    .unwrap_or_else(|| jerseys.get("classic").unwrap());
+                LeaderboardEntry {
+                    name,
+                    total_points: total,
+                    max_potential_points: total + potential,
+                    jersey_body: jersey_preset.body.clone(),
+                    jersey_accent: jersey_preset.accent.clone(),
+                    jersey_pattern: jersey_preset.pattern.clone(),
+                }
             })
             .collect();
         leaderboard.sort_by(|a, b| b.total_points.cmp(&a.total_points));
         leaderboard
     }
 
-    async fn fetch_group_standings(db: &sqlx::PgPool) -> Vec<GroupStandingsTable> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT m.group_letter as "letter!",
-                   m.team_home_id as "home_id!",
-                   m.team_away_id as "away_id!",
-                   m.score_home   as "score_home!",
-                   m.score_away   as "score_away!",
-                   th.name        as "home_name!",
-                   th.flag_code   as "home_flag?",
-                   ta.name        as "away_name!",
-                   ta.flag_code   as "away_flag?"
-            FROM matches m
-            JOIN teams th ON th.id = m.team_home_id
-            JOIN teams ta ON ta.id = m.team_away_id
-            WHERE m.stage = 'group'::match_stage
-              AND m.status = 'finished'
-              AND m.group_letter IS NOT NULL
-              AND m.score_home IS NOT NULL
-              AND m.score_away IS NOT NULL
-            "#
-        )
-        .fetch_all(db)
-        .await
-        .unwrap_or_default();
+    async fn fetch_group_standings(repos: &Repos) -> Vec<GroupStandingsTable> {
+        let rows = repos
+            .matches
+            .finished_group_rows()
+            .await
+            .unwrap_or_default();
 
         // letter → team_id → row
         let mut groups: std::collections::BTreeMap<String, std::collections::HashMap<i32, GroupRow>> =
             std::collections::BTreeMap::new();
 
         for r in rows {
-            let letter = r.letter.to_string();
+            let letter = r.group_letter.clone();
             let group = groups.entry(letter).or_default();
 
             let home = group.entry(r.home_id).or_insert_with(|| GroupRow {
@@ -526,11 +582,15 @@ mod handlers {
     #[template(path = "index.html")]
     struct IndexTemplate {
         user_name: String,
+        user_total_points: i32,
+        user_rank: usize,
+        tipprunden_name: String,
         default_tab: String,
         started_in_progress: StageGroups,
         started_finished: StageGroups,
         open_matches: StageGroups,
         open_count: usize,
+        next_deadline_iso: Option<String>,
         started_count: usize,
         leaderboard: Vec<LeaderboardEntry>,
         group_standings: Vec<GroupStandingsTable>,
@@ -541,6 +601,8 @@ mod handlers {
         is_admin: bool,
         admin_users: Vec<AdminUserView>,
         signal_enabled: bool,
+        news_items: Vec<pila::news::NewsItem>,
+        badges: Vec<badges::BadgeView>,
     }
 
     #[derive(Template)]
@@ -560,6 +622,25 @@ mod handlers {
         entries: Vec<LeaderboardEntry>,
     }
 
+    pub struct JerseyOption {
+        pub key: String,
+        pub preset: JerseyPreset,
+    }
+
+    #[derive(Template)]
+    #[template(path = "jersey_picker.html")]
+    struct JerseyPickerTemplate {
+        options: Vec<JerseyOption>,
+        current: String,
+    }
+
+    #[derive(Template)]
+    #[template(path = "leaderboard_entry.html")]
+    struct LeaderboardEntryTemplate {
+        entry: LeaderboardEntry,
+        rank: usize,
+    }
+
     // ─── Handlers ─────────────────────────────────────────────────────────────
 
     pub async fn index(
@@ -569,8 +650,10 @@ mod handlers {
         let user = match maybe_user {
             Some(u) => u,
             None => {
-                let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) AS \"c!\" FROM users")
-                    .fetch_one(&state.db)
+                let count = state
+                    .repos
+                    .users
+                    .count()
                     .await
                     .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
                 if count == 0 {
@@ -584,66 +667,19 @@ mod handlers {
         };
         let now = chrono::Utc::now();
 
-        let rows = sqlx::query!(
-            r#"
-            SELECT
-                m.id,
-                m.stage as "stage: Stage",
-                m.group_letter,
-                m.kickoff_time,
-                m.status,
-                m.score_home as "score_home?",
-                m.score_away as "score_away?",
-                m.team_home_id as "team_home_id?",
-                m.team_away_id as "team_away_id?",
-                COALESCE(th.name, 'TBD') as "home_name!",
-                COALESCE(ta.name, 'TBD') as "away_name!",
-                th.flag_code as "home_flag?",
-                ta.flag_code as "away_flag?",
-                p.predicted_home as "predicted_home?",
-                p.predicted_away as "predicted_away?"
-            FROM matches m
-            LEFT JOIN teams th ON th.id = m.team_home_id
-            LEFT JOIN teams ta ON ta.id = m.team_away_id
-            LEFT JOIN predictions p ON p.match_id = m.id AND p.user_id = $1
-            ORDER BY
-                CASE m.stage
-                    WHEN 'group' THEN 0
-                    WHEN 'round_of_32' THEN 1
-                    WHEN 'round_of_16' THEN 2
-                    WHEN 'quarter_final' THEN 3
-                    WHEN 'semi_final' THEN 4
-                    WHEN 'third_place' THEN 5
-                    WHEN 'final' THEN 6
-                END,
-                m.kickoff_time NULLS LAST,
-                m.id
-            "#,
-            user.id
-        )
-        .fetch_all(&state.db)
-        .await
-        .unwrap_or_default();
+        let rows = state
+            .repos
+            .matches
+            .list_for_index(user.id)
+            .await
+            .unwrap_or_default();
 
-        // Other users' preds for locked matches
-        let other_preds_rows = sqlx::query!(
-            r#"
-            SELECT p.match_id, u.name as user_name,
-                   p.predicted_home, p.predicted_away
-            FROM predictions p
-            JOIN users u ON u.id = p.user_id
-            JOIN matches m ON m.id = p.match_id
-            WHERE m.kickoff_time IS NOT NULL
-              AND m.kickoff_time < $1
-              AND u.id != $2
-            ORDER BY u.name
-            "#,
-            now,
-            user.id
-        )
-        .fetch_all(&state.db)
-        .await
-        .unwrap_or_default();
+        let other_preds_rows = state
+            .repos
+            .predictions
+            .list_other_users_locked(user.id, now)
+            .await
+            .unwrap_or_default();
 
         let mut preds_by_match: std::collections::HashMap<i32, Vec<(String, i32, i32)>> =
             std::collections::HashMap::new();
@@ -654,66 +690,45 @@ mod handlers {
                 .push((p.user_name, p.predicted_home, p.predicted_away));
         }
 
-        // Tournament lock = first kickoff has passed
-        let first_kickoff: Option<chrono::DateTime<chrono::Utc>> =
-            sqlx::query_scalar!("SELECT MIN(kickoff_time) FROM matches")
-                .fetch_one(&state.db)
-                .await
-                .unwrap_or_default();
+        let first_kickoff = state
+            .repos
+            .matches
+            .first_kickoff()
+            .await
+            .unwrap_or_default();
         let tournament_locked = first_kickoff.is_some_and(|dt| dt < now);
 
-        // Special prediction (current user)
-        let special_pred_row = sqlx::query!(
-            "SELECT champion_id FROM special_predictions WHERE user_id = $1",
-            user.id
-        )
-        .fetch_optional(&state.db)
-        .await
-        .unwrap_or_default();
-
         let special_preds = SpecialPredictionsView {
-            champion_id: special_pred_row.as_ref().and_then(|r| r.champion_id),
+            champion_id: state
+                .repos
+                .special_predictions
+                .get_user_champion(user.id)
+                .await
+                .unwrap_or_default(),
         };
 
-        // Team options (alphabetical) for champion dropdown — exclude ESPN bracket placeholders
-        let team_rows = sqlx::query!(
-            "SELECT id, name, flag_code FROM teams \
-             WHERE name NOT LIKE 'Group %' \
-               AND name NOT LIKE 'Quarterfinal %' \
-               AND name NOT LIKE 'Semifinal %' \
-               AND name NOT LIKE 'Round of %' \
-               AND name NOT LIKE 'Third Place %' \
-             ORDER BY name"
-        )
-        .fetch_all(&state.db)
-        .await
-        .unwrap_or_default();
-
-        let team_options: Vec<TeamView> = team_rows
-            .iter()
+        let team_options: Vec<TeamView> = state
+            .repos
+            .teams
+            .list_real_for_dropdown()
+            .await
+            .unwrap_or_default()
+            .into_iter()
             .map(|t| TeamView {
                 id: t.id,
-                name: t.name.clone(),
+                name: t.name,
             })
             .collect();
 
-        // All users' champion preds when locked
         let champ_preds: Vec<ChampPrediction> = if tournament_locked {
-            let actual = fetch_actual_champion(&state.db).await;
-            let rows = sqlx::query!(
-                r#"
-                SELECT u.name as user_name, sp.champion_id, t.name as "team_name?", t.flag_code
-                FROM special_predictions sp
-                JOIN users u ON u.id = sp.user_id
-                LEFT JOIN teams t ON t.id = sp.champion_id
-                ORDER BY u.name
-                "#
-            )
-            .fetch_all(&state.db)
-            .await
-            .unwrap_or_default();
-
-            rows.into_iter()
+            let actual = fetch_actual_champion(&state.repos).await;
+            state
+                .repos
+                .special_predictions
+                .list_with_user_names()
+                .await
+                .unwrap_or_default()
+                .into_iter()
                 .filter(|r| r.champion_id.is_some())
                 .map(|r| {
                     let pts = match (r.champion_id, actual) {
@@ -735,14 +750,25 @@ mod handlers {
         let mut started_in_progress = StageGroups::default();
         let mut started_finished = StageGroups::default();
         let mut open_matches = StageGroups::default();
+        let mut next_deadline: Option<chrono::DateTime<chrono::Utc>> = None;
 
         for r in rows {
             if r.team_home_id.is_none() || r.team_away_id.is_none() {
                 continue; // skip TBD knockout slots
             }
 
-            let locked = r.kickoff_time.is_some_and(|dt| dt < now);
+            let kickoff = r.kickoff_time;
+            let locked = kickoff.is_some_and(|dt| dt < now);
             let finished = r.status == "finished";
+
+            if !locked {
+                if let Some(kt) = kickoff {
+                    next_deadline = Some(match next_deadline {
+                        Some(existing) => existing.min(kt),
+                        None => kt,
+                    });
+                }
+            }
 
             let own_points = if finished {
                 match (
@@ -792,6 +818,7 @@ mod handlers {
                 other_preds.sort_by(|a, b| b.points.cmp(&a.points));
             }
 
+            let is_live = r.status == "in_progress";
             let mv = MatchView {
                 id: r.id,
                 stage: r.stage,
@@ -807,6 +834,8 @@ mod handlers {
                 predicted_away: r.predicted_away,
                 kickoff_display: format_kickoff(r.kickoff_time),
                 locked,
+                is_live,
+                is_finished: finished,
                 own_points,
                 multiplier: r.stage.multiplier(),
                 other_preds,
@@ -824,10 +853,20 @@ mod handlers {
             target.push(mv);
         }
 
-        let group_standings = fetch_group_standings(&state.db).await;
-        let leaderboard = fetch_leaderboard(&state.db, now).await;
+        let group_standings = fetch_group_standings(&state.repos).await;
+        let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
+
+        let user_entry = leaderboard.iter().find(|e| e.name == user.name).cloned();
+        let user_total_points = user_entry.as_ref().map(|e| e.total_points).unwrap_or(0);
+
+        let user_rank = leaderboard
+            .iter()
+            .position(|entry| entry.name == user.name)
+            .map(|pos| pos + 1)
+            .unwrap_or(leaderboard.len() + 1);
 
         let open_count = open_matches.len();
+        let next_deadline_iso = next_deadline.map(|dt| dt.to_rfc3339());
         let started_count = started_in_progress.len() + started_finished.len();
 
         let special_open = !tournament_locked && special_preds.champion_id.is_none();
@@ -841,18 +880,35 @@ mod handlers {
         .to_string();
 
         let admin_users = if user.is_admin {
-            fetch_admin_users(&state.db, user.id).await
+            fetch_admin_users(&state.repos, user.id).await
         } else {
             Vec::new()
         };
 
+        let news_items = state.news.get().await;
+
+        let badge_ctx_owned = build_badge_context(&state.repos, user.id, now).await;
+        let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx());
+
+        let tipprunden_name = state
+            .repos
+            .settings
+            .get("tipprunden_name")
+            .await
+            .unwrap_or_default()
+            .unwrap_or_else(|| "WM 2026".to_string());
+
         let template = IndexTemplate {
             user_name: user.name,
+            user_total_points,
+            user_rank,
+            tipprunden_name,
             default_tab,
             started_in_progress,
             started_finished,
             open_matches,
             open_count,
+            next_deadline_iso,
             started_count,
             leaderboard,
             group_standings,
@@ -863,6 +919,8 @@ mod handlers {
             is_admin: user.is_admin,
             admin_users,
             signal_enabled: notifier::signal_configured(),
+            news_items,
+            badges: badges_list,
         };
         Ok(Html(template.render().unwrap()).into_response())
     }
@@ -872,12 +930,15 @@ mod handlers {
         Path(token): Path<String>,
         jar: CookieJar,
     ) -> Result<(CookieJar, Redirect), (StatusCode, &'static str)> {
-        let exists = sqlx::query!("SELECT id FROM users WHERE token = $1", token)
-            .fetch_optional(&state.db)
+        let exists = state
+            .repos
+            .users
+            .find_by_token(&token)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
+            .is_some();
 
-        if exists.is_some() {
+        if exists {
             let cookie = axum_extra::extract::cookie::Cookie::build(("pila_token", token))
                 .path("/")
                 .http_only(true)
@@ -910,13 +971,13 @@ mod handlers {
             ));
         }
 
-        let m = sqlx::query!(
-            "SELECT kickoff_time, team_home_id, team_away_id FROM matches WHERE id = $1",
-            match_id
-        )
-        .fetch_one(&state.db)
-        .await
-        .map_err(|_| (StatusCode::NOT_FOUND, "Match not found"))?;
+        let m = state
+            .repos
+            .matches
+            .find_lock_info(match_id)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
+            .ok_or((StatusCode::NOT_FOUND, "Match not found"))?;
 
         let now = chrono::Utc::now();
 
@@ -936,33 +997,20 @@ mod handlers {
             }
         }
 
-        sqlx::query!(
-            r#"
-            INSERT INTO predictions (user_id, match_id, predicted_home, predicted_away, updated_at)
-            VALUES ($1, $2, $3, $4, NOW())
-            ON CONFLICT (user_id, match_id) DO UPDATE SET
-                predicted_home = EXCLUDED.predicted_home,
-                predicted_away = EXCLUDED.predicted_away,
-                updated_at = NOW()
-            "#,
-            user.id,
-            match_id,
-            form.score_home,
-            form.score_away
-        )
-        .execute(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+        state
+            .repos
+            .predictions
+            .upsert(user.id, match_id, form.score_home, form.score_away)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
 
         let html = format!(
-            r##"<div class="tip-area" id="tip-form-{id}">
-            <form hx-post="/predict/{id}" hx-swap="outerHTML" hx-target="#tip-form-{id}" class="flex items-center gap-1.5">
-                <input type="number" name="score_home" value="{h}" min="0" max="20" class="w-12 bg-slate-900/80 border border-emerald-600/50 rounded text-center py-1 text-xs font-bold outline-none focus:border-emerald-500 text-white" required>
-                <span class="text-slate-600 text-xs">:</span>
-                <input type="number" name="score_away" value="{a}" min="0" max="20" class="w-12 bg-slate-900/80 border border-emerald-600/50 rounded text-center py-1 text-xs font-bold outline-none focus:border-emerald-500 text-white" required>
-                <button type="submit" class="ml-auto bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2.5 py-1 rounded transition-colors">✅</button>
-            </form>
-            </div>"##,
+            r##"<form id="tip-form-{id}" hx-post="/predict/{id}" hx-swap="outerHTML" hx-target="#tip-form-{id}" style="display:flex; align-items:center; gap:6px;">
+  <input class="pl-num" type="number" name="score_home" min="0" max="20" value="{h}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+  <span class="pl-mono" style="color:var(--pl-mute);">:</span>
+  <input class="pl-num" type="number" name="score_away" min="0" max="20" value="{a}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+  <button type="submit" class="pl-btn pl-btn--primary" style="height:42px; padding:0 12px; font-size:11px;">OK</button>
+</form>"##,
             id = match_id, h = form.score_home, a = form.score_away
         );
         Ok(Html(html))
@@ -992,11 +1040,12 @@ mod handlers {
     ) -> Result<Redirect, (StatusCode, &'static str)> {
         let now = chrono::Utc::now();
 
-        let first_kickoff: Option<chrono::DateTime<chrono::Utc>> =
-            sqlx::query_scalar!("SELECT MIN(kickoff_time) FROM matches")
-                .fetch_one(&state.db)
-                .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        let first_kickoff = state
+            .repos
+            .matches
+            .first_kickoff()
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
         if first_kickoff.is_some_and(|dt| dt < now) {
             return Err((
@@ -1006,39 +1055,23 @@ mod handlers {
         }
 
         if let Some(cid) = form.champion_id {
-            let exists = sqlx::query_scalar!(
-                "SELECT 1 AS dummy FROM teams \
-                 WHERE id = $1 \
-                   AND name NOT LIKE 'Group %' \
-                   AND name NOT LIKE 'Quarterfinal %' \
-                   AND name NOT LIKE 'Semifinal %' \
-                   AND name NOT LIKE 'Round of %' \
-                   AND name NOT LIKE 'Third Place %'",
-                cid
-            )
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-            .is_some();
+            let exists = state
+                .repos
+                .teams
+                .exists_real(cid)
+                .await
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
             if !exists {
                 return Err((StatusCode::BAD_REQUEST, "Unbekanntes Team."));
             }
         }
 
-        sqlx::query!(
-            r#"
-            INSERT INTO special_predictions (user_id, champion_id, updated_at)
-            VALUES ($1, $2, NOW())
-            ON CONFLICT (user_id) DO UPDATE SET
-                champion_id = EXCLUDED.champion_id,
-                updated_at = NOW()
-            "#,
-            user.id,
-            form.champion_id
-        )
-        .execute(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        state
+            .repos
+            .special_predictions
+            .upsert(user.id, form.champion_id)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
         Ok(Redirect::to("/"))
     }
@@ -1048,16 +1081,17 @@ mod handlers {
         _user: AuthenticatedUser,
     ) -> Html<String> {
         let now = chrono::Utc::now();
-        let entries = fetch_leaderboard(&state.db, now).await;
+        let entries = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
         let template = LeaderboardTemplate { entries };
         Html(template.render().unwrap())
     }
 
     // ─── Setup (first-run admin creation) ────────────────────────────────────
 
-    async fn user_count(db: &sqlx::PgPool) -> Result<i64, (StatusCode, &'static str)> {
-        sqlx::query_scalar!("SELECT COUNT(*) AS \"c!\" FROM users")
-            .fetch_one(db)
+    async fn user_count(repos: &Repos) -> Result<i64, (StatusCode, &'static str)> {
+        repos
+            .users
+            .count()
             .await
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))
     }
@@ -1065,7 +1099,7 @@ mod handlers {
     pub async fn setup_get(
         State(state): State<AppState>,
     ) -> Result<Response, (StatusCode, &'static str)> {
-        if user_count(&state.db).await? > 0 {
+        if user_count(&state.repos).await? > 0 {
             return Ok(Redirect::to("/").into_response());
         }
         let template = SetupTemplate {};
@@ -1084,7 +1118,7 @@ mod handlers {
         jar: CookieJar,
         Form(form): Form<SetupForm>,
     ) -> Result<(CookieJar, Redirect), (StatusCode, &'static str)> {
-        if user_count(&state.db).await? > 0 {
+        if user_count(&state.repos).await? > 0 {
             return Err((StatusCode::FORBIDDEN, "Setup bereits abgeschlossen."));
         }
         let name = form.name.trim();
@@ -1097,16 +1131,18 @@ mod handlers {
         let id = Uuid::new_v4();
         let token = Uuid::new_v4().to_string();
 
-        sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number) VALUES ($1, $2, $3, true, $4)",
-            id,
-            name,
-            token,
-            phone_opt
-        )
-        .execute(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        state
+            .repos
+            .users
+            .create(repo::user::NewUser {
+                id,
+                name,
+                token: &token,
+                is_admin: true,
+                phone_number: phone_opt,
+            })
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
         if let Some(p) = phone_opt {
             if notifier::signal_configured() {
@@ -1150,16 +1186,18 @@ mod handlers {
         let id = Uuid::new_v4();
         let token = Uuid::new_v4().to_string();
 
-        sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number) VALUES ($1, $2, $3, false, $4)",
-            id,
-            name,
-            token,
-            phone_opt
-        )
-        .execute(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        state
+            .repos
+            .users
+            .create(repo::user::NewUser {
+                id,
+                name,
+                token: &token,
+                is_admin: false,
+                phone_number: phone_opt,
+            })
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
         let signal_enabled = notifier::signal_configured();
         let link = build_magic_link(&token);
@@ -1193,8 +1231,10 @@ mod handlers {
                 "Du kannst dich nicht selbst löschen.",
             ));
         }
-        sqlx::query!("DELETE FROM users WHERE id = $1", id)
-            .execute(&state.db)
+        state
+            .repos
+            .users
+            .delete(id)
             .await
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
         Ok(Html(String::new()))
@@ -1205,23 +1245,22 @@ mod handlers {
         AdminUser(admin): AdminUser,
         Path(id): Path<Uuid>,
     ) -> Result<Html<String>, (StatusCode, &'static str)> {
-        let target = sqlx::query!(
-            "SELECT name, token, phone_number, is_admin FROM users WHERE id = $1",
-            id
-        )
-        .fetch_optional(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+        let target = state
+            .repos
+            .users
+            .find_full_by_id(id)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+            .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
 
         let new_admin = !target.is_admin;
         if !new_admin {
-            let admin_count: i64 = sqlx::query_scalar!(
-                "SELECT COUNT(*) AS \"c!\" FROM users WHERE is_admin"
-            )
-            .fetch_one(&state.db)
-            .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            let admin_count = state
+                .repos
+                .users
+                .count_admins()
+                .await
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
             if admin_count <= 1 {
                 return Err((
                     StatusCode::BAD_REQUEST,
@@ -1236,8 +1275,10 @@ mod handlers {
             }
         }
 
-        sqlx::query!("UPDATE users SET is_admin = $1 WHERE id = $2", new_admin, id)
-            .execute(&state.db)
+        state
+            .repos
+            .users
+            .set_admin(id, new_admin)
             .await
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
@@ -1267,18 +1308,20 @@ mod handlers {
         if name.is_empty() {
             return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
         }
-        sqlx::query!("UPDATE users SET name = $1 WHERE id = $2", name, id)
-            .execute(&state.db)
+        state
+            .repos
+            .users
+            .rename(id, name)
             .await
             .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
-        let target = sqlx::query!(
-            "SELECT name, token, phone_number, is_admin FROM users WHERE id = $1",
-            id
-        )
-        .fetch_one(&state.db)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        let target = state
+            .repos
+            .users
+            .find_full_by_id(id)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+            .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
 
         let view = AdminUserView {
             magic_link: build_magic_link(&target.token),
@@ -1296,14 +1339,7 @@ mod handlers {
         AdminUser(_admin): AdminUser,
         Path(id): Path<Uuid>,
     ) -> Html<String> {
-        let row = sqlx::query!(
-            "SELECT name, token, phone_number FROM users WHERE id = $1",
-            id
-        )
-        .fetch_optional(&state.db)
-        .await
-        .ok()
-        .flatten();
+        let row = state.repos.users.find_full_by_id(id).await.ok().flatten();
         let Some(row) = row else {
             return Html(
                 r#"<span class="text-red-400 text-xs">User nicht gefunden</span>"#.to_string(),
@@ -1331,5 +1367,88 @@ mod handlers {
                 html_escape(&e.to_string())
             )),
         }
+    }
+
+    // ─── Jersey picker ────────────────────────────────────────────────────────
+
+    pub async fn jersey_picker_get(
+        State(state): State<AppState>,
+        user: AuthenticatedUser,
+    ) -> Html<String> {
+        let mut options: Vec<JerseyOption> = state
+            .jerseys
+            .iter()
+            .map(|(k, v)| JerseyOption {
+                key: k.clone(),
+                preset: v.clone(),
+            })
+            .collect();
+        options.sort_by(|a, b| {
+            let pila_a = a.preset.group == "Pila";
+            let pila_b = b.preset.group == "Pila";
+            pila_b
+                .cmp(&pila_a)
+                .then_with(|| a.preset.group.cmp(&b.preset.group))
+                .then_with(|| a.preset.name.cmp(&b.preset.name))
+        });
+
+        let template = JerseyPickerTemplate {
+            options,
+            current: user.jersey_preset,
+        };
+        Html(template.render().unwrap())
+    }
+
+    pub async fn jersey_picker_close() -> Html<&'static str> {
+        Html("")
+    }
+
+    #[derive(Deserialize)]
+    pub struct JerseyPostQuery {
+        preset: String,
+    }
+
+    pub async fn jersey_post(
+        State(state): State<AppState>,
+        user: AuthenticatedUser,
+        axum::extract::Query(q): axum::extract::Query<JerseyPostQuery>,
+    ) -> Result<Html<String>, (StatusCode, &'static str)> {
+        if !state.jerseys.contains_key(&q.preset) {
+            return Err((StatusCode::BAD_REQUEST, "Unbekanntes Trikot."));
+        }
+        state
+            .repos
+            .users
+            .set_jersey(user.id, &q.preset)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        let leaderboard =
+            fetch_leaderboard(&state.repos, &state.jerseys, chrono::Utc::now()).await;
+        let user_rank = leaderboard
+            .iter()
+            .position(|e| e.name == user.name)
+            .map(|p| p + 1)
+            .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "User not in leaderboard"))?;
+        let user_entry = leaderboard[user_rank - 1].clone();
+
+        let entry_template = LeaderboardEntryTemplate {
+            entry: user_entry,
+            rank: user_rank,
+        };
+        let entry_html = entry_template.render().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Template render error",
+            )
+        })?;
+
+        let oob_html = format!(
+            r#"<div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-line); background:rgba(255,230,0,.04)" hx-swap-oob="innerHTML" id="leaderboard-entry-{}">{}</div>"#,
+            html_escape(&user.name.to_lowercase()),
+            entry_html
+        );
+
+        Ok(Html(oob_html))
     }
 }

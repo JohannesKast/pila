@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT COUNT(*) AS \"c!\"\n            FROM predictions p\n            JOIN matches m ON m.id = p.match_id\n            WHERE p.user_id = $1\n              AND m.kickoff_time IS NOT NULL\n              AND m.kickoff_time < $2\n              AND m.team_home_id IS NOT NULL\n              AND m.team_away_id IS NOT NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "c!",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "932ff8ac8a5bcb4e40634fe6ccc84b227a354eb5fb624889b83e67af611d2a65"
+}

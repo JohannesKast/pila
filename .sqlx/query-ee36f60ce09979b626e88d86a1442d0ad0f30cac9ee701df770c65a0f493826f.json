@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT t.name as \"team_name!\", t.flag_code\n            FROM special_predictions sp\n            JOIN teams t ON t.id = sp.champion_id\n            WHERE sp.user_id = $1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "team_name!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "flag_code",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true
+    ]
+  },
+  "hash": "ee36f60ce09979b626e88d86a1442d0ad0f30cac9ee701df770c65a0f493826f"
+}

@@ -1,5 +1,6 @@
 /target
 /backups
+/handoff
 .env
 .env.*
 docker-compose.override.yml

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name FROM users",
+  "query": "SELECT id, name, jersey_preset FROM users",
   "describe": {
     "columns": [
       {
@@ -12,6 +12,11 @@
         "ordinal": 1,
         "name": "name",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "jersey_preset",
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -19,8 +24,9 @@
     },
     "nullable": [
       false,
+      false,
       false
     ]
   },
-  "hash": "00ca292889e7f420324a86f4e0612ea7e1d1665934689c6f5e20736c2f896e66"
+  "hash": "c0c86d822a6dbdd199999f89c2e6feec0279af6c1b91d3db707295c8367cceac"
 }

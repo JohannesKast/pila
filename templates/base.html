@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pila — WM Tippspiel</title>
-    <link rel="icon" type="image/png" href="https://flagcdn.com/w40/un.png">
+    <link rel="icon" type="image/svg+xml" href="/static/pila-logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/tokens.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -12,29 +16,36 @@
             theme: {
                 extend: {
                     colors: {
-                        fifa: {
-                            blue: '#326295',
-                            gold: '#FFD700',
-                            dark: '#0f172a',
-                            light: '#f8fafc'
-                        }
-                    }
+                        'pl-bg':     '#0a0f0c',
+                        'pl-bg-2':   '#131a16',
+                        'pl-bg-3':   '#1c2521',
+                        'pl-line':   '#283130',
+                        'pl-line-2': '#3a4541',
+                        'pl-fg':     '#f3f3ed',
+                        'pl-fg-2':   '#cbd1cc',
+                        'pl-mute':   '#7c8783',
+                        'pl-mute-2': '#4d5754',
+                        'pl-green':  '#74ff8c',
+                        'pl-yellow': '#ffe600',
+                        'pl-red':    '#ff4d4d',
+                        'pl-blue':   '#5fb7ff',
+                    },
+                    fontFamily: {
+                        display: ['"Archivo Black"', 'sans-serif'],
+                        mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
+                        body:    ['Inter', 'system-ui', 'sans-serif'],
+                    },
                 }
             }
         }
     </script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-    <main class="w-full mx-auto px-2 sm:px-4 lg:px-6 pb-6">
+<body class="pl-app min-h-screen">
+    {% block topbar %}{% endblock %}
+    <div id="sheet"></div>
+    <main class="w-full mx-auto pb-6">
         {% block content %}{% endblock %}
     </main>
-
-    <footer class="mt-8 text-center text-slate-500 py-4 border-t border-slate-800">
-        <p>&copy; 2026 Pila — WM Tippspiel</p>
-    </footer>
 </body>
 </html>

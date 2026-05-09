@@ -13,21 +13,20 @@ pub struct AuthenticatedUser {
     pub name: String,
     pub is_admin: bool,
     pub phone_number: Option<String>,
+    pub jersey_preset: String,
 }
 
-async fn lookup_user(state: &AppState, token: &str) -> Result<Option<AuthenticatedUser>, sqlx::Error> {
-    let row = sqlx::query!(
-        "SELECT id, name, is_admin, phone_number FROM users WHERE token = $1",
-        token
-    )
-    .fetch_optional(&state.db)
-    .await?;
-
+async fn lookup_user(
+    state: &AppState,
+    token: &str,
+) -> Result<Option<AuthenticatedUser>, crate::repo::RepoError> {
+    let row = state.repos.users.find_by_token(token).await?;
     Ok(row.map(|u| AuthenticatedUser {
         id: u.id,
         name: u.name,
         is_admin: u.is_admin,
         phone_number: u.phone_number,
+        jersey_preset: u.jersey_preset,
     }))
 }
 
