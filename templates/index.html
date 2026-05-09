@@ -83,18 +83,16 @@
 
 {% macro stage_section(sg) %}
 {% if sg.groups.len() > 0 %}
-{% for entry in sg.groups %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Gruppe {{ entry.0 }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ entry.1.len() }}</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Gruppenphase</span>
+        <span class="text-[10px] text-slate-500 font-mono">{{ sg.groups.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">
-        {% for m in entry.1 %}{% call match_card(m) %}{% endfor %}
+        {% for m in sg.groups %}{% call match_card(m) %}{% endfor %}
     </div>
 </div>
-{% endfor %}
 {% endif %}
 {% if sg.round_of_32.len() > 0 %}
 <div class="mb-5">
@@ -176,6 +174,9 @@
                     Offen{% if open_count > 0 %} <span class="text-[10px] text-emerald-400">({{ open_count }})</span>{% endif %}
                 </button>
                 <button type="button" data-tab="special" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-slate-400 border-b-2 border-transparent transition-colors whitespace-nowrap">Spezial</button>
+                {% if is_admin %}
+                <button type="button" data-tab="admin" class="tab-btn flex-1 min-w-[72px] px-2 py-2 text-xs sm:text-sm font-semibold text-fifa-gold/80 border-b-2 border-transparent transition-colors whitespace-nowrap">⚙️ Admin</button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -293,6 +294,54 @@
         {% endif %}
     </section>
 
+    {% if is_admin %}
+    {# ===== TAB: ADMIN ===== #}
+    <section data-panel="admin" class="tab-panel mt-3 hidden">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-lg p-4 mb-4">
+            <div class="flex items-center gap-2 mb-3">
+                <span class="text-lg">➕</span>
+                <h3 class="text-sm font-bold text-fifa-gold uppercase tracking-widest">Neuen User anlegen</h3>
+            </div>
+            {% if !signal_enabled %}
+            <p class="text-[11px] text-amber-400 mb-2">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</p>
+            {% endif %}
+            <form hx-post="/admin/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input type="text" name="name" placeholder="Name" required maxlength="255"
+                       class="bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded px-3 py-2 text-sm text-white outline-none">
+                <input type="text" name="phone_number" placeholder="Telefon (+49…) optional" maxlength="32"
+                       class="bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded px-3 py-2 text-sm text-white outline-none">
+                <button type="submit" class="bg-fifa-blue hover:opacity-90 text-white font-bold px-4 py-2 rounded text-sm transition-colors">Anlegen</button>
+            </form>
+        </div>
+
+        <div class="bg-slate-800 rounded-xl border border-slate-700 shadow-lg overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-3 border-b border-slate-700 bg-slate-800/80">
+                <span class="text-lg">👥</span>
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider">User-Verwaltung</h3>
+                <span class="text-[10px] text-slate-500 font-mono ml-auto">{{ admin_users.len() }}</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse text-left">
+                    <thead>
+                        <tr class="bg-slate-700/40 text-slate-400 uppercase text-[10px] tracking-wider">
+                            <th class="px-2 py-2 font-semibold">Name</th>
+                            <th class="px-2 py-2 font-semibold">Telefon</th>
+                            <th class="px-2 py-2 font-semibold">Rolle</th>
+                            <th class="px-2 py-2 font-semibold">Magic-Link</th>
+                            <th class="px-2 py-2 font-semibold">Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-user-list" class="divide-y divide-slate-700/40">
+                        {% for u in admin_users %}
+                            {% include "admin_row.html" %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
     {# ===== TAB: SPEZIAL ===== #}
     <section data-panel="special" class="tab-panel mt-3 hidden">
         <div class="mb-2 text-center">
@@ -362,7 +411,7 @@
 
 <script>
     (function () {
-        const VALID = ["table", "started", "open", "special"];
+        const VALID = ["table", "started", "open", "special", "admin"];
         const container = document.getElementById("tab-container");
         if (!container) return;
 

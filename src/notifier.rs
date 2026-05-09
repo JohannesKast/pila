@@ -96,20 +96,64 @@ struct SignalSendBody<'a> {
 impl Notifier for SignalNotifier {
     async fn notify(&self, event: NotificationEvent) -> Result<(), NotifierError> {
         let message = render_message(&event, &self.base_url);
-        let body = SignalSendBody {
-            message: &message,
-            number: &self.from_number,
-            recipients: vec![&self.group_id],
-        };
-        let url = format!("{}/v2/send", self.api_url.trim_end_matches('/'));
-        let resp = self.client.post(&url).json(&body).send().await?;
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let text = resp.text().await.unwrap_or_default();
-            return Err(format!("Signal API {url} returned {status}: {text}").into());
-        }
-        Ok(())
+        send_signal_message(
+            &self.client,
+            &self.api_url,
+            &self.from_number,
+            &self.group_id,
+            &message,
+        )
+        .await
     }
+}
+
+pub async fn send_signal_message(
+    client: &Client,
+    api_url: &str,
+    from: &str,
+    recipient: &str,
+    message: &str,
+) -> Result<(), NotifierError> {
+    let body = SignalSendBody {
+        message,
+        number: from,
+        recipients: vec![recipient],
+    };
+    let url = format!("{}/v2/send", api_url.trim_end_matches('/'));
+    let resp = client.post(&url).json(&body).send().await?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Signal API {url} returned {status}: {text}").into());
+    }
+    Ok(())
+}
+
+pub fn signal_configured() -> bool {
+    let api = std::env::var("SIGNAL_API_URL").ok();
+    let from = std::env::var("SIGNAL_FROM_NUMBER").ok();
+    matches!((api, from), (Some(a), Some(f)) if !a.is_empty() && !f.is_empty())
+}
+
+pub async fn send_invite_via_signal(
+    phone: &str,
+    name: &str,
+    magic_link: &str,
+) -> Result<(), NotifierError> {
+    let api = std::env::var("SIGNAL_API_URL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .ok_or("SIGNAL_API_URL not set")?;
+    let from = std::env::var("SIGNAL_FROM_NUMBER")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .ok_or("SIGNAL_FROM_NUMBER not set")?;
+
+    let message = format!(
+        "Hallo {name}! Du bist beim Pila WM-Tippspiel dabei. Dein Login-Link: {magic_link}"
+    );
+    let client = Client::new();
+    send_signal_message(&client, &api, &from, phone, &message).await
 }
 
 fn names_or_count(names: &[String]) -> String {

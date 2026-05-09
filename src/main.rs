@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use pila::{auth, notifier, scoring, stage::Stage, worker, AppState};
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
@@ -45,6 +46,10 @@ async fn main() {
         .route("/", get(handlers::index))
         .route("/play/me/:token", get(handlers::login_magic_link))
         .route(
+            "/setup",
+            get(handlers::setup_get).post(handlers::setup_post),
+        )
+        .route(
             "/predict/:match_id",
             axum::routing::post(handlers::predict_match),
         )
@@ -53,6 +58,26 @@ async fn main() {
             axum::routing::post(handlers::predict_special),
         )
         .route("/leaderboard", get(handlers::leaderboard))
+        .route(
+            "/admin/users",
+            axum::routing::post(handlers::admin_create_user),
+        )
+        .route(
+            "/admin/users/:id/delete",
+            axum::routing::post(handlers::admin_delete_user),
+        )
+        .route(
+            "/admin/users/:id/promote",
+            axum::routing::post(handlers::admin_toggle_admin),
+        )
+        .route(
+            "/admin/users/:id/rename",
+            axum::routing::post(handlers::admin_rename_user),
+        )
+        .route(
+            "/admin/users/:id/resend",
+            axum::routing::post(handlers::admin_resend_invite),
+        )
         .with_state(state);
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".into());
@@ -64,14 +89,68 @@ async fn main() {
 
 mod handlers {
     use super::*;
-    use crate::auth::AuthenticatedUser;
+    use crate::auth::{AdminUser, AuthenticatedUser, MaybeAuthenticatedUser};
     use axum::{
         extract::{Form, Path},
         http::StatusCode,
-        response::{Html, Redirect},
+        response::{Html, IntoResponse, Redirect, Response},
     };
     use axum_extra::extract::CookieJar;
     use serde::Deserialize;
+
+    fn make_login_cookie(token: String) -> axum_extra::extract::cookie::Cookie<'static> {
+        axum_extra::extract::cookie::Cookie::build(("pila_token", token))
+            .path("/")
+            .http_only(true)
+            .secure(true)
+            .same_site(axum_extra::extract::cookie::SameSite::Lax)
+            .build()
+    }
+
+    fn base_url() -> String {
+        std::env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8000".to_string())
+    }
+
+    fn build_magic_link(token: &str) -> String {
+        format!("{}/play/me/{}", base_url().trim_end_matches('/'), token)
+    }
+
+    fn html_escape(s: &str) -> String {
+        s.replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&#39;")
+    }
+
+    pub struct AdminUserView {
+        pub id: Uuid,
+        pub name: String,
+        pub phone_number: Option<String>,
+        pub is_admin: bool,
+        pub magic_link: String,
+        pub is_self: bool,
+    }
+
+    async fn fetch_admin_users(db: &sqlx::PgPool, current_user_id: Uuid) -> Vec<AdminUserView> {
+        let rows = sqlx::query!(
+            "SELECT id, name, token, phone_number, is_admin FROM users ORDER BY name"
+        )
+        .fetch_all(db)
+        .await
+        .unwrap_or_default();
+
+        rows.into_iter()
+            .map(|r| AdminUserView {
+                magic_link: build_magic_link(&r.token),
+                is_self: r.id == current_user_id,
+                id: r.id,
+                name: r.name,
+                phone_number: r.phone_number,
+                is_admin: r.is_admin,
+            })
+            .collect()
+    }
 
     // ─── View types ───────────────────────────────────────────────────────────
 
@@ -116,7 +195,7 @@ mod handlers {
 
     #[derive(Default)]
     pub struct StageGroups {
-        pub groups: Vec<(String, Vec<MatchView>)>,
+        pub groups: Vec<MatchView>,
         pub round_of_32: Vec<MatchView>,
         pub round_of_16: Vec<MatchView>,
         pub quarter_final: Vec<MatchView>,
@@ -128,14 +207,7 @@ mod handlers {
     impl StageGroups {
         pub fn push(&mut self, m: MatchView) {
             match m.stage {
-                Stage::Group => {
-                    let letter = m.group_letter.clone().unwrap_or_default();
-                    if let Some(slot) = self.groups.iter_mut().find(|(k, _)| *k == letter) {
-                        slot.1.push(m);
-                    } else {
-                        self.groups.push((letter, vec![m]));
-                    }
-                }
+                Stage::Group => self.groups.push(m),
                 Stage::RoundOf32 => self.round_of_32.push(m),
                 Stage::RoundOf16 => self.round_of_16.push(m),
                 Stage::QuarterFinal => self.quarter_final.push(m),
@@ -143,9 +215,6 @@ mod handlers {
                 Stage::ThirdPlace => self.third_place.push(m),
                 Stage::Final => self.final_.push(m),
             }
-        }
-        pub fn sort_groups(&mut self) {
-            self.groups.sort_by(|a, b| a.0.cmp(&b.0));
         }
         pub fn is_empty(&self) -> bool {
             self.groups.is_empty()
@@ -157,7 +226,7 @@ mod handlers {
                 && self.final_.is_empty()
         }
         pub fn len(&self) -> usize {
-            self.groups.iter().map(|(_, v)| v.len()).sum::<usize>()
+            self.groups.len()
                 + self.round_of_32.len()
                 + self.round_of_16.len()
                 + self.quarter_final.len()
@@ -469,6 +538,20 @@ mod handlers {
         special_preds: SpecialPredictionsView,
         tournament_locked: bool,
         champ_preds: Vec<ChampPrediction>,
+        is_admin: bool,
+        admin_users: Vec<AdminUserView>,
+        signal_enabled: bool,
+    }
+
+    #[derive(Template)]
+    #[template(path = "setup.html")]
+    struct SetupTemplate {}
+
+    #[derive(Template)]
+    #[template(path = "admin_row.html")]
+    struct AdminRowTemplate {
+        u: AdminUserView,
+        signal_enabled: bool,
     }
 
     #[derive(Template)]
@@ -479,7 +562,26 @@ mod handlers {
 
     // ─── Handlers ─────────────────────────────────────────────────────────────
 
-    pub async fn index(State(state): State<AppState>, user: AuthenticatedUser) -> Html<String> {
+    pub async fn index(
+        State(state): State<AppState>,
+        MaybeAuthenticatedUser(maybe_user): MaybeAuthenticatedUser,
+    ) -> Result<Response, (StatusCode, &'static str)> {
+        let user = match maybe_user {
+            Some(u) => u,
+            None => {
+                let count: i64 = sqlx::query_scalar!("SELECT COUNT(*) AS \"c!\" FROM users")
+                    .fetch_one(&state.db)
+                    .await
+                    .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+                if count == 0 {
+                    return Ok(Redirect::to("/setup").into_response());
+                }
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    "Nicht authentifiziert. Bitte nutze deinen Magic Link (z.B. /play/me/mein-token).",
+                ));
+            }
+        };
         let now = chrono::Utc::now();
 
         let rows = sqlx::query!(
@@ -514,7 +616,6 @@ mod handlers {
                     WHEN 'third_place' THEN 5
                     WHEN 'final' THEN 6
                 END,
-                m.group_letter NULLS LAST,
                 m.kickoff_time NULLS LAST,
                 m.id
             "#,
@@ -722,9 +823,6 @@ mod handlers {
             };
             target.push(mv);
         }
-        started_in_progress.sort_groups();
-        started_finished.sort_groups();
-        open_matches.sort_groups();
 
         let group_standings = fetch_group_standings(&state.db).await;
         let leaderboard = fetch_leaderboard(&state.db, now).await;
@@ -742,6 +840,12 @@ mod handlers {
         }
         .to_string();
 
+        let admin_users = if user.is_admin {
+            fetch_admin_users(&state.db, user.id).await
+        } else {
+            Vec::new()
+        };
+
         let template = IndexTemplate {
             user_name: user.name,
             default_tab,
@@ -756,8 +860,11 @@ mod handlers {
             special_preds,
             tournament_locked,
             champ_preds,
+            is_admin: user.is_admin,
+            admin_users,
+            signal_enabled: notifier::signal_configured(),
         };
-        Html(template.render().unwrap())
+        Ok(Html(template.render().unwrap()).into_response())
     }
 
     pub async fn login_magic_link(
@@ -944,5 +1051,285 @@ mod handlers {
         let entries = fetch_leaderboard(&state.db, now).await;
         let template = LeaderboardTemplate { entries };
         Html(template.render().unwrap())
+    }
+
+    // ─── Setup (first-run admin creation) ────────────────────────────────────
+
+    async fn user_count(db: &sqlx::PgPool) -> Result<i64, (StatusCode, &'static str)> {
+        sqlx::query_scalar!("SELECT COUNT(*) AS \"c!\" FROM users")
+            .fetch_one(db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))
+    }
+
+    pub async fn setup_get(
+        State(state): State<AppState>,
+    ) -> Result<Response, (StatusCode, &'static str)> {
+        if user_count(&state.db).await? > 0 {
+            return Ok(Redirect::to("/").into_response());
+        }
+        let template = SetupTemplate {};
+        Ok(Html(template.render().unwrap()).into_response())
+    }
+
+    #[derive(Deserialize)]
+    pub struct SetupForm {
+        name: String,
+        #[serde(default)]
+        phone_number: String,
+    }
+
+    pub async fn setup_post(
+        State(state): State<AppState>,
+        jar: CookieJar,
+        Form(form): Form<SetupForm>,
+    ) -> Result<(CookieJar, Redirect), (StatusCode, &'static str)> {
+        if user_count(&state.db).await? > 0 {
+            return Err((StatusCode::FORBIDDEN, "Setup bereits abgeschlossen."));
+        }
+        let name = form.name.trim();
+        if name.is_empty() {
+            return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        }
+        let phone = form.phone_number.trim();
+        let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
+
+        let id = Uuid::new_v4();
+        let token = Uuid::new_v4().to_string();
+
+        sqlx::query!(
+            "INSERT INTO users (id, name, token, is_admin, phone_number) VALUES ($1, $2, $3, true, $4)",
+            id,
+            name,
+            token,
+            phone_opt
+        )
+        .execute(&state.db)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        if let Some(p) = phone_opt {
+            if notifier::signal_configured() {
+                let link = build_magic_link(&token);
+                if let Err(e) = notifier::send_invite_via_signal(p, name, &link).await {
+                    tracing::warn!("Setup: Signal-Einladung an {p} fehlgeschlagen: {e}");
+                }
+            }
+        }
+
+        let updated_jar = jar.add(make_login_cookie(token));
+        Ok((updated_jar, Redirect::to("/")))
+    }
+
+    // ─── Admin handlers ──────────────────────────────────────────────────────
+
+    fn render_admin_row(u: AdminUserView, signal_enabled: bool) -> Html<String> {
+        let tpl = AdminRowTemplate { u, signal_enabled };
+        Html(tpl.render().unwrap())
+    }
+
+    #[derive(Deserialize)]
+    pub struct AdminCreateForm {
+        name: String,
+        #[serde(default)]
+        phone_number: String,
+    }
+
+    pub async fn admin_create_user(
+        State(state): State<AppState>,
+        AdminUser(_admin): AdminUser,
+        Form(form): Form<AdminCreateForm>,
+    ) -> Result<Html<String>, (StatusCode, &'static str)> {
+        let name = form.name.trim();
+        if name.is_empty() {
+            return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        }
+        let phone = form.phone_number.trim();
+        let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
+
+        let id = Uuid::new_v4();
+        let token = Uuid::new_v4().to_string();
+
+        sqlx::query!(
+            "INSERT INTO users (id, name, token, is_admin, phone_number) VALUES ($1, $2, $3, false, $4)",
+            id,
+            name,
+            token,
+            phone_opt
+        )
+        .execute(&state.db)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        let signal_enabled = notifier::signal_configured();
+        let link = build_magic_link(&token);
+        if let Some(p) = phone_opt {
+            if signal_enabled {
+                if let Err(e) = notifier::send_invite_via_signal(p, name, &link).await {
+                    tracing::warn!("Admin: Signal-Einladung an {p} fehlgeschlagen: {e}");
+                }
+            }
+        }
+
+        let view = AdminUserView {
+            id,
+            name: name.to_string(),
+            phone_number: phone_opt.map(|s| s.to_string()),
+            is_admin: false,
+            magic_link: link,
+            is_self: false,
+        };
+        Ok(render_admin_row(view, signal_enabled))
+    }
+
+    pub async fn admin_delete_user(
+        State(state): State<AppState>,
+        AdminUser(admin): AdminUser,
+        Path(id): Path<Uuid>,
+    ) -> Result<Html<String>, (StatusCode, &'static str)> {
+        if id == admin.id {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Du kannst dich nicht selbst löschen.",
+            ));
+        }
+        sqlx::query!("DELETE FROM users WHERE id = $1", id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        Ok(Html(String::new()))
+    }
+
+    pub async fn admin_toggle_admin(
+        State(state): State<AppState>,
+        AdminUser(admin): AdminUser,
+        Path(id): Path<Uuid>,
+    ) -> Result<Html<String>, (StatusCode, &'static str)> {
+        let target = sqlx::query!(
+            "SELECT name, token, phone_number, is_admin FROM users WHERE id = $1",
+            id
+        )
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+
+        let new_admin = !target.is_admin;
+        if !new_admin {
+            let admin_count: i64 = sqlx::query_scalar!(
+                "SELECT COUNT(*) AS \"c!\" FROM users WHERE is_admin"
+            )
+            .fetch_one(&state.db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            if admin_count <= 1 {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Mindestens ein Admin muss bestehen bleiben.",
+                ));
+            }
+            if id == admin.id {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Du kannst dir nicht selbst die Adminrechte entziehen.",
+                ));
+            }
+        }
+
+        sqlx::query!("UPDATE users SET is_admin = $1 WHERE id = $2", new_admin, id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        let view = AdminUserView {
+            magic_link: build_magic_link(&target.token),
+            is_self: id == admin.id,
+            id,
+            name: target.name,
+            phone_number: target.phone_number,
+            is_admin: new_admin,
+        };
+        Ok(render_admin_row(view, notifier::signal_configured()))
+    }
+
+    #[derive(Deserialize)]
+    pub struct AdminRenameForm {
+        name: String,
+    }
+
+    pub async fn admin_rename_user(
+        State(state): State<AppState>,
+        AdminUser(admin): AdminUser,
+        Path(id): Path<Uuid>,
+        Form(form): Form<AdminRenameForm>,
+    ) -> Result<Html<String>, (StatusCode, &'static str)> {
+        let name = form.name.trim();
+        if name.is_empty() {
+            return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        }
+        sqlx::query!("UPDATE users SET name = $1 WHERE id = $2", name, id)
+            .execute(&state.db)
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        let target = sqlx::query!(
+            "SELECT name, token, phone_number, is_admin FROM users WHERE id = $1",
+            id
+        )
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+        let view = AdminUserView {
+            magic_link: build_magic_link(&target.token),
+            is_self: id == admin.id,
+            id,
+            name: target.name,
+            phone_number: target.phone_number,
+            is_admin: target.is_admin,
+        };
+        Ok(render_admin_row(view, notifier::signal_configured()))
+    }
+
+    pub async fn admin_resend_invite(
+        State(state): State<AppState>,
+        AdminUser(_admin): AdminUser,
+        Path(id): Path<Uuid>,
+    ) -> Html<String> {
+        let row = sqlx::query!(
+            "SELECT name, token, phone_number FROM users WHERE id = $1",
+            id
+        )
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+        let Some(row) = row else {
+            return Html(
+                r#"<span class="text-red-400 text-xs">User nicht gefunden</span>"#.to_string(),
+            );
+        };
+        let Some(phone) = row.phone_number.as_deref() else {
+            return Html(
+                r#"<span class="text-amber-400 text-xs">Keine Telefonnummer hinterlegt</span>"#
+                    .to_string(),
+            );
+        };
+        if !notifier::signal_configured() {
+            return Html(
+                r#"<span class="text-amber-400 text-xs">Signal nicht konfiguriert</span>"#
+                    .to_string(),
+            );
+        }
+        let link = build_magic_link(&row.token);
+        match notifier::send_invite_via_signal(phone, &row.name, &link).await {
+            Ok(_) => Html(
+                r#"<span class="text-emerald-400 text-xs">✓ gesendet</span>"#.to_string(),
+            ),
+            Err(e) => Html(format!(
+                r#"<span class="text-red-400 text-xs">✗ Fehler: {}</span>"#,
+                html_escape(&e.to_string())
+            )),
+        }
     }
 }
