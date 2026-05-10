@@ -1,0 +1,272 @@
+## Navigation
+
+# Button to open the jersey customization sheet
+nav-jersey = Trikot
+
+# Tab: leaderboard and group standings
+tab-table = Tabelle
+
+# Tab: matches that have kicked off (live or finished)
+tab-current = Aktuell
+
+# Tab: matches not yet locked, user can still submit tips
+tab-open = Offen
+
+# Tab: special bets (World Champion pick)
+tab-special = Spezial
+
+# Tab: admin panel (admin users only)
+tab-admin = Admin
+
+## Match status tags
+
+# Prefix for group matches, e.g. "GRUPPE A · ×1"
+group-prefix = GRUPPE
+
+# Tag shown on a live match
+status-live = LIVE
+
+# Tag shown when a finished match has no user tip (fallback to "ABPFIFF" label)
+status-finished = ABPFIFF
+
+# Tag when match is locked and user submitted no tip
+status-no-tip = KEIN TIPP
+
+# Checkmark prefix before the user's saved tip score, e.g. "✓ TIPP 2:1"
+status-tip-saved = ✓ TIPP
+
+# Points abbreviation shown after score in tags, e.g. "+3 PKT"
+points-abbr = PKT
+
+# Sub-line inside a live match card showing user's tip
+your-tip-live = DEIN TIPP
+
+# Sub-line inside a finished match card showing user's tip
+your-tip-finished = DEIN TIPP
+
+# Sub-line inside a finished match card when user had no tip
+no-tip-given = KEIN TIPP ABGEGEBEN
+
+## Stage section headings
+
+stage-group = Gruppenphase
+stage-round-of-32 = Sechzehntelfinale
+stage-round-of-16 = Achtelfinale
+stage-quarter-final = Viertelfinale
+stage-semi-final = Halbfinale
+stage-third-place = Spiel um Platz 3
+stage-final = 🏆 Finale
+
+## Hero panel (rank + points card)
+
+# Label above the user's current rank number
+your-rank = Dein Rang
+
+# Label above the user's total points
+points-label = Punkte
+
+## Leaderboard section (inside table tab)
+
+leaderboard-heading = Leaderboard
+
+# Shown when no match results have been scored yet
+no-points-yet = Noch keine Punkte vergeben.
+
+# Points unit after the score in leaderboard rows, e.g. "42 PKT"
+points-suffix = PKT
+
+## Group standings tables
+
+# Section heading above the group tables
+group-tables-heading = Gruppentabellen
+
+# Prefix before the group letter in table headers, e.g. "Gruppe A"
+group-prefix-full = Gruppe
+
+# Column headers in the group standings table (keep short)
+col-played = Sp
+col-wins = S
+col-draws = U
+col-losses = N
+col-goal-diff = TD
+col-points-table = Pkt
+
+## "Aktuell" tab (started matches)
+
+# Shown when no match has kicked off yet
+no-match-started = Noch kein Spiel angepfiffen.
+
+# Sub-heading for matches currently in progress
+in-progress = Laufend
+
+# Sub-heading for matches that are finished
+finished = Abgeschlossen
+
+## "Offen" tab (open tips)
+
+# Label above the countdown timer to the next kickoff
+next-deadline = Nächste Deadline
+
+# Label above the count of matches still open for tipping
+open-matches-count = Spiele offen
+
+# Shown when all tips are submitted (no open matches)
+no-open-tips = Aktuell keine offenen Tipps.
+
+## Admin tab
+
+# Section heading for user creation form
+admin-new-user = Neuen User anlegen
+
+# Placeholder for the phone number field in the user creation form
+admin-phone-placeholder = Telefon (+49…) optional
+
+# Submit button for user creation
+admin-create-btn = Anlegen
+
+# Section heading for the user list
+admin-user-mgmt = User-Verwaltung
+
+# Table column headers
+col-name = Name
+col-phone = Telefon
+col-role = Rolle
+col-magic-link = Magic-Link
+col-actions = Aktionen
+
+## "Spezial" tab (World Champion pick)
+
+# Section heading for the World Champion pick card
+champion-heading = Weltmeister
+
+# Points value displayed below the heading
+champion-points = 10 PUNKTE
+
+# Sub-heading shown when champion picks are revealed (tournament started)
+champion-tips-heading = Weltmeister-Tipps
+
+# Shown when no one has submitted a champion pick yet
+no-champion-picks = Keine Tipps
+
+# Question shown above the team dropdown
+champion-question = Wer wird Weltmeister?
+
+# Default/empty option in the champion team selector
+choose-winner = -- Wähle den Sieger --
+
+# Submit button for saving the champion pick
+save = Speichern
+
+## Jersey picker sheet
+
+# Title of the jersey picker modal
+jersey-title = Dein Trikot
+
+# Sub-title explaining where the jersey is shown
+jersey-subtitle = WIRD IN TABELLE & KOMMENTAREN ANGEZEIGT
+
+# Done button to close the jersey picker
+jersey-done = FERTIG ✓
+
+## Language picker
+
+lang-de = Deutsch
+lang-en = English
+lang-es = Español
+lang-fr = Français
+
+## Leaderboard page
+
+# Main heading on the standalone leaderboard page
+leaderboard-page-title = Leaderboard
+
+# Sub-heading on the standalone leaderboard page
+leaderboard-page-subtitle = Wer wird Tipp-Weltmeister?
+
+# Back link to the main dashboard
+back-to-tips = Zurück zu den Tipps
+
+# Column headers on the leaderboard page
+col-rank = #
+col-player = Name
+col-points-header = Punkte
+
+# Shown when no players or points exist yet
+no-players-yet = Noch keine Spieler oder Punkte vergeben.
+
+# Tooltip prefix for the max-potential score, e.g. "Maximal noch erreichbar: 120 Punkte"
+max-potential = Maximal noch erreichbar
+
+## Jersey-Namen (Trikot-Auswahl)
+
+# Pila-eigene Trikots
+jersey-name-pila = Pila Home
+jersey-name-pila-away = Pila Away
+jersey-name-pila-third = Pila Third
+jersey-name-classic = Klassik
+
+# CONMEBOL
+jersey-name-argentinien = Argentinien
+jersey-name-brasilien = Brasilien
+jersey-name-uruguay = Uruguay
+jersey-name-kolumbien = Kolumbien
+jersey-name-ecuador = Ecuador
+jersey-name-peru = Peru
+jersey-name-paraguay = Paraguay
+jersey-name-chile = Chile
+jersey-name-bolivien = Bolivien
+jersey-name-venezuela = Venezuela
+
+# CONCACAF
+jersey-name-usa = USA
+jersey-name-mexiko = Mexiko
+jersey-name-kanada = Kanada
+jersey-name-costarica = Costa Rica
+jersey-name-panama = Panama
+jersey-name-honduras = Honduras
+jersey-name-jamaika = Jamaika
+
+# UEFA
+jersey-name-deutschland = Deutschland
+jersey-name-frankreich = Frankreich
+jersey-name-england = England
+jersey-name-spanien = Spanien
+jersey-name-portugal = Portugal
+jersey-name-niederlande = Niederlande
+jersey-name-belgien = Belgien
+jersey-name-italien = Italien
+jersey-name-kroatien = Kroatien
+jersey-name-schweiz = Schweiz
+jersey-name-daenemark = Dänemark
+jersey-name-polen = Polen
+jersey-name-oesterreich = Österreich
+jersey-name-ungarn = Ungarn
+jersey-name-tuerkei = Türkei
+jersey-name-serbien = Serbien
+jersey-name-ukraine = Ukraine
+jersey-name-wales = Wales
+jersey-name-schottland = Schottland
+jersey-name-norwegen = Norwegen
+jersey-name-schweden = Schweden
+
+# AFC
+jersey-name-japan = Japan
+jersey-name-suedkorea = Südkorea
+jersey-name-australien = Australien
+jersey-name-iran = Iran
+jersey-name-saudi = Saudi-Arabien
+jersey-name-katar = Katar
+jersey-name-irak = Irak
+jersey-name-usbekistan = Usbekistan
+
+# CAF
+jersey-name-marokko = Marokko
+jersey-name-tunesien = Tunesien
+jersey-name-algerien = Algerien
+jersey-name-aegypten = Ägypten
+jersey-name-senegal = Senegal
+jersey-name-kamerun = Kamerun
+jersey-name-nigeria = Nigeria
+jersey-name-ghana = Ghana
+jersey-name-elfenbein = Elfenbeinküste
+jersey-name-suedafrika = Südafrika

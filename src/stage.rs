@@ -58,6 +58,19 @@ impl Stage {
     pub fn is_knockout(&self) -> bool {
         !matches!(self, Stage::Group)
     }
+
+    /// FTL translation key for this stage.
+    pub fn ftl_key(&self) -> &'static str {
+        match self {
+            Stage::Group => "stage-group",
+            Stage::RoundOf32 => "stage-round-of-32",
+            Stage::RoundOf16 => "stage-round-of-16",
+            Stage::QuarterFinal => "stage-quarter-final",
+            Stage::SemiFinal => "stage-semi-final",
+            Stage::ThirdPlace => "stage-third-place",
+            Stage::Final => "stage-final",
+        }
+    }
 }
 
 impl std::fmt::Display for Stage {

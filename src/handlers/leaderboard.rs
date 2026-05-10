@@ -5,6 +5,7 @@ use axum::{extract::State, response::Html};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
+use crate::translations::T;
 use crate::views::LeaderboardEntry;
 use crate::AppState;
 
@@ -12,14 +13,23 @@ use crate::AppState;
 #[template(path = "leaderboard.html")]
 struct LeaderboardTemplate {
     entries: Vec<LeaderboardEntry>,
+    t: T,
+    lang_code: String,
 }
 
 pub async fn leaderboard(
     State(state): State<AppState>,
-    _user: AuthenticatedUser,
+    user: AuthenticatedUser,
 ) -> Html<String> {
     let now = chrono::Utc::now();
     let entries = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
-    let template = LeaderboardTemplate { entries };
+    let lang_code = user.language.clone();
+    let t = state
+        .translations
+        .get(&user.language)
+        .or_else(|| state.translations.get("de"))
+        .expect("de locale always present")
+        .clone();
+    let template = LeaderboardTemplate { entries, t, lang_code };
     Html(template.render().unwrap())
 }

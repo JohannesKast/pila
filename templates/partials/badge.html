@@ -1,8 +1,8 @@
-{# Badge-Card-Renderer.
-   Erwartet `b: BadgeView` aus dem äußeren Scope.
-   - Achievement: Icon groß + Titel + ×N in der Ecke. Ausgegraut bei times_earned == 0.
-   - Metric: Wert prominent, Label oben. Pattern-Match auf metric_kind().
-   how_to_earn überall als HTML-`title=""` (Tooltip). #}
+{# Badge card renderer.
+   Expects `b: BadgeView` from the outer scope.
+   - Achievement: large icon + title + ×N corner badge. Greyed out when times_earned == 0.
+   - Metric: prominent value, label on top. Pattern-matched via metric_kind().
+   how_to_earn is attached as HTML `title=""` (tooltip) on every variant. #}
 {% if b.display.is_achievement() %}
 {% let earned = b.display.times_earned() %}
 <div class="pl-card" title="{{ b.how_to_earn }}"

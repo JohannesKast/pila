@@ -10,32 +10,69 @@
             <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.12em; margin-top:2px;">PILA · {{ user_name|upper }}</div>
         </div>
     </div>
-    <button hx-get="/profile/jersey-picker" hx-target="#sheet" hx-swap="innerHTML" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px;">Trikot</button>
+    <div style="display:flex; align-items:center; gap:8px;">
+        {# Language switcher #}
+        <div style="position:relative;" id="lang-menu">
+            <button type="button"
+                    onclick="var d=document.getElementById('lang-drop');d.classList.toggle('hidden');"
+                    class="pl-btn pl-btn--ghost"
+                    style="height:36px; padding:0 10px; font-size:14px;">🌐</button>
+            <div id="lang-drop" class="hidden"
+                 style="position:absolute; right:0; top:calc(100% + 4px); background:var(--pl-bg-2); border:1px solid var(--pl-line-2); border-radius:8px; min-width:130px; z-index:100; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.5);">
+                <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                    <input type="hidden" name="language" value="de">
+                    <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "de" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "de" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇩🇪 Deutsch</button>
+                </form>
+                <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                    <input type="hidden" name="language" value="en">
+                    <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "en" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "en" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇬🇧 English</button>
+                </form>
+                <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                    <input type="hidden" name="language" value="es">
+                    <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "es" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "es" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇪🇸 Español</button>
+                </form>
+                <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                    <input type="hidden" name="language" value="fr">
+                    <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "fr" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "fr" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇫🇷 Français</button>
+                </form>
+            </div>
+        </div>
+        <button hx-get="/profile/jersey-picker" hx-target="#sheet" hx-swap="innerHTML" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px;">{{ t.get("nav-jersey") }}</button>
+    </div>
 </header>
+<script>
+    document.addEventListener('click', function(e) {
+        var menu = document.getElementById('lang-menu');
+        if (menu && !menu.contains(e.target)) {
+            var drop = document.getElementById('lang-drop');
+            if (drop) drop.classList.add('hidden');
+        }
+    });
+</script>
 {% endblock %}
 
-{% macro match_card(m) %}
+{% macro match_card(m, t) %}
 <div class="pl-card{% if m.is_live %} pl-card--live{% endif %}" style="padding:14px; margin-bottom:10px;">
   {# top tag row #}
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;">
     <span class="pl-tag">
       {% match m.group_letter %}
-      {% when Some with (g) %}GRUPPE {{ g }} · ×{{ m.multiplier }}
-      {% when None %}{{ m.stage_label|upper }} · ×{{ m.multiplier }}
+      {% when Some with (g) %}{{ t.get("group-prefix") }} {{ g }} · ×{{ m.multiplier }}
+      {% when None %}{{ t.get(m.stage.ftl_key())|upper }} · ×{{ m.multiplier }}
       {% endmatch %}
     </span>
     {% if m.is_live %}
-      <span class="pl-tag pl-tag--live pl-tag--yellow">LIVE</span>
+      <span class="pl-tag pl-tag--live pl-tag--yellow">{{ t.get("status-live") }}</span>
     {% else if m.is_finished %}
       {% match m.own_points %}
       {% when Some with (p) %}
-        {% if p.is_positive() %}<span class="pl-tag pl-tag--green">+{{ p }} PKT</span>
-        {% else %}<span class="pl-tag pl-tag--red">+0 PKT</span>{% endif %}
-      {% when None %}<span class="pl-tag">ABPFIFF</span>
+        {% if p.is_positive() %}<span class="pl-tag pl-tag--green">+{{ p }} {{ t.get("points-abbr") }}</span>
+        {% else %}<span class="pl-tag pl-tag--red">+0 {{ t.get("points-abbr") }}</span>{% endif %}
+      {% when None %}<span class="pl-tag">{{ t.get("status-finished") }}</span>
       {% endmatch %}
     {% else if m.locked %}
-      {% if m.has_prediction() %}<span class="pl-tag pl-tag--green">✓ TIPP {{ m.predicted_str() }}</span>
-      {% else %}<span class="pl-tag pl-tag--red">KEIN TIPP</span>{% endif %}
+      {% if m.has_prediction() %}<span class="pl-tag pl-tag--green">{{ t.get("status-tip-saved") }} {{ m.predicted_str() }}</span>
+      {% else %}<span class="pl-tag pl-tag--red">{{ t.get("status-no-tip") }}</span>{% endif %}
     {% else %}
       <span class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.06em;">{{ m.kickoff_display }}</span>
     {% endif %}
@@ -74,14 +111,14 @@
   {# sub-line for live: user's tip #}
   {% if m.is_live && m.has_prediction() %}
   <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-yellow); letter-spacing:.06em; text-align:center;">
-    DEIN TIPP {{ m.predicted_str() }}
+    {{ t.get("your-tip-live") }} {{ m.predicted_str() }}
   </div>
   {% endif %}
 
   {# sub-line for finished: user's tip #}
   {% if m.is_finished %}
   <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
-    {% if m.has_prediction() %}DEIN TIPP {{ m.predicted_str() }}{% else %}KEIN TIPP ABGEGEBEN{% endif %}
+    {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}
   </div>
   {% endif %}
 
@@ -103,77 +140,77 @@
 </div>
 {% endmacro %}
 
-{% macro stage_section(sg) %}
+{% macro stage_section(sg, t) %}
 {% if sg.groups.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Gruppenphase</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-group") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.groups.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">
-        {% for m in sg.groups %}{% call match_card(m) %}{% endfor %}
+        {% for m in sg.groups %}{% call match_card(m, t) %}{% endfor %}
     </div>
 </div>
 {% endif %}
 {% if sg.round_of_32.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Sechzehntelfinale</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-32") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_32.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.round_of_16.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Achtelfinale</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-16") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_16.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.quarter_final.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Viertelfinale</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-quarter-final") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.quarter_final.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.semi_final.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">Halbfinale</span>
+        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-semi-final") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.semi_final.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.third_place.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-amber-500 uppercase tracking-widest">Spiel um Platz 3</span>
+        <span class="text-sm font-black text-amber-500 uppercase tracking-widest">{{ t.get("stage-third-place") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.third_place.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.final_.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-gold uppercase tracking-widest">🏆 Finale</span>
+        <span class="text-sm font-black text-fifa-gold uppercase tracking-widest">{{ t.get("stage-final") }}</span>
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.final_.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t) %}{% endfor %}</div>
 </div>
 {% endif %}
 {% endmacro %}
@@ -182,16 +219,16 @@
 
 <div id="tab-container" data-default-tab="{{ default_tab }}">
     <nav class="pl-tabs">
-        <button type="button" data-tab="table" class="pl-tab" data-active="false">Tabelle</button>
+        <button type="button" data-tab="table" class="pl-tab" data-active="false">{{ t.get("tab-table") }}</button>
         <button type="button" data-tab="started" class="pl-tab" data-active="false">
-            Aktuell{% if started_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ started_count }})</span>{% endif %}
+            {{ t.get("tab-current") }}{% if started_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ started_count }})</span>{% endif %}
         </button>
         <button type="button" data-tab="open" class="pl-tab" data-active="false">
-            Offen{% if open_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ open_count }})</span>{% endif %}
+            {{ t.get("tab-open") }}{% if open_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ open_count }})</span>{% endif %}
         </button>
-        <button type="button" data-tab="special" class="pl-tab" data-active="false">Spezial</button>
+        <button type="button" data-tab="special" class="pl-tab" data-active="false">{{ t.get("tab-special") }}</button>
         {% if is_admin %}
-        <button type="button" data-tab="admin" class="pl-tab" data-active="false">⚙️ Admin</button>
+        <button type="button" data-tab="admin" class="pl-tab" data-active="false">⚙️ {{ t.get("tab-admin") }}</button>
         {% endif %}
     </nav>
 
@@ -220,16 +257,16 @@
             {# Rank + Points layout (side by side) #}
             <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:16px; position:relative; z-index:2;">
                 <div>
-                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">Dein Rang</div>
+                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">{{ t.get("your-rank") }}</div>
                     <div class="pl-display" style="font-size:64px; line-height:0.9;">{{ user_rank }}<span style="font-size:20px; color:var(--pl-mute);">/{{ leaderboard.len() }}</span></div>
                 </div>
                 <div style="text-align:right;">
-                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">Punkte</div>
+                    <div class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;">{{ t.get("points-label") }}</div>
                     <div class="pl-score" style="font-size:44px; text-shadow:0 0 18px rgba(116,255,140,.45);">{{ user_total_points }}</div>
                 </div>
             </div>
 
-            {# Badge-Grid: alle Werte werden bei jedem Request frisch aus predictions × matches berechnet (siehe src/badges.rs). #}
+            {# Badge-Grid #}
             <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; position:relative; z-index:2;">
                 {% for b in badges %}
                 {% include "partials/badge.html" %}
@@ -241,10 +278,10 @@
         <div class="pl-card" style="padding:0; overflow:hidden; margin-bottom:16px;">
             <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
                 <span class="pl-display" style="font-size:16px;">🏆</span>
-                <span class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.12em; text-transform:uppercase;">Leaderboard</span>
+                <span class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.12em; text-transform:uppercase;">{{ t.get("leaderboard-heading") }}</span>
             </div>
             {% if leaderboard.len() == 0 %}
-            <div style="padding:16px; text-align:center; color:var(--pl-mute); font-size:14px;">Noch keine Punkte vergeben.</div>
+            <div style="padding:16px; text-align:center; color:var(--pl-mute); font-size:14px;">{{ t.get("no-points-yet") }}</div>
             {% else %}
             <div>
                 {% for entry in leaderboard %}
@@ -258,7 +295,7 @@
                     </span>
                     {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}
                     <span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
-                    <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} PKT</span>
+                    <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} {{ t.get("points-suffix") }}</span>
                 </div>
                 {% endfor %}
             </div>
@@ -266,21 +303,21 @@
         </div>
 
         {% if group_standings.len() > 0 %}
-        <h3 class="text-xs font-bold text-fifa-blue uppercase tracking-widest mb-2 px-1">Gruppentabellen</h3>
+        <h3 class="text-xs font-bold text-fifa-blue uppercase tracking-widest mb-2 px-1">{{ t.get("group-tables-heading") }}</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {% for gt in group_standings %}
             <div class="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/40 text-xs font-bold text-fifa-blue uppercase tracking-wider">Gruppe {{ gt.letter }}</div>
+                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/40 text-xs font-bold text-fifa-blue uppercase tracking-wider">{{ t.get("group-prefix-full") }} {{ gt.letter }}</div>
                 <table class="w-full text-[11px] border-collapse">
                     <thead>
                         <tr class="bg-slate-700/30 text-slate-400 text-[10px]">
                             <th class="px-2 py-1 text-left font-semibold">Team</th>
-                            <th class="px-1 py-1 text-right font-semibold">Sp</th>
-                            <th class="px-1 py-1 text-right font-semibold">S</th>
-                            <th class="px-1 py-1 text-right font-semibold">U</th>
-                            <th class="px-1 py-1 text-right font-semibold">N</th>
-                            <th class="px-1 py-1 text-right font-semibold">TD</th>
-                            <th class="px-2 py-1 text-right font-semibold">Pkt</th>
+                            <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-played") }}</th>
+                            <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-wins") }}</th>
+                            <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-draws") }}</th>
+                            <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-losses") }}</th>
+                            <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-goal-diff") }}</th>
+                            <th class="px-2 py-1 text-right font-semibold">{{ t.get("col-points-table") }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -309,16 +346,16 @@
     {# ===== TAB: AKTUELL ===== #}
     <section data-panel="started" class="tab-panel mt-3 hidden">
         {% if started_in_progress.is_empty() && started_finished.is_empty() %}
-        <p class="text-slate-500 text-sm text-center py-12">Noch kein Spiel angepfiffen.</p>
+        <p class="text-slate-500 text-sm text-center py-12">{{ t.get("no-match-started") }}</p>
         {% else %}
             {% if !started_in_progress.is_empty() %}
-            <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 px-1">Laufend</h3>
-            {% call stage_section(started_in_progress) %}
+            <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
+            {% call stage_section(started_in_progress, t) %}
             {% endif %}
 
             {% if !started_finished.is_empty() %}
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6 px-1">Abgeschlossen</h3>
-            {% call stage_section(started_finished) %}
+            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
+            {% call stage_section(started_finished, t) %}
             {% endif %}
         {% endif %}
     </section>
@@ -330,7 +367,7 @@
             <div class="pl-deadline-stripe"></div>
             <div style="padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;">
                 <div style="min-width:0;">
-                    <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; text-transform:uppercase;">Nächste Deadline</div>
+                    <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("next-deadline") }}</div>
                     {% match next_deadline_iso %}
                     {% when Some with (iso) %}
                     <div class="pl-display" data-deadline="{{ iso }}" style="font-size:22px; line-height:1.1; margin-top:4px; font-variant-numeric:tabular-nums;">--:--:--</div>
@@ -339,16 +376,16 @@
                     {% endmatch %}
                 </div>
                 <div style="text-align:right;">
-                    <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); text-transform:uppercase;">Spiele offen</div>
+                    <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); text-transform:uppercase;">{{ t.get("open-matches-count") }}</div>
                     <div class="pl-display" style="font-size:22px; color:var(--pl-yellow); line-height:1.1; margin-top:4px;">{{ open_count }}</div>
                 </div>
             </div>
         </div>
         {% endif %}
         {% if open_matches.is_empty() %}
-        <p class="text-slate-500 text-sm text-center py-12">Aktuell keine offenen Tipps.</p>
+        <p class="text-slate-500 text-sm text-center py-12">{{ t.get("no-open-tips") }}</p>
         {% else %}
-        {% call stage_section(open_matches) %}
+        {% call stage_section(open_matches, t) %}
         {% endif %}
     </section>
 
@@ -358,35 +395,35 @@
         <div class="pl-card" style="padding:16px; margin-bottom:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span style="font-size:18px;">➕</span>
-                <span class="pl-display" style="font-size:14px;">Neuen User anlegen</span>
+                <span class="pl-display" style="font-size:14px;">{{ t.get("admin-new-user") }}</span>
             </div>
             {% if !signal_enabled %}
             <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; margin-bottom:10px;">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</div>
             {% endif %}
             <form hx-post="/admin/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px;">
-                <input type="text" name="name" placeholder="Name" required maxlength="255"
+                <input type="text" name="name" placeholder="{{ t.get("col-name") }}" required maxlength="255"
                        style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
-                <input type="text" name="phone_number" placeholder="Telefon (+49…) optional" maxlength="32"
+                <input type="text" name="phone_number" placeholder="{{ t.get("admin-phone-placeholder") }}" maxlength="32"
                        style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
-                <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">Anlegen</button>
+                <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">{{ t.get("admin-create-btn") }}</button>
             </form>
         </div>
 
         <div class="pl-card" style="padding:0; overflow:hidden;">
             <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
                 <span style="font-size:18px;">👥</span>
-                <span class="pl-display" style="font-size:14px;">User-Verwaltung</span>
+                <span class="pl-display" style="font-size:14px;">{{ t.get("admin-user-mgmt") }}</span>
                 <span class="pl-mono" style="font-size:9px; color:var(--pl-mute); margin-left:auto;">{{ admin_users.len() }}</span>
             </div>
             <div style="overflow-x:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:12px;">
                     <thead>
                         <tr style="background:rgba(116,255,140,.04); border-bottom:1px solid var(--pl-line);">
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Name</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Telefon</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Rolle</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Magic-Link</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">Aktionen</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-name") }}</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-phone") }}</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-role") }}</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-magic-link") }}</th>
+                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-actions") }}</th>
                         </tr>
                     </thead>
                     <tbody id="admin-user-list" style="border-top:1px solid var(--pl-line);">
@@ -406,15 +443,15 @@
             <div style="margin-bottom:16px;">
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
                     <span style="font-size:20px;">🏆</span>
-                    <span class="pl-display" style="font-size:16px;">Weltmeister</span>
+                    <span class="pl-display" style="font-size:16px;">{{ t.get("champion-heading") }}</span>
                 </div>
-                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.08em;">10 PUNKTE</div>
+                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.08em;">{{ t.get("champion-points") }}</div>
             </div>
 
             {% if tournament_locked %}
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span style="font-size:16px;">🏆</span>
-                <span class="pl-mono" style="font-size:11px; color:var(--pl-yellow); letter-spacing:.1em; text-transform:uppercase;">Weltmeister-Tipps</span>
+                <span class="pl-mono" style="font-size:11px; color:var(--pl-yellow); letter-spacing:.1em; text-transform:uppercase;">{{ t.get("champion-tips-heading") }}</span>
             </div>
             <div style="display:flex; flex-direction:column; gap:6px;">
                 {% for pred in champ_preds %}
@@ -430,22 +467,22 @@
                     {% endmatch %}
                 </div>
                 {% endfor %}
-                {% if champ_preds.is_empty() %}<div style="text-align:center; color:var(--pl-mute); font-size:12px; padding:8px;">Keine Tipps</div>{% endif %}
+                {% if champ_preds.is_empty() %}<div style="text-align:center; color:var(--pl-mute); font-size:12px; padding:8px;">{{ t.get("no-champion-picks") }}</div>{% endif %}
             </div>
             {% else %}
             <form action="/predict_special" method="POST" style="display:flex; flex-direction:column; gap:12px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:18px;">🏆</span>
-                    <span class="pl-display" style="font-size:14px;">Wer wird Weltmeister?</span>
+                    <span class="pl-display" style="font-size:14px;">{{ t.get("champion-question") }}</span>
                 </div>
                 <select name="champion_id" style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:14px; border-radius:8px; padding:10px 12px; outline:none; cursor:pointer;">
-                    <option value="">-- Wähle den Sieger --</option>
-                    {% for t in team_options %}
-                    <option value="{{ t.id }}" {% if special_preds.is_champion(t.id) %}selected{% endif %}>{{ t.name }}</option>
+                    <option value="">{{ t.get("choose-winner") }}</option>
+                    {% for team in team_options %}
+                    <option value="{{ team.id }}" {% if special_preds.is_champion(team.id) %}selected{% endif %}>{{ team.name }}</option>
                     {% endfor %}
                 </select>
                 <button type="submit" class="pl-btn pl-btn--primary" style="width:100%; padding:10px;">
-                    Speichern
+                    {{ t.get("save") }}
                 </button>
             </form>
             {% endif %}

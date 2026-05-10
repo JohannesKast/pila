@@ -42,6 +42,7 @@ async fn main() {
         jerseys: pila::jersey::load(),
         news: news::NewsCache::from_env(),
         repos: repos.clone(),
+        translations: pila::translations::load_all(),
     };
 
     if let Err(e) = worker::bootstrap_notifications(&*repos.notifications).await {
@@ -80,6 +81,7 @@ fn build_router() -> Router<AppState> {
             get(handlers::jersey_picker_close),
         )
         .route("/profile/jersey", axum::routing::post(handlers::jersey_post))
+        .route("/profile/language", axum::routing::post(handlers::set_language_post))
         .route("/admin/users", axum::routing::post(handlers::admin_create_user))
         .route(
             "/admin/users/:id/delete",

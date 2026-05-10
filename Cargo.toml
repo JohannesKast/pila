@@ -22,3 +22,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower-http = { version = "0.5", features = ["fs"] }
 feed-rs = "2"
 thiserror = "1"
+fluent-bundle = "0.15"
+unic-langid = "0.9"

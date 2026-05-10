@@ -52,6 +52,7 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         jerseys: jerseys.clone(),
         news: pila::news::NewsCache::from_env(),
         repos: pila::repo::Repos::from_pool(pool.clone()),
+        translations: std::collections::HashMap::new(),
     };
 
     let new_jersey = "brasilien";

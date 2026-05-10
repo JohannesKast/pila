@@ -18,6 +18,7 @@ use crate::handlers::util::{flag_url, format_kickoff};
 use crate::news;
 use crate::notifier;
 use crate::scoring;
+use crate::translations::T;
 use crate::views::{
     AdminUserView, ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView,
     SpecialPredictionsView, StageGroups, TeamView, UserPrediction,
@@ -49,6 +50,8 @@ struct IndexTemplate {
     signal_enabled: bool,
     news_items: Vec<news::NewsItem>,
     badges: Vec<badges::BadgeView>,
+    t: T,
+    lang_code: String,
 }
 
 pub async fn index(
@@ -306,6 +309,14 @@ pub async fn index(
         .unwrap_or_default()
         .unwrap_or_else(|| "WM 2026".to_string());
 
+    let lang_code = user.language.clone();
+    let t = state
+        .translations
+        .get(&user.language)
+        .or_else(|| state.translations.get("de"))
+        .expect("de locale always present")
+        .clone();
+
     let template = IndexTemplate {
         user_name: user.name,
         user_total_points,
@@ -329,6 +340,8 @@ pub async fn index(
         signal_enabled: notifier::signal_configured(),
         news_items,
         badges: badges_list,
+        t,
+        lang_code,
     };
     Ok(Html(template.render().unwrap()).into_response())
 }

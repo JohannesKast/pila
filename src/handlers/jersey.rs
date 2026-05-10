@@ -4,15 +4,16 @@
 
 use askama::Template;
 use axum::{
-    extract::{Query, State},
-    http::StatusCode,
-    response::Html,
+    extract::{Form, Query, State},
+    http::{HeaderMap, StatusCode},
+    response::{Html, IntoResponse},
 };
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
 use crate::handlers::util::html_escape;
+use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;
 
@@ -21,6 +22,7 @@ use crate::AppState;
 struct JerseyPickerTemplate {
     options: Vec<JerseyOption>,
     current: String,
+    t: T,
 }
 
 #[derive(Template)]
@@ -34,12 +36,23 @@ pub async fn jersey_picker_get(
     State(state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Html<String> {
+    let t = state
+        .translations
+        .get(&user.language)
+        .or_else(|| state.translations.get("de"))
+        .expect("de locale always present")
+        .clone();
+
     let mut options: Vec<JerseyOption> = state
         .jerseys
         .iter()
-        .map(|(k, v)| JerseyOption {
-            key: k.clone(),
-            preset: v.clone(),
+        .map(|(k, v)| {
+            let display_name = t.get(&format!("jersey-name-{k}"));
+            JerseyOption {
+                key: k.clone(),
+                preset: v.clone(),
+                display_name,
+            }
         })
         .collect();
     options.sort_by(|a, b| {
@@ -48,12 +61,12 @@ pub async fn jersey_picker_get(
         pila_b
             .cmp(&pila_a)
             .then_with(|| a.preset.group.cmp(&b.preset.group))
-            .then_with(|| a.preset.name.cmp(&b.preset.name))
+            .then_with(|| a.display_name.cmp(&b.display_name))
     });
-
     let template = JerseyPickerTemplate {
         options,
         current: user.jersey_preset,
+        t,
     };
     Html(template.render().unwrap())
 }
@@ -106,4 +119,34 @@ pub async fn jersey_post(
     );
 
     Ok(Html(oob_html))
+}
+
+const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
+
+#[derive(Deserialize)]
+pub struct SetLanguageForm {
+    pub language: String,
+}
+
+/// `POST /profile/language` — persist user's language preference.
+/// Responds with `HX-Location: /` so HTMX performs a client-side navigation
+/// (full re-render in the chosen language, no browser reload flash).
+pub async fn set_language_post(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Form(form): Form<SetLanguageForm>,
+) -> impl IntoResponse {
+    if !VALID_LOCALES.contains(&form.language.as_str()) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    state
+        .repos
+        .users
+        .set_language(user.id, &form.language)
+        .await
+        .ok();
+
+    let mut headers = HeaderMap::new();
+    headers.insert("HX-Location", "/".parse().unwrap());
+    (StatusCode::OK, headers).into_response()
 }

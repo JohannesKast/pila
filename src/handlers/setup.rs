@@ -18,7 +18,9 @@ use crate::AppState;
 
 #[derive(Template)]
 #[template(path = "setup.html")]
-struct SetupTemplate {}
+struct SetupTemplate {
+    lang_code: &'static str,
+}
 
 async fn user_count(repos: &Repos) -> Result<i64, (StatusCode, &'static str)> {
     repos
@@ -34,7 +36,7 @@ pub async fn setup_get(
     if user_count(&state.repos).await? > 0 {
         return Ok(Redirect::to("/").into_response());
     }
-    let template = SetupTemplate {};
+    let template = SetupTemplate { lang_code: "de" };
     Ok(Html(template.render().unwrap()).into_response())
 }
 

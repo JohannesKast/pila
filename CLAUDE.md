@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language Convention
+
+**Working language:** The user writes in German. Respond in German.
+
+**Code language:** Everything in the repository must be in English — without exception:
+- Source code, variable/function/type names
+- Database fields, migration files, SQL
+- Code comments and doc comments
+- Template comments (Jinja/Askama `{# … #}`)
+- Test names and assertion messages
+- Documentation files (`.md`, `doc/`)
+- Commit messages, PR descriptions
+
+**UI strings are internationalised** — user-facing strings are NOT hardcoded in any language. They live in `locales/{de,en,es,fr}.ftl` (Mozilla Fluent format). Every new UI string must be added to **all four** locale files with a `# translator comment` explaining context. Signal notifications remain German (group is German-speaking).
+
 ## What This Is
 
 **Pila** is a FIFA World Cup 2026 prediction game (Tippspiel) in Rust. Users tip exact scores for every match (group + knockout) plus a single Weltmeister pick, scored Kicktipp-style with stage multipliers. Magic-link cookie auth, Askama HTML templates, Postgres via sqlx, optional Signal-group push. ESPN's `soccer/fifa.world` scoreboard endpoint feeds the background sync worker.
@@ -42,16 +57,19 @@ All `sqlx::query!`/`query_as!` invocations are checked at compile time against `
 
 ```
 src/
-├── main.rs       # Axum server + all HTTP handlers (handlers mod inline) + AppState wiring
-├── lib.rs        # module declarations + AppState { db: PgPool }
-├── auth.rs       # AuthenticatedUser FromRequestParts extractor (pila_token cookie)
-├── stage.rs      # Stage enum (sqlx::Type matching Postgres `match_stage` ENUM) + multipliers + DE labels
-├── scoring.rs    # Pure-Rust Kicktipp scoring; no SQL; tested in-file
-├── notifier.rs   # Notifier trait + SignalNotifier + NoopNotifier + quiet-hour gate
-└── worker.rs     # ESPN sync + idempotent notification dispatch (30-min loop)
+├── main.rs          # Axum server + all HTTP handlers (handlers mod inline) + AppState wiring
+├── lib.rs           # module declarations + AppState { db: PgPool }
+├── auth.rs          # AuthenticatedUser FromRequestParts extractor (pila_token cookie)
+├── stage.rs         # Stage enum + multipliers + ftl_key() for i18n
+├── scoring.rs       # Pure-Rust Kicktipp scoring; no SQL; tested in-file
+├── translations.rs  # T wrapper (Arc<HashMap>) loaded from locales/*.ftl at startup
+├── notifier.rs      # Notifier trait + SignalNotifier + NoopNotifier + quiet-hour gate
+└── worker.rs        # ESPN sync + idempotent notification dispatch (30-min loop)
 ```
 
-**AppState** holds a 5-connection `PgPool`, cloned across handlers via `Router::with_state`.
+**AppState** holds a 5-connection `PgPool`, cloned across handlers via `Router::with_state`. It also holds `translations: HashMap<String, T>` — all four locale bundles loaded once at startup.
+
+**Internationalisation**: supported locales are `de`, `en`, `es`, `fr`. Translations live in `locales/{de,en,es,fr}.ftl` (Mozilla Fluent format). Each FTL message has a `# translator comment` for context. The `T` struct (`src/translations.rs`) wraps `Arc<HashMap<String, String>>` — clone is cheap. Every full-page Askama template struct carries `t: T` and `lang_code: String`. The user's preferred language is stored in `users.language` (VARCHAR DEFAULT `'de'`) and surfaced via `AuthenticatedUser.language`. Language switching: `POST /profile/language` validates the locale, persists it, returns `HX-Location: /` for HTMX client-side navigation. **Rule: every new UI string must appear in all four FTL files with a translator comment.**
 
 **Auth** is a single Axum extractor reading the `pila_token` cookie. Routes that must be private take `AuthenticatedUser` directly; there is currently no `Option<AuthenticatedUser>` variant — every route except `/play/me/:token` requires auth. Magic links are issued out-of-band via `create_invite.sh`.
 

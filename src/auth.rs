@@ -14,6 +14,7 @@ pub struct AuthenticatedUser {
     pub is_admin: bool,
     pub phone_number: Option<String>,
     pub jersey_preset: String,
+    pub language: String,
 }
 
 async fn lookup_user(
@@ -27,6 +28,7 @@ async fn lookup_user(
         is_admin: u.is_admin,
         phone_number: u.phone_number,
         jersey_preset: u.jersey_preset,
+        language: u.language,
     }))
 }
 

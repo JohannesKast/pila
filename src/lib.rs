@@ -8,6 +8,7 @@ pub mod repo;
 pub mod scoreboard;
 pub mod scoring;
 pub mod stage;
+pub mod translations;
 pub mod views;
 pub mod worker;
 
@@ -19,4 +20,5 @@ pub struct AppState {
     pub jerseys: Arc<HashMap<String, jersey::JerseyPreset>>,
     pub news: Arc<news::NewsCache>,
     pub repos: repo::Repos,
+    pub translations: HashMap<String, translations::T>,
 }

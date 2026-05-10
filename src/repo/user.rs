@@ -15,6 +15,7 @@ pub struct UserAuth {
     pub is_admin: bool,
     pub phone_number: Option<String>,
     pub jersey_preset: String,
+    pub language: String,
 }
 
 /// Full record needed by admin operations (token + phone).
@@ -69,6 +70,7 @@ pub trait UserRepo: Send + Sync {
     async fn set_admin(&self, id: Uuid, is_admin: bool) -> RepoResult<()>;
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()>;
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
+    async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -87,7 +89,7 @@ impl PgUserRepo {
 impl UserRepo for PgUserRepo {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>> {
         let row = sqlx::query!(
-            "SELECT id, name, is_admin, phone_number, jersey_preset FROM users WHERE token = $1",
+            "SELECT id, name, is_admin, phone_number, jersey_preset, language FROM users WHERE token = $1",
             token
         )
         .fetch_optional(&self.pool)
@@ -100,6 +102,7 @@ impl UserRepo for PgUserRepo {
             is_admin: r.is_admin,
             phone_number: r.phone_number,
             jersey_preset: r.jersey_preset,
+            language: r.language,
         }))
     }
 
@@ -235,6 +238,18 @@ impl UserRepo for PgUserRepo {
         .map_err(RepoError::from)?;
         Ok(())
     }
+
+    async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()> {
+        sqlx::query!(
+            "UPDATE users SET language = $1 WHERE id = $2",
+            language,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
 }
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
@@ -279,6 +294,7 @@ impl UserRepo for MemoryUserRepo {
                 .get(&u.id)
                 .cloned()
                 .unwrap_or_else(|| "classic".to_string()),
+            language: "de".to_string(),
         }))
     }
 
@@ -385,6 +401,10 @@ impl UserRepo for MemoryUserRepo {
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()> {
         let mut s = self.inner.lock().unwrap();
         s.jerseys.insert(id, preset.to_string());
+        Ok(())
+    }
+
+    async fn set_language(&self, _id: Uuid, _language: &str) -> RepoResult<()> {
         Ok(())
     }
 }

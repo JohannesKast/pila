@@ -9,7 +9,7 @@ use crate::stage::Stage;
 /// - Correct tendency only (winner / draw): 1 × multiplier
 /// - Otherwise: 0
 ///
-/// Score reflects the result inkl. Verlängerung (Endstand vor Elfmeterschießen).
+/// Score reflects the result including extra time (before penalty shootout).
 pub fn calculate_match_points(
     stage: Stage,
     actual_h: i32,
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn ko_draw_after_extra_time_is_valid() {
-        // K.O.-Spiel kann unentschieden enden (vor Elfmeterschießen)
+        // K.O. matches can end in a draw (before penalty shootout)
         assert_eq!(calculate_match_points(Stage::QuarterFinal, 1, 1, 1, 1), 16);
     }
 

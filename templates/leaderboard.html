@@ -1,17 +1,50 @@
 {% extends "base.html" %}
 
+{% block topbar %}
+<header style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; background:var(--pl-bg);">
+    <a href="/" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px; font-size:13px;">← {{ t.get("back-to-tips") }}</a>
+    <div style="position:relative;" id="lang-menu">
+        <button type="button"
+                onclick="var d=document.getElementById('lang-drop');d.classList.toggle('hidden');"
+                class="pl-btn pl-btn--ghost"
+                style="height:36px; padding:0 10px; font-size:14px;">🌐</button>
+        <div id="lang-drop" class="hidden"
+             style="position:absolute; right:0; top:calc(100% + 4px); background:var(--pl-bg-2); border:1px solid var(--pl-line-2); border-radius:8px; min-width:130px; z-index:100; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.5);">
+            <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                <input type="hidden" name="language" value="de">
+                <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "de" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "de" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇩🇪 Deutsch</button>
+            </form>
+            <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                <input type="hidden" name="language" value="en">
+                <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "en" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "en" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇬🇧 English</button>
+            </form>
+            <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                <input type="hidden" name="language" value="es">
+                <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "es" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "es" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇪🇸 Español</button>
+            </form>
+            <form hx-post="/profile/language" hx-swap="none" style="margin:0;">
+                <input type="hidden" name="language" value="fr">
+                <button type="submit" style="width:100%; text-align:left; padding:9px 14px; background:{% if lang_code == "fr" %}rgba(255,230,0,.08){% else %}none{% endif %}; border:0; color:{% if lang_code == "fr" %}var(--pl-yellow){% else %}var(--pl-fg-2){% endif %}; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:8px;">🇫🇷 Français</button>
+            </form>
+        </div>
+    </div>
+</header>
+<script>
+    document.addEventListener('click', function(e) {
+        var menu = document.getElementById('lang-menu');
+        if (menu && !menu.contains(e.target)) {
+            var drop = document.getElementById('lang-drop');
+            if (drop) drop.classList.add('hidden');
+        }
+    });
+</script>
+{% endblock %}
+
 {% block content %}
 <div class="rounded-xl bg-slate-800 border border-slate-700 p-8 shadow-xl relative overflow-hidden">
     <div class="relative z-10">
-        <h2 class="text-4xl font-extrabold mb-2">Leaderboard</h2>
-        <p class="text-xl text-slate-300 mb-6">Wer wird Tipp-Weltmeister?</p>
-
-        <div class="flex gap-4">
-            <a href="/"
-                class="bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-6 rounded-lg shadow transition-colors border border-slate-600">
-                Zurück zu den Tipps
-            </a>
-        </div>
+        <h2 class="text-4xl font-extrabold mb-2">{{ t.get("leaderboard-page-title") }}</h2>
+        <p class="text-xl text-slate-300 mb-6">{{ t.get("leaderboard-page-subtitle") }}</p>
     </div>
 </div>
 
@@ -19,16 +52,15 @@
     <table class="w-full text-left border-collapse">
         <thead>
             <tr class="bg-slate-700/50 text-slate-300 uppercase text-sm tracking-wider">
-                <th class="px-6 py-4 font-semibold w-16 text-center">#</th>
-                <th class="px-6 py-4 font-semibold">Name</th>
-                <th class="px-6 py-4 font-semibold text-right">Punkte</th>
+                <th class="px-6 py-4 font-semibold w-16 text-center">{{ t.get("col-rank") }}</th>
+                <th class="px-6 py-4 font-semibold">{{ t.get("col-player") }}</th>
+                <th class="px-6 py-4 font-semibold text-right">{{ t.get("col-points-header") }}</th>
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-700/50 text-lg">
             {% if entries.len() == 0 %}
             <tr>
-                <td colspan="3" class="px-6 py-8 text-center text-slate-400">Noch keine Spieler oder Punkte vergeben.
-                </td>
+                <td colspan="3" class="px-6 py-8 text-center text-slate-400">{{ t.get("no-players-yet") }}</td>
             </tr>
             {% else %}
             {% for entry in entries %}
@@ -44,14 +76,11 @@
                     {{ entry.name }}
                 </td>
                 <td class="px-6 py-4 text-right">
-                    <span
-                        class="font-black text-2xl {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-slate-200{% endif %}">{{
-                        entry.total_points }}</span>
+                    <span class="font-black text-2xl {% if loop.index0 == 0 %}text-fifa-gold{% else %}text-slate-200{% endif %}">{{ entry.total_points }}</span>
                     {% if entry.max_potential_points > entry.total_points %}
                     <span class="ml-2 text-sm text-slate-400 cursor-help"
-                        title="Maximal noch erreichbar: {{ entry.max_potential_points }} Punkte">
-                        <span class="text-slate-500">/</span> <span class="text-amber-400/80">{{
-                            entry.max_potential_points }}</span>
+                          title="{{ t.get("max-potential") }}: {{ entry.max_potential_points }} {{ t.get("col-points-header") }}">
+                        <span class="text-slate-500">/</span> <span class="text-amber-400/80">{{ entry.max_potential_points }}</span>
                     </span>
                     {% endif %}
                 </td>

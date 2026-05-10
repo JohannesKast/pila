@@ -23,7 +23,7 @@ pub use admin::{
 };
 pub use auth::login_magic_link;
 pub use index::index;
-pub use jersey::{jersey_picker_close, jersey_picker_get, jersey_post};
+pub use jersey::{jersey_picker_close, jersey_picker_get, jersey_post, set_language_post};
 pub use leaderboard::leaderboard;
 pub use predictions::{predict_match, predict_special};
 pub use setup::{setup_get, setup_post};

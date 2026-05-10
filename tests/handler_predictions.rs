@@ -56,6 +56,7 @@ fn build_harness() -> Harness {
         jerseys: pila::jersey::load(),
         news: pila::news::NewsCache::from_env(),
         repos,
+        translations: std::collections::HashMap::new(),
     };
 
     Harness {
@@ -74,6 +75,7 @@ fn fake_user() -> AuthenticatedUser {
         is_admin: false,
         phone_number: None,
         jersey_preset: "classic".into(),
+        language: "de".into(),
     }
 }
 

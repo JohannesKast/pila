@@ -40,6 +40,7 @@ fn build_harness() -> Harness {
         jerseys: pila::jersey::load(),
         news: pila::news::NewsCache::from_env(),
         repos,
+        translations: std::collections::HashMap::new(),
     };
 
     Harness { state, users }
@@ -52,6 +53,7 @@ fn admin_extractor(id: Uuid) -> AdminUser {
         is_admin: true,
         phone_number: None,
         jersey_preset: "classic".into(),
+        language: "de".into(),
     })
 }
 

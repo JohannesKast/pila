@@ -174,4 +174,5 @@ pub struct LeaderboardEntry {
 pub struct JerseyOption {
     pub key: String,
     pub preset: JerseyPreset,
+    pub display_name: String,
 }
