@@ -1,0 +1,334 @@
+//! `GET /` — the dashboard. Aggregates fixtures, predictions, leaderboard,
+//! group tables and admin tools into a single Askama render.
+
+use askama::Template;
+use axum::{
+    extract::State,
+    http::StatusCode,
+    response::{Html, IntoResponse, Redirect, Response},
+};
+
+use crate::auth::MaybeAuthenticatedUser;
+use crate::badges;
+use crate::handlers::services::{
+    build_badge_context, fetch_actual_champion, fetch_admin_users, fetch_group_standings,
+    fetch_leaderboard,
+};
+use crate::handlers::util::{flag_url, format_kickoff};
+use crate::news;
+use crate::notifier;
+use crate::scoring;
+use crate::views::{
+    AdminUserView, ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView,
+    SpecialPredictionsView, StageGroups, TeamView, UserPrediction,
+};
+use crate::AppState;
+
+#[derive(Template)]
+#[template(path = "index.html")]
+struct IndexTemplate {
+    user_name: String,
+    user_total_points: i32,
+    user_rank: usize,
+    tipprunden_name: String,
+    default_tab: String,
+    started_in_progress: StageGroups,
+    started_finished: StageGroups,
+    open_matches: StageGroups,
+    open_count: usize,
+    next_deadline_iso: Option<String>,
+    started_count: usize,
+    leaderboard: Vec<LeaderboardEntry>,
+    group_standings: Vec<GroupStandingsTable>,
+    team_options: Vec<TeamView>,
+    special_preds: SpecialPredictionsView,
+    tournament_locked: bool,
+    champ_preds: Vec<ChampPrediction>,
+    is_admin: bool,
+    admin_users: Vec<AdminUserView>,
+    signal_enabled: bool,
+    news_items: Vec<news::NewsItem>,
+    badges: Vec<badges::BadgeView>,
+}
+
+pub async fn index(
+    State(state): State<AppState>,
+    MaybeAuthenticatedUser(maybe_user): MaybeAuthenticatedUser,
+) -> Result<Response, (StatusCode, &'static str)> {
+    let user = match maybe_user {
+        Some(u) => u,
+        None => {
+            let count = state
+                .repos
+                .users
+                .count()
+                .await
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            if count == 0 {
+                return Ok(Redirect::to("/setup").into_response());
+            }
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Nicht authentifiziert. Bitte nutze deinen Magic Link (z.B. /play/me/mein-token).",
+            ));
+        }
+    };
+    let now = chrono::Utc::now();
+
+    let rows = state
+        .repos
+        .matches
+        .list_for_index(user.id)
+        .await
+        .unwrap_or_default();
+
+    let other_preds_rows = state
+        .repos
+        .predictions
+        .list_other_users_locked(user.id, now)
+        .await
+        .unwrap_or_default();
+
+    let mut preds_by_match: std::collections::HashMap<i32, Vec<(String, i32, i32)>> =
+        std::collections::HashMap::new();
+    for p in other_preds_rows {
+        preds_by_match
+            .entry(p.match_id)
+            .or_default()
+            .push((p.user_name, p.predicted_home, p.predicted_away));
+    }
+
+    let first_kickoff = state
+        .repos
+        .matches
+        .first_kickoff()
+        .await
+        .unwrap_or_default();
+    let tournament_locked = first_kickoff.is_some_and(|dt| dt < now);
+
+    let special_preds = SpecialPredictionsView {
+        champion_id: state
+            .repos
+            .special_predictions
+            .get_user_champion(user.id)
+            .await
+            .unwrap_or_default(),
+    };
+
+    let team_options: Vec<TeamView> = state
+        .repos
+        .teams
+        .list_real_for_dropdown()
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|t| TeamView {
+            id: t.id,
+            name: t.name,
+        })
+        .collect();
+
+    let champ_preds: Vec<ChampPrediction> = if tournament_locked {
+        let actual = fetch_actual_champion(&state.repos).await;
+        state
+            .repos
+            .special_predictions
+            .list_with_user_names()
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .filter(|r| r.champion_id.is_some())
+            .map(|r| {
+                let pts = match (r.champion_id, actual) {
+                    (Some(p), Some(a)) => Some(if p == a { 10 } else { 0 }),
+                    _ => None,
+                };
+                ChampPrediction {
+                    name: r.user_name,
+                    team_name: r.team_name.unwrap_or_default(),
+                    team_flag: flag_url(&r.flag_code),
+                    points: pts,
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let mut started_in_progress = StageGroups::default();
+    let mut started_finished = StageGroups::default();
+    let mut open_matches = StageGroups::default();
+    let mut next_deadline: Option<chrono::DateTime<chrono::Utc>> = None;
+
+    for r in rows {
+        if r.team_home_id.is_none() || r.team_away_id.is_none() {
+            continue; // skip TBD knockout slots
+        }
+
+        let kickoff = r.kickoff_time;
+        let locked = kickoff.is_some_and(|dt| dt < now);
+        let finished = r.status == "finished";
+
+        if !locked {
+            if let Some(kt) = kickoff {
+                next_deadline = Some(match next_deadline {
+                    Some(existing) => existing.min(kt),
+                    None => kt,
+                });
+            }
+        }
+
+        let own_points = if finished {
+            match (
+                r.score_home,
+                r.score_away,
+                r.predicted_home,
+                r.predicted_away,
+            ) {
+                (Some(sh), Some(sa), Some(ph), Some(pa)) => {
+                    Some(scoring::calculate_match_points(r.stage, sh, sa, ph, pa))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+
+        let mut other_preds: Vec<UserPrediction> = if locked {
+            preds_by_match
+                .get(&r.id)
+                .cloned()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(name, home, away)| {
+                    let points = if finished {
+                        match (r.score_home, r.score_away) {
+                            (Some(sh), Some(sa)) => Some(scoring::calculate_match_points(
+                                r.stage, sh, sa, home, away,
+                            )),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    };
+                    UserPrediction {
+                        name,
+                        home,
+                        away,
+                        points,
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if finished {
+            other_preds.sort_by(|a, b| b.points.cmp(&a.points));
+        }
+
+        let is_live = r.status == "in_progress";
+        let mv = MatchView {
+            id: r.id,
+            stage: r.stage,
+            stage_label: r.stage.label_de().to_string(),
+            group_letter: r.group_letter.map(|s| s.trim().to_string()),
+            home_name: r.home_name,
+            away_name: r.away_name,
+            home_flag: flag_url(&r.home_flag),
+            away_flag: flag_url(&r.away_flag),
+            score_home: r.score_home,
+            score_away: r.score_away,
+            predicted_home: r.predicted_home,
+            predicted_away: r.predicted_away,
+            kickoff_display: format_kickoff(r.kickoff_time),
+            locked,
+            is_live,
+            is_finished: finished,
+            own_points,
+            multiplier: r.stage.multiplier(),
+            other_preds,
+        };
+
+        let target = if locked {
+            if finished {
+                &mut started_finished
+            } else {
+                &mut started_in_progress
+            }
+        } else {
+            &mut open_matches
+        };
+        target.push(mv);
+    }
+
+    let group_standings = fetch_group_standings(&state.repos).await;
+    let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
+
+    let user_entry = leaderboard.iter().find(|e| e.name == user.name).cloned();
+    let user_total_points = user_entry.as_ref().map(|e| e.total_points).unwrap_or(0);
+
+    let user_rank = leaderboard
+        .iter()
+        .position(|entry| entry.name == user.name)
+        .map(|pos| pos + 1)
+        .unwrap_or(leaderboard.len() + 1);
+
+    let open_count = open_matches.len();
+    let next_deadline_iso = next_deadline.map(|dt| dt.to_rfc3339());
+    let started_count = started_in_progress.len() + started_finished.len();
+
+    let special_open = !tournament_locked && special_preds.champion_id.is_none();
+    let default_tab = if open_count > 0 {
+        "open"
+    } else if special_open {
+        "special"
+    } else {
+        "table"
+    }
+    .to_string();
+
+    let admin_users = if user.is_admin {
+        fetch_admin_users(&state.repos, user.id).await
+    } else {
+        Vec::new()
+    };
+
+    let news_items = state.news.get().await;
+
+    let badge_ctx_owned = build_badge_context(&state.repos, user.id, now).await;
+    let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx());
+
+    let tipprunden_name = state
+        .repos
+        .settings
+        .get("tipprunden_name")
+        .await
+        .unwrap_or_default()
+        .unwrap_or_else(|| "WM 2026".to_string());
+
+    let template = IndexTemplate {
+        user_name: user.name,
+        user_total_points,
+        user_rank,
+        tipprunden_name,
+        default_tab,
+        started_in_progress,
+        started_finished,
+        open_matches,
+        open_count,
+        next_deadline_iso,
+        started_count,
+        leaderboard,
+        group_standings,
+        team_options,
+        special_preds,
+        tournament_locked,
+        champ_preds,
+        is_admin: user.is_admin,
+        admin_users,
+        signal_enabled: notifier::signal_configured(),
+        news_items,
+        badges: badges_list,
+    };
+    Ok(Html(template.render().unwrap()).into_response())
+}

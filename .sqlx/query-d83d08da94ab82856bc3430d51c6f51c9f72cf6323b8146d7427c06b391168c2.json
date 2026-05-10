@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO teams (id, name, short_name, flag_code, group_letter)\n            VALUES ($1, $2, $3, $4, $5)\n            ON CONFLICT (id) DO UPDATE SET\n              name = EXCLUDED.name,\n              short_name = COALESCE(EXCLUDED.short_name, teams.short_name),\n              flag_code = COALESCE(EXCLUDED.flag_code, teams.flag_code),\n              group_letter = COALESCE(EXCLUDED.group_letter, teams.group_letter)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Varchar",
+        "Varchar",
+        "Varchar",
+        "Bpchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "d83d08da94ab82856bc3430d51c6f51c9f72cf6323b8146d7427c06b391168c2"
+}

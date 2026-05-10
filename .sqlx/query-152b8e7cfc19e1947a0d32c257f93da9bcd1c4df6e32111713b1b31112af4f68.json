@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT m.id,\n               m.stage AS \"stage: Stage\",\n               m.group_letter,\n               m.kickoff_time AS \"kickoff_time!\",\n               th.name AS home,\n               ta.name AS away\n        FROM matches m\n        JOIN teams th ON th.id = m.team_home_id\n        JOIN teams ta ON ta.id = m.team_away_id\n        LEFT JOIN sent_notifications n\n          ON n.kind = 'match_closing_soon' AND n.ref_id = m.id\n        WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL\n          AND m.kickoff_time IS NOT NULL\n          AND m.kickoff_time BETWEEN NOW() AND NOW() + INTERVAL '24 hours'\n          AND n.ref_id IS NULL\n        ",
+  "query": "\n            SELECT m.id,\n                   m.stage AS \"stage: Stage\",\n                   m.group_letter,\n                   m.kickoff_time AS \"kickoff_time!\",\n                   th.name AS home,\n                   ta.name AS away\n            FROM matches m\n            JOIN teams th ON th.id = m.team_home_id\n            JOIN teams ta ON ta.id = m.team_away_id\n            LEFT JOIN sent_notifications n\n              ON n.kind = 'match_closing_soon' AND n.ref_id = m.id\n            WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL\n              AND m.kickoff_time IS NOT NULL\n              AND m.kickoff_time BETWEEN NOW() AND NOW() + INTERVAL '24 hours'\n              AND n.ref_id IS NULL\n            ",
   "describe": {
     "columns": [
       {
@@ -61,5 +61,5 @@
       false
     ]
   },
-  "hash": "be020e2582ccda462f80933550fd31ebe904bb42329674d073db93fd3c2d0f42"
+  "hash": "152b8e7cfc19e1947a0d32c257f93da9bcd1c4df6e32111713b1b31112af4f68"
 }

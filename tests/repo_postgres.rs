@@ -9,12 +9,15 @@
 //! shared dev database.
 
 use chrono::{Duration, Utc};
-use pila::repo::match_::{MatchRepo, PgMatchRepo};
+use pila::notifier::{NotificationEvent, Notifier, NotifierError};
+use pila::repo::match_::{EspnMatchUpsert, MatchRepo, PgMatchRepo};
+use pila::repo::notification::{NotificationRepo, PgNotificationRepo};
 use pila::repo::prediction::{PgPredictionRepo, PredictionRepo};
 use pila::repo::settings::{PgSettingsRepo, SettingsRepo};
 use pila::repo::special_prediction::{PgSpecialPredictionRepo, SpecialPredictionRepo};
-use pila::repo::team::{PgTeamRepo, TeamRepo};
+use pila::repo::team::{EspnTeamUpsert, PgTeamRepo, TeamRepo};
 use pila::repo::user::{NewUser, PgUserRepo, UserRepo};
+use pila::stage::Stage;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -279,4 +282,193 @@ async fn settings_repo_returns_none_for_unknown_key() {
         .await
         .unwrap();
     assert!(v.is_none());
+}
+
+#[tokio::test]
+async fn settings_repo_set_then_get_round_trips() {
+    let pool = pool().await;
+    let settings = PgSettingsRepo::new(pool.clone());
+    let key = format!("__test_key_{}__", Uuid::new_v4());
+    settings.set(&key, "value-1").await.unwrap();
+    assert_eq!(settings.get(&key).await.unwrap().as_deref(), Some("value-1"));
+    settings.set(&key, "value-2").await.unwrap();
+    assert_eq!(settings.get(&key).await.unwrap().as_deref(), Some("value-2"));
+    sqlx::query!("DELETE FROM settings WHERE key = $1", key)
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn team_repo_upsert_from_espn_inserts_then_updates_name() {
+    let pool = pool().await;
+    let teams = PgTeamRepo::new(pool.clone());
+    // Pick an obviously-not-real ESPN id so we don't collide with real
+    // tournament data; clean up at the end.
+    let espn_id: i32 = 9_990_001 + (std::process::id() as i32 % 1000);
+
+    teams
+        .upsert_from_espn(EspnTeamUpsert {
+            espn_id,
+            name: "Atlantis",
+            short_name: Some("ATL"),
+            flag_code: Some("xx"),
+            group_letter: Some("Z"),
+        })
+        .await
+        .unwrap();
+    teams
+        .upsert_from_espn(EspnTeamUpsert {
+            espn_id,
+            name: "Atlantis FC",
+            short_name: None,    // must NOT clobber existing short_name
+            flag_code: None,     // ditto for flag_code
+            group_letter: None,
+        })
+        .await
+        .unwrap();
+
+    let row = sqlx::query!(
+        "SELECT name, short_name, flag_code FROM teams WHERE id = $1",
+        espn_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(row.name, "Atlantis FC");
+    assert_eq!(row.short_name.as_deref(), Some("ATL"));
+    assert_eq!(row.flag_code.as_deref(), Some("xx"));
+
+    sqlx::query!("DELETE FROM teams WHERE id = $1", espn_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn match_repo_upsert_from_espn_round_trips_and_preserves_kickoff() {
+    let pool = pool().await;
+    let matches = PgMatchRepo::new(pool.clone());
+
+    // Use a high ESPN id we control — clean up afterwards. The ESPN id is the
+    // unique key the upsert keys on, so the synthetic value is safe.
+    let espn_id: i64 = 9_999_900_000_001 + (std::process::id() as i64 % 1000);
+    let kickoff = Utc::now() + Duration::hours(36);
+
+    matches
+        .upsert_from_espn(EspnMatchUpsert {
+            espn_event_id: espn_id,
+            stage: Stage::Group,
+            group_letter: Some("Z"),
+            team_home_id: None,
+            team_away_id: None,
+            score_home: None,
+            score_away: None,
+            kickoff_time: Some(kickoff),
+            status: "scheduled",
+        })
+        .await
+        .unwrap();
+
+    // Second sync: still no team ids from ESPN — must not clobber a kickoff
+    // that was previously set.
+    matches
+        .upsert_from_espn(EspnMatchUpsert {
+            espn_event_id: espn_id,
+            stage: Stage::Group,
+            group_letter: Some("Z"),
+            team_home_id: None,
+            team_away_id: None,
+            score_home: None,
+            score_away: None,
+            kickoff_time: None,
+            status: "scheduled",
+        })
+        .await
+        .unwrap();
+
+    let row = sqlx::query!(
+        "SELECT kickoff_time FROM matches WHERE espn_event_id = $1",
+        espn_id
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(row.kickoff_time.is_some());
+
+    sqlx::query!("DELETE FROM matches WHERE espn_event_id = $1", espn_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn notification_repo_try_send_records_then_skips_duplicate() {
+    let pool = pool().await;
+    let notifications = PgNotificationRepo::new(pool.clone());
+
+    struct OkNotifier;
+    #[async_trait::async_trait]
+    impl Notifier for OkNotifier {
+        async fn notify(&self, _e: NotificationEvent) -> Result<(), NotifierError> {
+            Ok(())
+        }
+    }
+
+    // Synthetic kind keeps this test isolated from real notifications.
+    // Schema caps `kind` at varchar(40); keep the synthetic value short.
+    let kind = format!("t_{}", &Uuid::new_v4().simple().to_string()[..16]);
+    let event = NotificationEvent::SpecialPredictionsLock {
+        lock_at: Utc::now(),
+        missing_names: vec!["Anna".into()],
+    };
+
+    let first = notifications
+        .try_send(&OkNotifier, &kind, 1, event.clone())
+        .await
+        .unwrap();
+    assert!(first);
+    assert!(notifications.already_sent(&kind, 1).await.unwrap());
+
+    let second = notifications
+        .try_send(&OkNotifier, &kind, 1, event)
+        .await
+        .unwrap();
+    assert!(!second, "duplicate must be a no-op");
+
+    sqlx::query!("DELETE FROM sent_notifications WHERE kind = $1", kind)
+        .execute(&pool)
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn notification_repo_try_send_rolls_back_on_notifier_failure() {
+    let pool = pool().await;
+    let notifications = PgNotificationRepo::new(pool.clone());
+
+    struct FailNotifier;
+    #[async_trait::async_trait]
+    impl Notifier for FailNotifier {
+        async fn notify(&self, _e: NotificationEvent) -> Result<(), NotifierError> {
+            Err("boom".into())
+        }
+    }
+
+    // Schema caps `kind` at varchar(40); keep the synthetic value short.
+    let kind = format!("t_{}", &Uuid::new_v4().simple().to_string()[..16]);
+    let event = NotificationEvent::SpecialPredictionsLock {
+        lock_at: Utc::now(),
+        missing_names: vec![],
+    };
+
+    let outcome = notifications
+        .try_send(&FailNotifier, &kind, 7, event)
+        .await
+        .unwrap();
+    assert!(!outcome, "a failed notifier must report not-sent");
+    assert!(
+        !notifications.already_sent(&kind, 7).await.unwrap(),
+        "the slot must be rolled back so the next tick retries"
+    );
 }

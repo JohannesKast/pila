@@ -9,6 +9,7 @@ use super::{RepoError, RepoResult};
 #[async_trait]
 pub trait SettingsRepo: Send + Sync {
     async fn get(&self, key: &str) -> RepoResult<Option<String>>;
+    async fn set(&self, key: &str, value: &str) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -31,6 +32,19 @@ impl SettingsRepo for PgSettingsRepo {
             .await
             .map_err(RepoError::from)?;
         Ok(row.flatten())
+    }
+
+    async fn set(&self, key: &str, value: &str) -> RepoResult<()> {
+        sqlx::query!(
+            "INSERT INTO settings (key, value) VALUES ($1, $2) \
+             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+            key,
+            value
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
     }
 }
 
@@ -58,6 +72,14 @@ impl MemorySettingsRepo {
 impl SettingsRepo for MemorySettingsRepo {
     async fn get(&self, key: &str) -> RepoResult<Option<String>> {
         Ok(self.values.lock().unwrap().get(key).cloned())
+    }
+
+    async fn set(&self, key: &str, value: &str) -> RepoResult<()> {
+        self.values
+            .lock()
+            .unwrap()
+            .insert(key.to_string(), value.to_string());
+        Ok(())
     }
 }
 

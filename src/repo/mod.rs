@@ -9,18 +9,20 @@
 //! and the boundary is the only place that sees raw SQL.
 
 pub mod match_;
+pub mod notification;
 pub mod prediction;
 pub mod settings;
 pub mod special_prediction;
 pub mod team;
 pub mod user;
 
-pub use match_::{MatchRepo, PgMatchRepo};
-pub use prediction::{PgPredictionRepo, PredictionRepo};
-pub use settings::{PgSettingsRepo, SettingsRepo};
-pub use special_prediction::{PgSpecialPredictionRepo, SpecialPredictionRepo};
-pub use team::{PgTeamRepo, TeamRepo};
-pub use user::{PgUserRepo, UserRepo};
+pub use match_::{MatchRepo, MemoryMatchRepo, PgMatchRepo};
+pub use notification::{MemoryNotificationRepo, NotificationRepo, PgNotificationRepo};
+pub use prediction::{MemoryPredictionRepo, PgPredictionRepo, PredictionRepo};
+pub use settings::{MemorySettingsRepo, PgSettingsRepo, SettingsRepo};
+pub use special_prediction::{MemorySpecialPredictionRepo, PgSpecialPredictionRepo, SpecialPredictionRepo};
+pub use team::{MemoryTeamRepo, PgTeamRepo, TeamRepo};
+pub use user::{MemoryUserRepo, PgUserRepo, UserRepo};
 
 use std::sync::Arc;
 
@@ -36,6 +38,7 @@ pub struct Repos {
     pub special_predictions: Arc<dyn SpecialPredictionRepo>,
     pub teams: Arc<dyn TeamRepo>,
     pub settings: Arc<dyn SettingsRepo>,
+    pub notifications: Arc<dyn NotificationRepo>,
 }
 
 impl Repos {
@@ -47,7 +50,8 @@ impl Repos {
             predictions: Arc::new(PgPredictionRepo::new(pool.clone())),
             special_predictions: Arc::new(PgSpecialPredictionRepo::new(pool.clone())),
             teams: Arc::new(PgTeamRepo::new(pool.clone())),
-            settings: Arc::new(PgSettingsRepo::new(pool)),
+            settings: Arc::new(PgSettingsRepo::new(pool.clone())),
+            notifications: Arc::new(PgNotificationRepo::new(pool)),
         }
     }
 }

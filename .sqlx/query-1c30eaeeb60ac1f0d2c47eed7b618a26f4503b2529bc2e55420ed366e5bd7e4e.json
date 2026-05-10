@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT 1 AS dummy FROM sent_notifications\n                 WHERE kind = 'special_lock_soon' AND ref_id = 0",
+  "query": "SELECT 1 AS dummy FROM sent_notifications WHERE kind = $1 AND ref_id = $2",
   "describe": {
     "columns": [
       {
@@ -10,11 +10,14 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Text",
+        "Int4"
+      ]
     },
     "nullable": [
       null
     ]
   },
-  "hash": "529a8fa1b35a66a7fdfcfaff003f72d40b4076d6ac4511d30cb890dd32f12358"
+  "hash": "1c30eaeeb60ac1f0d2c47eed7b618a26f4503b2529bc2e55420ed366e5bd7e4e"
 }

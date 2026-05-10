@@ -14,6 +14,18 @@ pub struct TeamOption {
     pub flag_code: Option<String>,
 }
 
+/// Payload for upserting one team coming back from the ESPN scoreboard.
+/// Optional fields use `COALESCE` semantics so a later sync that omits e.g.
+/// `flag_code` does not erase a value already populated.
+#[derive(Debug, Clone)]
+pub struct EspnTeamUpsert<'a> {
+    pub espn_id: i32,
+    pub name: &'a str,
+    pub short_name: Option<&'a str>,
+    pub flag_code: Option<&'a str>,
+    pub group_letter: Option<&'a str>,
+}
+
 #[async_trait]
 pub trait TeamRepo: Send + Sync {
     /// All "real" teams (excludes ESPN bracket placeholders such as
@@ -22,6 +34,9 @@ pub trait TeamRepo: Send + Sync {
 
     /// True if a real (non-placeholder) team with the given id exists.
     async fn exists_real(&self, team_id: i32) -> RepoResult<bool>;
+
+    /// Upsert one team. Idempotent on `id`.
+    async fn upsert_from_espn(&self, upsert: EspnTeamUpsert<'_>) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -78,6 +93,35 @@ impl TeamRepo for PgTeamRepo {
         .map_err(RepoError::from)?;
         Ok(row.flatten().is_some())
     }
+
+    async fn upsert_from_espn(&self, u: EspnTeamUpsert<'_>) -> RepoResult<()> {
+        let short_name = u.short_name.map(|s| s.to_string());
+        let flag_code = u.flag_code.map(|s| s.to_string());
+        let group_for_team = u.group_letter.map(|g| {
+            g.chars().next().unwrap_or(' ').to_string()
+        });
+
+        sqlx::query!(
+            r#"
+            INSERT INTO teams (id, name, short_name, flag_code, group_letter)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (id) DO UPDATE SET
+              name = EXCLUDED.name,
+              short_name = COALESCE(EXCLUDED.short_name, teams.short_name),
+              flag_code = COALESCE(EXCLUDED.flag_code, teams.flag_code),
+              group_letter = COALESCE(EXCLUDED.group_letter, teams.group_letter)
+            "#,
+            u.espn_id,
+            u.name,
+            short_name,
+            flag_code,
+            group_for_team,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
 }
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
@@ -127,6 +171,24 @@ impl TeamRepo for MemoryTeamRepo {
             .unwrap()
             .iter()
             .any(|t| t.id == team_id && !is_placeholder(&t.name)))
+    }
+
+    async fn upsert_from_espn(&self, u: EspnTeamUpsert<'_>) -> RepoResult<()> {
+        let mut teams = self.teams.lock().unwrap();
+        let new_flag = u.flag_code.map(|s| s.to_string());
+        if let Some(existing) = teams.iter_mut().find(|t| t.id == u.espn_id) {
+            existing.name = u.name.to_string();
+            if new_flag.is_some() {
+                existing.flag_code = new_flag;
+            }
+        } else {
+            teams.push(TeamOption {
+                id: u.espn_id,
+                name: u.name.to_string(),
+                flag_code: new_flag,
+            });
+        }
+        Ok(())
     }
 }
 

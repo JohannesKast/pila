@@ -54,6 +54,23 @@ pub struct FinishedGroupMatch {
     pub away_flag: Option<String>,
 }
 
+/// Payload for upserting one match coming back from the ESPN scoreboard.
+/// All fields except `espn_event_id` and `stage` may flip back to `None`
+/// across worker ticks (e.g. when ESPN walks back a TBD bracket slot), so
+/// the SQL upsert uses `COALESCE` to preserve previously-seen values.
+#[derive(Debug, Clone)]
+pub struct EspnMatchUpsert<'a> {
+    pub espn_event_id: i64,
+    pub stage: Stage,
+    pub group_letter: Option<&'a str>,
+    pub team_home_id: Option<i32>,
+    pub team_away_id: Option<i32>,
+    pub score_home: Option<i32>,
+    pub score_away: Option<i32>,
+    pub kickoff_time: Option<DateTime<Utc>>,
+    pub status: &'a str,
+}
+
 #[async_trait]
 pub trait MatchRepo: Send + Sync {
     async fn list_for_index(&self, user_id: Uuid) -> RepoResult<Vec<IndexMatchRow>>;
@@ -67,6 +84,9 @@ pub trait MatchRepo: Send + Sync {
         &self,
         now: DateTime<Utc>,
     ) -> RepoResult<i64>;
+
+    /// Upsert one match from the ESPN sync. Idempotent on `espn_event_id`.
+    async fn upsert_from_espn(&self, upsert: EspnMatchUpsert<'_>) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -260,6 +280,44 @@ impl MatchRepo for PgMatchRepo {
         .map_err(RepoError::from)?;
         Ok(c)
     }
+
+    async fn upsert_from_espn(&self, u: EspnMatchUpsert<'_>) -> RepoResult<()> {
+        // Trim to the single-letter group representation expected by the
+        // schema's CHECK constraint; mirrors the previous worker behaviour.
+        let group_letter = u
+            .group_letter
+            .map(|s| s.chars().next().unwrap_or(' ').to_string());
+
+        sqlx::query!(
+            r#"
+            INSERT INTO matches (espn_event_id, stage, group_letter, team_home_id, team_away_id,
+                                 score_home, score_away, kickoff_time, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (espn_event_id) DO UPDATE SET
+              stage = EXCLUDED.stage,
+              group_letter = EXCLUDED.group_letter,
+              team_home_id = COALESCE(EXCLUDED.team_home_id, matches.team_home_id),
+              team_away_id = COALESCE(EXCLUDED.team_away_id, matches.team_away_id),
+              score_home = COALESCE(EXCLUDED.score_home, matches.score_home),
+              score_away = COALESCE(EXCLUDED.score_away, matches.score_away),
+              kickoff_time = COALESCE(EXCLUDED.kickoff_time, matches.kickoff_time),
+              status = EXCLUDED.status
+            "#,
+            u.espn_event_id,
+            u.stage as Stage,
+            group_letter,
+            u.team_home_id,
+            u.team_away_id,
+            u.score_home,
+            u.score_away,
+            u.kickoff_time,
+            u.status,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
 }
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
@@ -442,6 +500,46 @@ impl MatchRepo for MemoryMatchRepo {
                     && m.kickoff_time.is_some_and(|t| t < now)
             })
             .count() as i64)
+    }
+
+    async fn upsert_from_espn(&self, u: EspnMatchUpsert<'_>) -> RepoResult<()> {
+        let mut matches = self.matches.lock().unwrap();
+        let trimmed_letter = u
+            .group_letter
+            .map(|s| s.chars().next().unwrap_or(' ').to_string());
+
+        // Look up by ESPN id first (the unique key); fall back to numeric id
+        // for tests that pre-seed without an ESPN id.
+        if let Some(existing) = matches
+            .iter_mut()
+            .find(|m| m.id as i64 == u.espn_event_id)
+        {
+            existing.stage = u.stage;
+            existing.group_letter = trimmed_letter;
+            existing.team_home_id = u.team_home_id.or(existing.team_home_id);
+            existing.team_away_id = u.team_away_id.or(existing.team_away_id);
+            existing.score_home = u.score_home.or(existing.score_home);
+            existing.score_away = u.score_away.or(existing.score_away);
+            existing.kickoff_time = u.kickoff_time.or(existing.kickoff_time);
+            existing.status = u.status.to_string();
+        } else {
+            matches.push(FakeMatch {
+                id: u.espn_event_id as i32,
+                stage: u.stage,
+                group_letter: trimmed_letter,
+                kickoff_time: u.kickoff_time,
+                status: u.status.to_string(),
+                score_home: u.score_home,
+                score_away: u.score_away,
+                team_home_id: u.team_home_id,
+                team_away_id: u.team_away_id,
+                home_name: String::new(),
+                away_name: String::new(),
+                home_flag: None,
+                away_flag: None,
+            });
+        }
+        Ok(())
     }
 }
 

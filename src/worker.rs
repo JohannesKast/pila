@@ -1,11 +1,13 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use reqwest::Client;
 use serde::Deserialize;
-use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
 
 use crate::notifier::{in_quiet_hours_now, NotificationEvent, Notifier};
+use crate::repo::match_::EspnMatchUpsert;
+use crate::repo::team::EspnTeamUpsert;
+use crate::repo::{NotificationRepo, Repos};
 use crate::stage::Stage;
 
 // ─── ESPN Scoreboard structs (soccer/fifa.world) ──────────────────────────────
@@ -102,18 +104,20 @@ struct StandingsEntry {
     team: EspnTeam,
 }
 
-// ─── Public entry point ───────────────────────────────────────────────────────
+// ─── Public entry points ─────────────────────────────────────────────────────
 
-pub async fn start_background_worker(db: PgPool, notifier: Arc<dyn Notifier>) {
+/// Spawn the 30-minute background loop. Pulls fixtures from ESPN, upserts
+/// them via the repo layer, and dispatches due notifications.
+pub async fn start_background_worker(repos: Repos, notifier: Arc<dyn Notifier>) {
     let client = Client::new();
 
     tokio::spawn(async move {
         loop {
             tracing::info!("Running ESPN soccer (fifa.world) update...");
-            if let Err(e) = update_data(&client, &db).await {
+            if let Err(e) = update_data(&client, &repos).await {
                 tracing::error!("ESPN soccer worker error: {:?}", e);
             }
-            if let Err(e) = process_notifications(&db, &notifier).await {
+            if let Err(e) = process_notifications(&repos, &*notifier).await {
                 tracing::error!("Notification processing error: {:?}", e);
             }
             tokio::time::sleep(Duration::from_secs(1800)).await;
@@ -125,36 +129,14 @@ pub async fn start_background_worker(db: PgPool, notifier: Arc<dyn Notifier>) {
 /// the notifier so an existing fixture list does not cause a flood of
 /// MatchClosingSoon notifications. Idempotent via a settings flag.
 pub async fn bootstrap_notifications(
-    db: &PgPool,
+    notifications: &dyn NotificationRepo,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let done = sqlx::query!(
-        "SELECT 1 AS dummy FROM settings WHERE key = 'notifications_bootstrapped' AND value = 'true'"
-    )
-    .fetch_optional(db)
-    .await?
-    .is_some();
-
-    if done {
+    if notifications.was_bootstrapped().await? {
         return Ok(());
     }
 
-    sqlx::query!(
-        r#"
-        INSERT INTO sent_notifications (kind, ref_id)
-        SELECT 'match_closing_soon', m.id FROM matches m
-        WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL
-        ON CONFLICT (kind, ref_id) DO NOTHING
-        "#
-    )
-    .execute(db)
-    .await?;
-
-    sqlx::query!(
-        "INSERT INTO settings (key, value) VALUES ('notifications_bootstrapped', 'true')
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value"
-    )
-    .execute(db)
-    .await?;
+    notifications.silence_existing_matches().await?;
+    notifications.mark_bootstrapped().await?;
 
     tracing::info!("Notification bootstrap complete — current open matches silenced");
     Ok(())
@@ -164,7 +146,7 @@ pub async fn bootstrap_notifications(
 
 async fn update_data(
     client: &Client,
-    db: &PgPool,
+    repos: &Repos,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let groups_map = fetch_groups_map(client).await;
     if !groups_map.is_empty() {
@@ -196,7 +178,7 @@ async fn update_data(
         total_events += resp.events.len();
 
         for event in resp.events {
-            if let Err(e) = process_event(db, &event, &groups_map).await {
+            if let Err(e) = process_event(repos, &event, &groups_map).await {
                 tracing::warn!("event {} processing failed: {:?}", event.id, e);
             }
         }
@@ -212,7 +194,7 @@ async fn update_data(
 }
 
 async fn process_event(
-    db: &PgPool,
+    repos: &Repos,
     event: &Event,
     groups_map: &std::collections::HashMap<i32, String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -263,8 +245,43 @@ async fn process_event(
     }
 
     if let (Some(h), Some(a), Some(hid), Some(aid)) = (home, away, home_id, away_id) {
-        upsert_team(db, hid, &h.team.display_name, &h.team.abbreviation, group_letter.as_deref(), stage).await?;
-        upsert_team(db, aid, &a.team.display_name, &a.team.abbreviation, group_letter.as_deref(), stage).await?;
+        let hflag = flag_code_for_abbr(&h.team.abbreviation);
+        let aflag = flag_code_for_abbr(&a.team.abbreviation);
+        // Only attach group_letter on group-stage events (knockout teams may
+        // already carry their group letter from earlier syncs).
+        let group_for_team: Option<&str> = match stage {
+            Stage::Group => group_letter.as_deref(),
+            _ => None,
+        };
+
+        repos
+            .teams
+            .upsert_from_espn(EspnTeamUpsert {
+                espn_id: hid,
+                name: &h.team.display_name,
+                short_name: if h.team.abbreviation.is_empty() {
+                    None
+                } else {
+                    Some(h.team.abbreviation.as_str())
+                },
+                flag_code: hflag.as_deref(),
+                group_letter: group_for_team,
+            })
+            .await?;
+        repos
+            .teams
+            .upsert_from_espn(EspnTeamUpsert {
+                espn_id: aid,
+                name: &a.team.display_name,
+                short_name: if a.team.abbreviation.is_empty() {
+                    None
+                } else {
+                    Some(a.team.abbreviation.as_str())
+                },
+                flag_code: aflag.as_deref(),
+                group_letter: group_for_team,
+            })
+            .await?;
     }
 
     let score_h = home.and_then(|c| c.score.as_deref()).and_then(|s| s.parse::<i32>().ok());
@@ -281,72 +298,20 @@ async fn process_event(
         })
         .unwrap_or("scheduled");
 
-    sqlx::query!(
-        r#"
-        INSERT INTO matches (espn_event_id, stage, group_letter, team_home_id, team_away_id,
-                             score_home, score_away, kickoff_time, status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (espn_event_id) DO UPDATE SET
-          stage = EXCLUDED.stage,
-          group_letter = EXCLUDED.group_letter,
-          team_home_id = COALESCE(EXCLUDED.team_home_id, matches.team_home_id),
-          team_away_id = COALESCE(EXCLUDED.team_away_id, matches.team_away_id),
-          score_home = COALESCE(EXCLUDED.score_home, matches.score_home),
-          score_away = COALESCE(EXCLUDED.score_away, matches.score_away),
-          kickoff_time = COALESCE(EXCLUDED.kickoff_time, matches.kickoff_time),
-          status = EXCLUDED.status
-        "#,
-        espn_event_id,
-        stage as Stage,
-        group_letter.as_deref().map(|s| s.chars().next().unwrap_or(' ').to_string()),
-        home_id,
-        away_id,
-        score_h,
-        score_a,
-        kickoff,
-        status,
-    )
-    .execute(db)
-    .await?;
-
-    Ok(())
-}
-
-async fn upsert_team(
-    db: &PgPool,
-    espn_id: i32,
-    name: &str,
-    abbreviation: &str,
-    group_letter: Option<&str>,
-    stage: Stage,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Only assign group_letter for group-stage events; knockout events involve
-    // teams that may have already been recorded with their group letter.
-    let group_for_team: Option<String> = match (stage, group_letter) {
-        (Stage::Group, Some(g)) => Some(g.chars().next().unwrap_or(' ').to_string()),
-        _ => None,
-    };
-
-    let flag = flag_code_for_abbr(abbreviation);
-
-    sqlx::query!(
-        r#"
-        INSERT INTO teams (id, name, short_name, flag_code, group_letter)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (id) DO UPDATE SET
-          name = EXCLUDED.name,
-          short_name = COALESCE(EXCLUDED.short_name, teams.short_name),
-          flag_code = COALESCE(EXCLUDED.flag_code, teams.flag_code),
-          group_letter = COALESCE(EXCLUDED.group_letter, teams.group_letter)
-        "#,
-        espn_id,
-        name,
-        if abbreviation.is_empty() { None } else { Some(abbreviation.to_string()) },
-        flag,
-        group_for_team,
-    )
-    .execute(db)
-    .await?;
+    repos
+        .matches
+        .upsert_from_espn(EspnMatchUpsert {
+            espn_event_id,
+            stage,
+            group_letter: group_letter.as_deref(),
+            team_home_id: home_id,
+            team_away_id: away_id,
+            score_home: score_h,
+            score_away: score_a,
+            kickoff_time: kickoff,
+            status,
+        })
+        .await?;
 
     Ok(())
 }
@@ -493,168 +458,78 @@ fn flag_code_for_abbr(abbr: &str) -> Option<String> {
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
-async fn process_notifications(
-    db: &PgPool,
-    notifier: &Arc<dyn Notifier>,
+pub(crate) async fn process_notifications(
+    repos: &Repos,
+    notifier: &dyn Notifier,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    if in_quiet_hours_now() {
+        tracing::debug!("Quiet hours: skipping notification dispatch");
+        return Ok(());
+    }
+    dispatch_pending(repos, notifier, Utc::now()).await
+}
+
+/// Inner dispatch routine — split out from `process_notifications` so tests
+/// can drive it without depending on the wall-clock quiet-hours window.
+async fn dispatch_pending(
+    repos: &Repos,
+    notifier: &dyn Notifier,
+    now: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // 1) Match closing in <24h with at least one user missing a tip.
-    let closing = sqlx::query!(
-        r#"
-        SELECT m.id,
-               m.stage AS "stage: Stage",
-               m.group_letter,
-               m.kickoff_time AS "kickoff_time!",
-               th.name AS home,
-               ta.name AS away
-        FROM matches m
-        JOIN teams th ON th.id = m.team_home_id
-        JOIN teams ta ON ta.id = m.team_away_id
-        LEFT JOIN sent_notifications n
-          ON n.kind = 'match_closing_soon' AND n.ref_id = m.id
-        WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL
-          AND m.kickoff_time IS NOT NULL
-          AND m.kickoff_time BETWEEN NOW() AND NOW() + INTERVAL '24 hours'
-          AND n.ref_id IS NULL
-        "#
-    )
-    .fetch_all(db)
-    .await?;
+    let closing = repos.notifications.list_closing_soon_unnotified().await?;
 
     for r in closing {
-        let names: Vec<String> = sqlx::query_scalar!(
-            r#"
-            SELECT u.name FROM users u
-            WHERE NOT EXISTS (
-                SELECT 1 FROM predictions p
-                WHERE p.user_id = u.id AND p.match_id = $1
-            )
-            ORDER BY u.name
-            "#,
-            r.id
-        )
-        .fetch_all(db)
-        .await?;
+        let names = repos
+            .notifications
+            .users_missing_prediction_for(r.match_id)
+            .await?;
 
         if names.is_empty() {
             continue;
         }
 
         let event = NotificationEvent::MatchClosingSoon {
-            match_id: r.id,
+            match_id: r.match_id,
             home: r.home,
             away: r.away,
             stage: r.stage,
-            group_letter: r.group_letter.map(|s| s.to_string()),
+            group_letter: r.group_letter,
             lock_at: r.kickoff_time,
             missing_names: names,
         };
-        try_send(db, notifier, "match_closing_soon", r.id, event).await;
+        let _ = repos
+            .notifications
+            .try_send(notifier, "match_closing_soon", r.match_id, event)
+            .await?;
     }
 
     // 2) Champion-tip lock approaching — anchored on the very first match.
-    let first_kickoff: Option<DateTime<Utc>> = sqlx::query_scalar!(
-        "SELECT MIN(kickoff_time) FROM matches"
-    )
-    .fetch_one(db)
-    .await?;
-
-    if let Some(lock_at) = first_kickoff {
-        let now = Utc::now();
+    if let Some(lock_at) = repos.matches.first_kickoff().await? {
         if lock_at > now && lock_at <= now + chrono::Duration::hours(24) {
-            let already = sqlx::query!(
-                "SELECT 1 AS dummy FROM sent_notifications
-                 WHERE kind = 'special_lock_soon' AND ref_id = 0"
-            )
-            .fetch_optional(db)
-            .await?
-            .is_some();
+            let already = repos
+                .notifications
+                .already_sent("special_lock_soon", 0)
+                .await?;
 
             if !already {
-                let names: Vec<String> = sqlx::query_scalar!(
-                    r#"
-                    SELECT u.name FROM users u
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM special_predictions sp
-                        WHERE sp.user_id = u.id AND sp.champion_id IS NOT NULL
-                    )
-                    ORDER BY u.name
-                    "#
-                )
-                .fetch_all(db)
-                .await?;
+                let names = repos.notifications.users_missing_champion().await?;
 
                 if !names.is_empty() {
                     let event = NotificationEvent::SpecialPredictionsLock {
                         lock_at,
                         missing_names: names,
                     };
-                    try_send(db, notifier, "special_lock_soon", 0, event).await;
+                    let _ = repos
+                        .notifications
+                        .try_send(notifier, "special_lock_soon", 0, event)
+                        .await?;
                 }
             }
         }
     }
 
     Ok(())
-}
-
-async fn try_send(
-    db: &PgPool,
-    notifier: &Arc<dyn Notifier>,
-    kind: &str,
-    ref_id: i32,
-    event: NotificationEvent,
-) {
-    if in_quiet_hours_now() {
-        tracing::debug!("Quiet hours: deferring notification {} {}", kind, ref_id);
-        return;
-    }
-
-    let mut tx = match db.begin().await {
-        Ok(t) => t,
-        Err(e) => {
-            tracing::error!("notification tx begin failed: {:?}", e);
-            return;
-        }
-    };
-
-    let inserted = sqlx::query_scalar!(
-        "INSERT INTO sent_notifications (kind, ref_id) VALUES ($1, $2)
-         ON CONFLICT (kind, ref_id) DO NOTHING
-         RETURNING ref_id",
-        kind,
-        ref_id
-    )
-    .fetch_optional(&mut *tx)
-    .await;
-
-    let inserted = match inserted {
-        Ok(Some(_)) => true,
-        Ok(None) => false,
-        Err(e) => {
-            tracing::error!("notification insert failed: {:?}", e);
-            let _ = tx.rollback().await;
-            return;
-        }
-    };
-
-    if !inserted {
-        let _ = tx.rollback().await;
-        return;
-    }
-
-    match notifier.notify(event).await {
-        Ok(()) => {
-            if let Err(e) = tx.commit().await {
-                tracing::error!("notification tx commit failed: {:?}", e);
-            } else {
-                tracing::info!("Sent notification: {} {}", kind, ref_id);
-            }
-        }
-        Err(e) => {
-            tracing::error!("Notifier failed for {} {}: {:?}", kind, ref_id, e);
-            let _ = tx.rollback().await;
-        }
-    }
 }
 
 #[cfg(test)]
@@ -745,5 +620,211 @@ mod tests {
     fn tournament_window_default() {
         let (start, end) = tournament_window();
         assert!(start <= end);
+    }
+
+    // ─── End-to-end coverage of bootstrap + process_notifications via fakes ──
+
+    use crate::notifier::NotifierError;
+    use crate::repo::match_::{FakeMatch, MemoryMatchRepo};
+    use crate::repo::notification::ClosingSoonMatch;
+    use crate::repo::{
+        MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
+        MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
+    };
+    use std::sync::Arc;
+    use std::sync::Mutex;
+
+    /// Notifier that records every event it receives, so tests can assert
+    /// which notifications were dispatched without a real Signal endpoint.
+    #[derive(Default)]
+    struct RecordingNotifier {
+        sent: Mutex<Vec<NotificationEvent>>,
+    }
+
+    #[async_trait::async_trait]
+    impl Notifier for RecordingNotifier {
+        async fn notify(&self, event: NotificationEvent) -> Result<(), NotifierError> {
+            self.sent.lock().unwrap().push(event);
+            Ok(())
+        }
+    }
+
+    fn build_repos(notifications: Arc<MemoryNotificationRepo>) -> Repos {
+        Repos {
+            users: Arc::new(MemoryUserRepo::new()),
+            matches: Arc::new(MemoryMatchRepo::new()),
+            predictions: Arc::new(MemoryPredictionRepo::new()),
+            special_predictions: Arc::new(MemorySpecialPredictionRepo::new()),
+            teams: Arc::new(MemoryTeamRepo::new()),
+            settings: Arc::new(MemorySettingsRepo::new()),
+            notifications,
+        }
+    }
+
+    #[tokio::test]
+    async fn bootstrap_silences_existing_matches_and_is_idempotent() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_match_with_both_teams(1);
+        notifications.seed_match_with_both_teams(2);
+
+        bootstrap_notifications(&*notifications).await.unwrap();
+        assert!(notifications.was_bootstrapped_sync());
+        assert_eq!(notifications.sent_count(), 2);
+
+        // Second call must be a no-op — no extra rows, no double-silencing.
+        bootstrap_notifications(&*notifications).await.unwrap();
+        assert_eq!(notifications.sent_count(), 2);
+    }
+
+    #[tokio::test]
+    async fn process_notifications_dispatches_match_closing_soon() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user("Anna");
+        notifications.seed_user("Ben");
+        notifications.seed_prediction("Ben", 7);
+        notifications.seed_closing_soon(ClosingSoonMatch {
+            match_id: 7,
+            stage: Stage::Group,
+            group_letter: Some("A".into()),
+            kickoff_time: Utc::now() + chrono::Duration::hours(2),
+            home: "Argentinien".into(),
+            away: "Brasilien".into(),
+        });
+
+        let repos = build_repos(notifications.clone());
+        let notifier = RecordingNotifier::default();
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+
+        let sent = notifier.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        match &sent[0] {
+            NotificationEvent::MatchClosingSoon {
+                home,
+                away,
+                missing_names,
+                ..
+            } => {
+                assert_eq!(home, "Argentinien");
+                assert_eq!(away, "Brasilien");
+                assert_eq!(missing_names, &vec!["Anna".to_string()]);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn process_notifications_skips_matches_with_no_missing_tippers() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user("Anna");
+        notifications.seed_prediction("Anna", 7);
+        notifications.seed_closing_soon(ClosingSoonMatch {
+            match_id: 7,
+            stage: Stage::Group,
+            group_letter: None,
+            kickoff_time: Utc::now() + chrono::Duration::hours(2),
+            home: "X".into(),
+            away: "Y".into(),
+        });
+
+        let repos = build_repos(notifications.clone());
+        let notifier = RecordingNotifier::default();
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        assert!(
+            notifier.sent.lock().unwrap().is_empty(),
+            "no missing tippers → no notification"
+        );
+        assert_eq!(notifications.sent_count(), 0);
+    }
+
+    #[tokio::test]
+    async fn process_notifications_does_not_repeat_sent_match_closing_soon() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user("Anna");
+        notifications.seed_closing_soon(ClosingSoonMatch {
+            match_id: 7,
+            stage: Stage::Group,
+            group_letter: Some("A".into()),
+            kickoff_time: Utc::now() + chrono::Duration::hours(2),
+            home: "X".into(),
+            away: "Y".into(),
+        });
+        let repos = build_repos(notifications.clone());
+        let notifier = RecordingNotifier::default();
+
+        // First tick: dispatches.
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        assert_eq!(notifier.sent.lock().unwrap().len(), 1);
+
+        // Second tick: must be a no-op for the same match_id.
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        assert_eq!(notifier.sent.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn process_notifications_dispatches_special_lock_when_first_kickoff_is_soon() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user("Anna");
+        notifications.seed_user_with_champion("Ben");
+
+        // First-kickoff source is the matches repo, not notifications.
+        let matches = Arc::new(MemoryMatchRepo::new());
+        matches.seed(FakeMatch::locked_unfinished(
+            1,
+            Utc::now() + chrono::Duration::hours(6),
+        ));
+        let mut repos = build_repos(notifications.clone());
+        repos.matches = matches;
+
+        let notifier = RecordingNotifier::default();
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+
+        let sent = notifier.sent.lock().unwrap();
+        assert_eq!(sent.len(), 1);
+        match &sent[0] {
+            NotificationEvent::SpecialPredictionsLock { missing_names, .. } => {
+                assert_eq!(missing_names, &vec!["Anna".to_string()]);
+            }
+            other => panic!("unexpected event: {other:?}"),
+        }
+        assert!(notifications.already_sent("special_lock_soon", 0).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn process_notifications_skips_special_lock_when_kickoff_is_far_away() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user("Anna");
+
+        let matches = Arc::new(MemoryMatchRepo::new());
+        matches.seed(FakeMatch::locked_unfinished(
+            1,
+            Utc::now() + chrono::Duration::hours(48),
+        ));
+        let mut repos = build_repos(notifications.clone());
+        repos.matches = matches;
+
+        let notifier = RecordingNotifier::default();
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        assert!(notifier.sent.lock().unwrap().is_empty());
+        assert!(!notifications.already_sent("special_lock_soon", 0).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn process_notifications_skips_special_lock_when_no_users_pending() {
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user_with_champion("Anna");
+        notifications.seed_user_with_champion("Ben");
+
+        let matches = Arc::new(MemoryMatchRepo::new());
+        matches.seed(FakeMatch::locked_unfinished(
+            1,
+            Utc::now() + chrono::Duration::hours(6),
+        ));
+        let mut repos = build_repos(notifications.clone());
+        repos.matches = matches;
+
+        let notifier = RecordingNotifier::default();
+        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        assert!(notifier.sent.lock().unwrap().is_empty());
+        assert!(!notifications.already_sent("special_lock_soon", 0).await.unwrap());
     }
 }
