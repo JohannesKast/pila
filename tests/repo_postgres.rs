@@ -17,6 +17,7 @@ use pila::repo::settings::{PgSettingsRepo, SettingsRepo};
 use pila::repo::special_prediction::{PgSpecialPredictionRepo, SpecialPredictionRepo};
 use pila::repo::team::{EspnTeamUpsert, PgTeamRepo, TeamRepo};
 use pila::repo::user::{NewUser, PgUserRepo, UserRepo};
+use pila::repo::DEFAULT_LEAGUE_ID;
 use pila::stage::Stage;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -50,6 +51,8 @@ async fn user_repo_create_find_rename_set_admin_delete_round_trip() {
         token: &token,
         is_admin: false,
         phone_number: Some("+490"),
+        league_id: DEFAULT_LEAGUE_ID,
+        language: "de",
     })
     .await
     .unwrap();
@@ -90,6 +93,8 @@ async fn user_repo_set_jersey_persists() {
         token: &token,
         is_admin: false,
         phone_number: None,
+        league_id: DEFAULT_LEAGUE_ID,
+        language: "de",
     })
     .await
     .unwrap();
@@ -107,7 +112,7 @@ async fn user_repo_list_for_admin_returns_alphabetical() {
     let repo = PgUserRepo::new(pool.clone());
 
     // Just assert non-empty rows come back sorted; the dev DB may have data.
-    let list = repo.list_for_admin().await.unwrap();
+    let list = repo.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
     let mut sorted = list.clone();
     sorted.sort_by(|a, b| a.name.cmp(&b.name));
     assert_eq!(
@@ -161,6 +166,8 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
             token: &token,
             is_admin: false,
             phone_number: None,
+            league_id: DEFAULT_LEAGUE_ID,
+            language: "de",
         })
         .await
         .unwrap();
@@ -204,7 +211,7 @@ async fn prediction_repo_other_users_locked_excludes_viewer() {
     // The viewer doesn't exist — the call must still succeed and return rows
     // for any other locked tips.
     let rows = preds
-        .list_other_users_locked(viewer, Utc::now() + Duration::hours(1))
+        .list_other_users_locked(viewer, DEFAULT_LEAGUE_ID, Utc::now() + Duration::hours(1))
         .await
         .unwrap();
     for r in rows {
@@ -227,6 +234,8 @@ async fn special_prediction_repo_upsert_round_trip() {
             token: &token,
             is_admin: false,
             phone_number: None,
+            league_id: DEFAULT_LEAGUE_ID,
+            language: "de",
         })
         .await
         .unwrap();
@@ -424,14 +433,17 @@ async fn notification_repo_try_send_records_then_skips_duplicate() {
     };
 
     let first = notifications
-        .try_send(&OkNotifier, &kind, 1, event.clone())
+        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, event.clone())
         .await
         .unwrap();
     assert!(first);
-    assert!(notifications.already_sent(&kind, 1).await.unwrap());
+    assert!(notifications
+        .already_sent(DEFAULT_LEAGUE_ID, &kind, 1)
+        .await
+        .unwrap());
 
     let second = notifications
-        .try_send(&OkNotifier, &kind, 1, event)
+        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, event)
         .await
         .unwrap();
     assert!(!second, "duplicate must be a no-op");
@@ -463,12 +475,15 @@ async fn notification_repo_try_send_rolls_back_on_notifier_failure() {
     };
 
     let outcome = notifications
-        .try_send(&FailNotifier, &kind, 7, event)
+        .try_send(&FailNotifier, DEFAULT_LEAGUE_ID, &kind, 7, event)
         .await
         .unwrap();
     assert!(!outcome, "a failed notifier must report not-sent");
     assert!(
-        !notifications.already_sent(&kind, 7).await.unwrap(),
+        !notifications
+            .already_sent(DEFAULT_LEAGUE_ID, &kind, 7)
+            .await
+            .unwrap(),
         "the slot must be rolled back so the next tick retries"
     );
 }

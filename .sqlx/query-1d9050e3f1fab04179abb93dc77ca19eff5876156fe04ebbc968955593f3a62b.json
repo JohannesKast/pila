@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT 1 AS dummy FROM sent_notifications WHERE kind = $1 AND ref_id = $2",
+  "query": "SELECT 1 AS dummy FROM sent_notifications WHERE league_id = $1 AND kind = $2 AND ref_id = $3",
   "describe": {
     "columns": [
       {
@@ -11,6 +11,7 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Text",
         "Int4"
       ]
@@ -19,5 +20,5 @@
       null
     ]
   },
-  "hash": "1c30eaeeb60ac1f0d2c47eed7b618a26f4503b2529bc2e55420ed366e5bd7e4e"
+  "hash": "1d9050e3f1fab04179abb93dc77ca19eff5876156fe04ebbc968955593f3a62b"
 }

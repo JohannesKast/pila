@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO league_settings (league_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (league_id, key) DO UPDATE SET value = EXCLUDED.value",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Varchar",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f3ad5c86ad0827b7c1edee38549fa7eaf87592f9294f9e56b6b874dda0e694ff"
+}

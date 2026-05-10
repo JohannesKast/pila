@@ -10,6 +10,7 @@ pub mod auth;
 pub mod index;
 pub mod jersey;
 pub mod leaderboard;
+pub mod leagues;
 pub mod predictions;
 pub mod services;
 pub mod setup;
@@ -25,5 +26,8 @@ pub use auth::login_magic_link;
 pub use index::index;
 pub use jersey::{jersey_picker_close, jersey_picker_get, jersey_post, set_language_post};
 pub use leaderboard::leaderboard;
+pub use leagues::{
+    league_settings_form, league_settings_save, leagues_create, leagues_list, leagues_new_form,
+};
 pub use predictions::{predict_match, predict_special};
 pub use setup::{setup_get, setup_post};

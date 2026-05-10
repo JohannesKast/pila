@@ -9,7 +9,7 @@ use std::sync::Arc;
 use pila::handlers;
 use pila::repo::Repos;
 use pila::scoreboard::EspnClient;
-use pila::{news, notifier, worker, AppState};
+use pila::{news, worker, AppState};
 
 #[tokio::main]
 async fn main() {
@@ -45,13 +45,12 @@ async fn main() {
         translations: pila::translations::load_all(),
     };
 
-    if let Err(e) = worker::bootstrap_notifications(&*repos.notifications).await {
+    if let Err(e) = worker::bootstrap_notifications(&repos).await {
         tracing::warn!("Notification bootstrap failed: {:?}", e);
     }
 
-    let notifier = notifier::from_env();
     let scoreboard: Arc<dyn pila::scoreboard::ScoreboardClient> = Arc::new(EspnClient::new());
-    worker::start_background_worker(repos, scoreboard, notifier).await;
+    worker::start_background_worker(repos, scoreboard).await;
 
     let app = build_router().with_state(state);
 
@@ -98,6 +97,15 @@ fn build_router() -> Router<AppState> {
         .route(
             "/admin/users/:id/resend",
             axum::routing::post(handlers::admin_resend_invite),
+        )
+        .route(
+            "/admin/leagues",
+            get(handlers::leagues_list).post(handlers::leagues_create),
+        )
+        .route("/admin/leagues/new", get(handlers::leagues_new_form))
+        .route(
+            "/admin/leagues/:id/settings",
+            get(handlers::league_settings_form).post(handlers::league_settings_save),
         )
         .nest_service("/static", ServeDir::new("static"))
 }

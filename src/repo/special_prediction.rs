@@ -27,8 +27,14 @@ pub struct ChampionPickRow {
 pub trait SpecialPredictionRepo: Send + Sync {
     async fn get_user_champion(&self, user_id: Uuid) -> RepoResult<Option<i32>>;
     async fn upsert(&self, user_id: Uuid, champion_id: Option<i32>) -> RepoResult<()>;
-    async fn list_with_user_names(&self) -> RepoResult<Vec<ChampionPickRow>>;
-    async fn list_all_picks(&self) -> RepoResult<Vec<(Uuid, i32)>>;
+    /// Champion picks of users in the given league, joined with user/team names.
+    async fn list_with_user_names(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<ChampionPickRow>>;
+    /// All `(user_id, champion_team_id)` pairs in the given league — used by
+    /// the badge engine to compute champion-related stats.
+    async fn list_all_picks(&self, league_id: Uuid) -> RepoResult<Vec<(Uuid, i32)>>;
     async fn user_champion_view(&self, user_id: Uuid) -> RepoResult<Option<ChampionView>>;
 }
 
@@ -75,15 +81,20 @@ impl SpecialPredictionRepo for PgSpecialPredictionRepo {
         Ok(())
     }
 
-    async fn list_with_user_names(&self) -> RepoResult<Vec<ChampionPickRow>> {
+    async fn list_with_user_names(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<ChampionPickRow>> {
         let rows = sqlx::query!(
             r#"
             SELECT u.name as user_name, sp.champion_id, t.name as "team_name?", t.flag_code
             FROM special_predictions sp
             JOIN users u ON u.id = sp.user_id
             LEFT JOIN teams t ON t.id = sp.champion_id
+            WHERE u.league_id = $1
             ORDER BY u.name
-            "#
+            "#,
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -100,9 +111,12 @@ impl SpecialPredictionRepo for PgSpecialPredictionRepo {
             .collect())
     }
 
-    async fn list_all_picks(&self) -> RepoResult<Vec<(Uuid, i32)>> {
+    async fn list_all_picks(&self, league_id: Uuid) -> RepoResult<Vec<(Uuid, i32)>> {
         let rows = sqlx::query!(
-            "SELECT user_id, champion_id FROM special_predictions WHERE champion_id IS NOT NULL"
+            "SELECT sp.user_id, sp.champion_id FROM special_predictions sp \
+             JOIN users u ON u.id = sp.user_id \
+             WHERE sp.champion_id IS NOT NULL AND u.league_id = $1",
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -138,13 +152,33 @@ impl SpecialPredictionRepo for PgSpecialPredictionRepo {
 // ─── In-memory fake ──────────────────────────────────────────────────────────
 
 #[derive(Default)]
+struct MemorySpecialState {
+    /// (user_id, league_id) → optional champion_id. League is stored alongside
+    /// the pick so the fake can answer league-scoped queries without needing
+    /// a separate user repo.
+    picks: std::collections::HashMap<Uuid, (Uuid, Option<i32>)>,
+    /// user_id → display name (test seed). When set, `list_with_user_names`
+    /// joins through this map.
+    user_names: std::collections::HashMap<Uuid, String>,
+}
+
+#[derive(Default)]
 pub struct MemorySpecialPredictionRepo {
-    picks: Mutex<std::collections::HashMap<Uuid, Option<i32>>>,
+    inner: Mutex<MemorySpecialState>,
 }
 
 impl MemorySpecialPredictionRepo {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Test helper — record `user_id`'s league + display name so league-scoped
+    /// queries can resolve the join. `upsert` does not learn the league_id on
+    /// its own, so tests calling `list_with_user_names` must seed first.
+    pub fn seed_user(&self, user_id: Uuid, league_id: Uuid, name: &str) {
+        let mut s = self.inner.lock().unwrap();
+        s.picks.entry(user_id).or_insert((league_id, None));
+        s.user_names.insert(user_id, name.to_string());
     }
 }
 
@@ -152,32 +186,54 @@ impl MemorySpecialPredictionRepo {
 impl SpecialPredictionRepo for MemorySpecialPredictionRepo {
     async fn get_user_champion(&self, user_id: Uuid) -> RepoResult<Option<i32>> {
         Ok(self
-            .picks
+            .inner
             .lock()
             .unwrap()
+            .picks
             .get(&user_id)
-            .copied()
-            .flatten())
+            .and_then(|(_, c)| *c))
     }
 
     async fn upsert(&self, user_id: Uuid, champion_id: Option<i32>) -> RepoResult<()> {
-        self.picks.lock().unwrap().insert(user_id, champion_id);
+        let mut s = self.inner.lock().unwrap();
+        s.picks
+            .entry(user_id)
+            .and_modify(|e| e.1 = champion_id)
+            .or_insert((Uuid::nil(), champion_id));
         Ok(())
     }
 
-    async fn list_with_user_names(&self) -> RepoResult<Vec<ChampionPickRow>> {
-        // Fake doesn't have access to the user table — handler tests that
-        // need the joined view should target the Postgres impl.
-        Ok(Vec::new())
+    async fn list_with_user_names(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<ChampionPickRow>> {
+        let s = self.inner.lock().unwrap();
+        let mut rows: Vec<ChampionPickRow> = s
+            .picks
+            .iter()
+            .filter(|(_, (lid, _))| *lid == league_id)
+            .filter_map(|(uid, (_, cid))| {
+                s.user_names.get(uid).map(|name| ChampionPickRow {
+                    user_name: name.clone(),
+                    champion_id: *cid,
+                    team_name: None,
+                    flag_code: None,
+                })
+            })
+            .collect();
+        rows.sort_by(|a, b| a.user_name.cmp(&b.user_name));
+        Ok(rows)
     }
 
-    async fn list_all_picks(&self) -> RepoResult<Vec<(Uuid, i32)>> {
+    async fn list_all_picks(&self, league_id: Uuid) -> RepoResult<Vec<(Uuid, i32)>> {
         Ok(self
-            .picks
+            .inner
             .lock()
             .unwrap()
+            .picks
             .iter()
-            .filter_map(|(u, c)| c.map(|cid| (*u, cid)))
+            .filter(|(_, (lid, _))| *lid == league_id)
+            .filter_map(|(u, (_, c))| c.map(|cid| (*u, cid)))
             .collect())
     }
 
@@ -189,6 +245,7 @@ impl SpecialPredictionRepo for MemorySpecialPredictionRepo {
 #[cfg(test)]
 mod memory_tests {
     use super::*;
+    use crate::repo::DEFAULT_LEAGUE_ID;
 
     #[tokio::test]
     async fn upsert_then_get_round_trips() {
@@ -217,14 +274,32 @@ mod memory_tests {
     }
 
     #[tokio::test]
-    async fn list_all_picks_filters_none() {
+    async fn list_all_picks_filters_none_and_scopes_by_league() {
         let repo = MemorySpecialPredictionRepo::new();
         let a = Uuid::new_v4();
         let b = Uuid::new_v4();
+        repo.seed_user(a, DEFAULT_LEAGUE_ID, "A");
+        repo.seed_user(b, DEFAULT_LEAGUE_ID, "B");
         repo.upsert(a, Some(11)).await.unwrap();
         repo.upsert(b, None).await.unwrap();
-        let picks = repo.list_all_picks().await.unwrap();
+        let picks = repo.list_all_picks(DEFAULT_LEAGUE_ID).await.unwrap();
         assert_eq!(picks.len(), 1);
         assert_eq!(picks[0].1, 11);
+    }
+
+    #[tokio::test]
+    async fn list_all_picks_excludes_other_leagues() {
+        let repo = MemorySpecialPredictionRepo::new();
+        let other = Uuid::new_v4();
+        let a = Uuid::new_v4();
+        let b = Uuid::new_v4();
+        repo.seed_user(a, DEFAULT_LEAGUE_ID, "A");
+        repo.seed_user(b, other, "B");
+        repo.upsert(a, Some(1)).await.unwrap();
+        repo.upsert(b, Some(2)).await.unwrap();
+        let default_picks = repo.list_all_picks(DEFAULT_LEAGUE_ID).await.unwrap();
+        assert_eq!(default_picks, vec![(a, 1)]);
+        let other_picks = repo.list_all_picks(other).await.unwrap();
+        assert_eq!(other_picks, vec![(b, 2)]);
     }
 }

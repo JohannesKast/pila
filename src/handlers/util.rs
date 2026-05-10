@@ -2,15 +2,16 @@
 //! formatting. Anything trivial enough that a fresh look reveals it.
 
 use axum_extra::extract::cookie::{Cookie, SameSite};
-
 /// Construct the login cookie that pins a magic-link token to the browser.
 /// Centralised so cookie attributes stay consistent across login + setup.
 pub fn make_login_cookie(token: String) -> Cookie<'static> {
+    // 1 year in seconds; persistent so the admin survives browser restarts
     Cookie::build(("pila_token", token))
         .path("/")
         .http_only(true)
         .secure(true)
         .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
         .build()
 }
 

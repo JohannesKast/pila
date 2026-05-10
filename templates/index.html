@@ -392,6 +392,13 @@
     {% if is_admin %}
     {# ===== TAB: ADMIN ===== #}
     <section data-panel="admin" class="tab-panel mt-3 hidden">
+        {% if can_create_league %}
+        <div class="pl-card" style="padding:14px 16px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+            <span style="font-size:18px;">🏆</span>
+            <span class="pl-display" style="font-size:13px;">{{ t.get("league-list") }}</span>
+            <a href="/admin/leagues" class="pl-btn" style="margin-left:auto; padding:6px 12px; font-size:11px;">{{ t.get("league-edit-settings") }}</a>
+        </div>
+        {% endif %}
         <div class="pl-card" style="padding:16px; margin-bottom:16px;">
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span style="font-size:18px;">➕</span>

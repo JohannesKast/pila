@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-3xl mx-auto p-6">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px;">
+        <a href="/" class="pl-mono text-xs" style="color:var(--pl-mute);">←  {{ t.get("admin-nav-back") }}</a>
+    </div>
+
+    <h1 class="pl-display" style="font-size:22px; margin-bottom:6px;">🏆 {{ t.get("league-list") }}</h1>
+    <p class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; margin-bottom:18px;">{{ leagues.len() }} {{ t.get("leagues-count-suffix") }}</p>
+
+    <div class="pl-card" style="padding:0; overflow:hidden; margin-bottom:20px;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="background:rgba(116,255,140,.04); border-bottom:1px solid var(--pl-line);">
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-name") }}</th>
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-language") }}</th>
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-signal") }}</th>
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-rss") }}</th>
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-actions") }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for l in leagues %}
+                <tr style="border-top:1px solid var(--pl-line);">
+                    <td style="padding:10px 12px;"><strong>{{ l.name }}</strong></td>
+                    <td style="padding:10px 12px;" class="pl-mono">{{ l.config.default_language }}</td>
+                    <td style="padding:10px 12px;" class="pl-mono">
+                        {% match l.config.signal_group_id %}
+                        {% when Some with (g) %}<span style="color:var(--pl-green);">✓</span>
+                        {% when None %}<span style="color:var(--pl-mute);">—</span>
+                        {% endmatch %}
+                    </td>
+                    <td style="padding:10px 12px;" class="pl-mono">
+                        {% match l.config.rss_feed_url %}
+                        {% when Some with (_url) %}<span style="color:var(--pl-green);">✓</span>
+                        {% when None %}<span style="color:var(--pl-mute);">—</span>
+                        {% endmatch %}
+                    </td>
+                    <td style="padding:10px 12px;">
+                        <a href="/admin/leagues/{{ l.id }}/settings" class="pl-btn" style="padding:4px 10px; font-size:11px;">{{ t.get("league-edit-settings") }}</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <a href="/admin/leagues/new" class="pl-btn pl-btn--primary" style="padding:10px 18px;">+ {{ t.get("league-create") }}</a>
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE leagues SET notifications_bootstrapped = TRUE WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "27d2d4cd7b8a9601b30112dd14001186900ff5e08997330ad1fe75a7445b21f9"
+}

@@ -8,6 +8,7 @@
 //! which means business logic is exercisable without a Postgres connection
 //! and the boundary is the only place that sees raw SQL.
 
+pub mod league;
 pub mod match_;
 pub mod notification;
 pub mod prediction;
@@ -16,6 +17,7 @@ pub mod special_prediction;
 pub mod team;
 pub mod user;
 
+pub use league::{League, LeagueConfig, LeagueRepo, MemoryLeagueRepo, PgLeagueRepo, DEFAULT_LEAGUE_ID};
 pub use match_::{MatchRepo, MemoryMatchRepo, PgMatchRepo};
 pub use notification::{MemoryNotificationRepo, NotificationRepo, PgNotificationRepo};
 pub use prediction::{MemoryPredictionRepo, PgPredictionRepo, PredictionRepo};
@@ -33,6 +35,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Repos {
     pub users: Arc<dyn UserRepo>,
+    pub leagues: Arc<dyn LeagueRepo>,
     pub matches: Arc<dyn MatchRepo>,
     pub predictions: Arc<dyn PredictionRepo>,
     pub special_predictions: Arc<dyn SpecialPredictionRepo>,
@@ -46,6 +49,7 @@ impl Repos {
     pub fn from_pool(pool: sqlx::PgPool) -> Self {
         Self {
             users: Arc::new(PgUserRepo::new(pool.clone())),
+            leagues: Arc::new(PgLeagueRepo::new(pool.clone())),
             matches: Arc::new(PgMatchRepo::new(pool.clone())),
             predictions: Arc::new(PgPredictionRepo::new(pool.clone())),
             special_predictions: Arc::new(PgSpecialPredictionRepo::new(pool.clone())),

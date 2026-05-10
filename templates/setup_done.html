@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12 sm:mt-20">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">✅</span>
+            <h1 class="text-lg font-black text-fifa-gold uppercase tracking-widest">Admin angelegt</h1>
+        </div>
+        <p class="text-slate-300 text-sm mb-5">
+            Dein persönlicher Login-Link — <strong class="text-white">speichere oder bookmarke ihn jetzt</strong>.
+            Wer diesen Link kennt, ist als <strong>{{ name }}</strong> eingeloggt.
+        </p>
+
+        <div class="bg-slate-900 rounded-lg border border-slate-600 p-3 mb-4 break-all font-mono text-xs text-fifa-gold select-all">
+            {{ magic_link }}
+        </div>
+
+        <button onclick="navigator.clipboard.writeText('{{ magic_link }}').then(() => { this.textContent = 'Kopiert!'; setTimeout(() => this.textContent = 'Link kopieren', 2000); })"
+                class="w-full bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 rounded-lg transition-colors mb-3">
+            Link kopieren
+        </button>
+
+        <a href="/"
+           class="block w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg text-center">
+            Weiter
+        </a>
+    </div>
+</div>
+{% endblock %}

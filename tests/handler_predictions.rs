@@ -17,11 +17,12 @@ use pila::auth::AuthenticatedUser;
 use pila::handlers::predictions::{
     predict_match, predict_special, PredictionForm, SpecialPredictionForm,
 };
+use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::match_::{FakeMatch, MemoryMatchRepo};
 use pila::repo::team::TeamOption;
 use pila::repo::{
     MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo, MemorySpecialPredictionRepo,
-    MemoryTeamRepo, MemoryUserRepo, Repos,
+    MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
 };
 use pila::stage::Stage;
 use pila::AppState;
@@ -41,9 +42,16 @@ fn build_harness() -> Harness {
     let special_predictions = Arc::new(MemorySpecialPredictionRepo::new());
     let teams = Arc::new(MemoryTeamRepo::new());
     let settings = Arc::new(MemorySettingsRepo::new());
+    let leagues = Arc::new(MemoryLeagueRepo::new());
+    leagues.seed(League {
+        id: DEFAULT_LEAGUE_ID,
+        name: "Default".into(),
+        notifications_bootstrapped: true,
+    });
 
     let repos = Repos {
         users: users.clone(),
+        leagues,
         matches: matches.clone(),
         predictions: predictions.clone(),
         special_predictions: special_predictions.clone(),
@@ -73,9 +81,11 @@ fn fake_user() -> AuthenticatedUser {
         id: Uuid::new_v4(),
         name: "Tester".into(),
         is_admin: false,
+        can_create_league: false,
         phone_number: None,
         jersey_preset: "classic".into(),
         language: "de".into(),
+        league_id: DEFAULT_LEAGUE_ID,
     }
 }
 

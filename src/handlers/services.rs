@@ -26,8 +26,16 @@ pub async fn fetch_actual_champion(repos: &Repos) -> Option<i32> {
     repos.matches.actual_champion().await.unwrap_or_default()
 }
 
-pub async fn fetch_admin_users(repos: &Repos, current_user_id: Uuid) -> Vec<AdminUserView> {
-    let rows = repos.users.list_for_admin().await.unwrap_or_default();
+pub async fn fetch_admin_users(
+    repos: &Repos,
+    league_id: Uuid,
+    current_user_id: Uuid,
+) -> Vec<AdminUserView> {
+    let rows = repos
+        .users
+        .list_for_admin(league_id)
+        .await
+        .unwrap_or_default();
 
     rows.into_iter()
         .map(|r| AdminUserView {
@@ -37,20 +45,25 @@ pub async fn fetch_admin_users(repos: &Repos, current_user_id: Uuid) -> Vec<Admi
             name: r.name,
             phone_number: r.phone_number,
             is_admin: r.is_admin,
+            can_create_league: r.can_create_league,
         })
         .collect()
 }
 
 /// Build the read-only context the badge engine consumes. One snapshot per
 /// request is shared across every badge implementation — see `badges.rs`.
+///
+/// All aggregate inputs are filtered by `league_id`: badges compare a user
+/// only against league-mates, never across leagues.
 pub async fn build_badge_context(
     repos: &Repos,
     user_id: Uuid,
+    league_id: Uuid,
     now: DateTime<Utc>,
 ) -> badges::BadgeContextOwned {
     let finished_predictions: Vec<badges::PredictionRow> = repos
         .predictions
-        .list_finished_join()
+        .list_finished_join(league_id)
         .await
         .unwrap_or_default()
         .into_iter()
@@ -78,11 +91,11 @@ pub async fn build_badge_context(
         .await
         .unwrap_or(0) as i32;
 
-    let all_user_ids = repos.users.list_ids().await.unwrap_or_default();
+    let all_user_ids = repos.users.list_ids(league_id).await.unwrap_or_default();
 
     let all_special_picks = repos
         .special_predictions
-        .list_all_picks()
+        .list_all_picks(league_id)
         .await
         .unwrap_or_default();
 
@@ -119,9 +132,14 @@ pub async fn build_badge_context(
 pub async fn fetch_leaderboard(
     repos: &Repos,
     jerseys: &HashMap<String, JerseyPreset>,
+    league_id: Uuid,
     now: DateTime<Utc>,
 ) -> Vec<LeaderboardEntry> {
-    let users = repos.users.list_basic().await.unwrap_or_default();
+    let users = repos
+        .users
+        .list_basic(league_id)
+        .await
+        .unwrap_or_default();
 
     let mut user_scores: BTreeMap<String, (i32, i32)> = BTreeMap::new();
     for u in &users {
@@ -130,7 +148,7 @@ pub async fn fetch_leaderboard(
 
     let pred_rows = repos
         .predictions
-        .list_leaderboard_join()
+        .list_leaderboard_join(league_id)
         .await
         .unwrap_or_default();
 
@@ -161,7 +179,7 @@ pub async fn fetch_leaderboard(
     let actual_champion = fetch_actual_champion(repos).await;
     let sp_rows = repos
         .special_predictions
-        .list_with_user_names()
+        .list_with_user_names(league_id)
         .await
         .unwrap_or_default();
 

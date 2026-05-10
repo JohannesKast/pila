@@ -182,3 +182,42 @@ jersey-name-nigeria = Nigeria
 jersey-name-ghana = Ghana
 jersey-name-elfenbein = Costa de Marfil
 jersey-name-suedafrika = Sudáfrica
+
+# ─── Multi-league / Gestión de ligas ──────────────────────────────────────────
+
+# Sidebar/topbar back-link from admin pages to the index dashboard
+admin-nav-back = Volver
+# Heading of the league overview admin page
+league-list = Ligas de pronósticos
+# Suffix after the leagues count, e.g. "3 liga(s)"
+leagues-count-suffix = liga(s)
+# Column header / label for league name
+league-name = Nombre
+# Column header for the per-league default language
+league-language = Idioma
+# Column header for the league's Signal-group state (configured = ✓, none = —)
+league-signal = Signal
+# Column header for the per-league RSS feed URL state
+league-rss = RSS
+# Action button "edit settings" in the leagues table
+league-edit-settings = Ajustes
+# Button to open the new-league form
+league-create = Crear liga
+# Submit button on the new-league form
+league-create-btn = Crear
+# Placeholder of the league-name input on the create form
+league-name-placeholder = p.ej. Quiniela familiar
+# Subtitle below the league-name on the settings form
+league-settings-heading = Gestionar ajustes
+# Label for the per-league default language picker
+league-settings-default-language = Idioma por defecto de usuarios nuevos
+# Help text below the default-language picker
+league-settings-default-language-help = Preseleccionado para los nuevos jugadores de esta liga — pueden cambiarlo después.
+# Label for the Signal group-id input
+league-settings-signal-group-id = ID del grupo Signal
+# Label for the Signal from-number input
+league-settings-signal-from-number = Remitente Signal (teléfono)
+# Label for the RSS feed URL input
+league-settings-rss-url = URL del RSS
+# Submit button on the per-league settings form
+league-settings-save = Guardar

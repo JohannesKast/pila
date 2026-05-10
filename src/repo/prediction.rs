@@ -57,11 +57,13 @@ pub trait PredictionRepo: Send + Sync {
         predicted_away: i32,
     ) -> RepoResult<()>;
 
-    /// Tips by other users on matches that are already locked (kickoff in
-    /// the past) — never reveals tips before lock.
+    /// Tips by other users (in the same league) on matches that are already
+    /// locked. Never reveals tips before lock and never crosses league
+    /// boundaries.
     async fn list_other_users_locked(
         &self,
         viewer_user_id: Uuid,
+        league_id: Uuid,
         now: DateTime<Utc>,
     ) -> RepoResult<Vec<OtherUserPrediction>>;
 
@@ -73,13 +75,21 @@ pub trait PredictionRepo: Send + Sync {
         now: DateTime<Utc>,
     ) -> RepoResult<i64>;
 
-    /// Every finished match × every user prediction — input to badges and
-    /// other aggregate stats.
-    async fn list_finished_join(&self) -> RepoResult<Vec<FinishedPredictionJoin>>;
+    /// Every finished match × every user prediction in the given league —
+    /// input to badges and other aggregate stats. Filtered by league so
+    /// per-user computations (rank, matchday wins) compare only against
+    /// league-mates.
+    async fn list_finished_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<FinishedPredictionJoin>>;
 
-    /// All predictions joined with user name and match — feeds the
-    /// leaderboard calculation.
-    async fn list_leaderboard_join(&self) -> RepoResult<Vec<LeaderboardPredictionRow>>;
+    /// Predictions of users in `league_id` joined with user name and match —
+    /// feeds the leaderboard calculation.
+    async fn list_leaderboard_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<LeaderboardPredictionRow>>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -126,6 +136,7 @@ impl PredictionRepo for PgPredictionRepo {
     async fn list_other_users_locked(
         &self,
         viewer_user_id: Uuid,
+        league_id: Uuid,
         now: DateTime<Utc>,
     ) -> RepoResult<Vec<OtherUserPrediction>> {
         let rows = sqlx::query!(
@@ -138,10 +149,12 @@ impl PredictionRepo for PgPredictionRepo {
             WHERE m.kickoff_time IS NOT NULL
               AND m.kickoff_time < $1
               AND u.id != $2
+              AND u.league_id = $3
             ORDER BY u.name
             "#,
             now,
-            viewer_user_id
+            viewer_user_id,
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -183,7 +196,10 @@ impl PredictionRepo for PgPredictionRepo {
         Ok(c)
     }
 
-    async fn list_finished_join(&self) -> RepoResult<Vec<FinishedPredictionJoin>> {
+    async fn list_finished_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<FinishedPredictionJoin>> {
         let rows = sqlx::query!(
             r#"
             SELECT p.user_id,
@@ -195,12 +211,15 @@ impl PredictionRepo for PgPredictionRepo {
                    p.predicted_home,
                    p.predicted_away
             FROM predictions p
+            JOIN users u ON u.id = p.user_id
             JOIN matches m ON m.id = p.match_id
             WHERE m.status = 'finished'
               AND m.score_home IS NOT NULL
               AND m.score_away IS NOT NULL
               AND m.kickoff_time IS NOT NULL
-            "#
+              AND u.league_id = $1
+            "#,
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -221,7 +240,10 @@ impl PredictionRepo for PgPredictionRepo {
             .collect())
     }
 
-    async fn list_leaderboard_join(&self) -> RepoResult<Vec<LeaderboardPredictionRow>> {
+    async fn list_leaderboard_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<LeaderboardPredictionRow>> {
         let rows = sqlx::query!(
             r#"
             SELECT u.name,
@@ -235,7 +257,9 @@ impl PredictionRepo for PgPredictionRepo {
             FROM predictions p
             JOIN users u ON u.id = p.user_id
             JOIN matches m ON m.id = p.match_id
-            "#
+            WHERE u.league_id = $1
+            "#,
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -259,9 +283,46 @@ impl PredictionRepo for PgPredictionRepo {
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
 
+/// Test-only seed for `list_finished_join` — multi-league isolation tests
+/// drive `BadgeContext` from these rows.
+#[derive(Debug, Clone)]
+pub struct FakeFinishedRow {
+    pub user_id: Uuid,
+    pub league_id: Uuid,
+    pub match_id: i32,
+    pub stage: Stage,
+    pub kickoff: DateTime<Utc>,
+    pub score_home: i32,
+    pub score_away: i32,
+    pub predicted_home: i32,
+    pub predicted_away: i32,
+}
+
+/// Test-only seed for `list_leaderboard_join` — drives the leaderboard
+/// service in fake-backed integration tests.
+#[derive(Debug, Clone)]
+pub struct FakeLeaderboardRow {
+    pub league_id: Uuid,
+    pub user_name: String,
+    pub stage: Stage,
+    pub kickoff_time: Option<DateTime<Utc>>,
+    pub status: String,
+    pub score_home: Option<i32>,
+    pub score_away: Option<i32>,
+    pub predicted_home: i32,
+    pub predicted_away: i32,
+}
+
+#[derive(Default)]
+struct MemoryPredictionState {
+    rows: Vec<(Uuid, i32, i32, i32)>,
+    finished: Vec<FakeFinishedRow>,
+    leaderboard: Vec<FakeLeaderboardRow>,
+}
+
 #[derive(Default)]
 pub struct MemoryPredictionRepo {
-    rows: Mutex<Vec<(Uuid, i32, i32, i32)>>,
+    inner: Mutex<MemoryPredictionState>,
 }
 
 impl MemoryPredictionRepo {
@@ -272,7 +333,17 @@ impl MemoryPredictionRepo {
     /// Read every stored prediction — useful for handler tests asserting
     /// that an upsert actually landed.
     pub fn all(&self) -> Vec<(Uuid, i32, i32, i32)> {
-        self.rows.lock().unwrap().clone()
+        self.inner.lock().unwrap().rows.clone()
+    }
+
+    /// Seed a row that surfaces via `list_finished_join` for the given league.
+    pub fn seed_finished(&self, row: FakeFinishedRow) {
+        self.inner.lock().unwrap().finished.push(row);
+    }
+
+    /// Seed a row that surfaces via `list_leaderboard_join` for the given league.
+    pub fn seed_leaderboard(&self, row: FakeLeaderboardRow) {
+        self.inner.lock().unwrap().leaderboard.push(row);
     }
 }
 
@@ -285,15 +356,16 @@ impl PredictionRepo for MemoryPredictionRepo {
         predicted_home: i32,
         predicted_away: i32,
     ) -> RepoResult<()> {
-        let mut rows = self.rows.lock().unwrap();
-        if let Some(r) = rows
+        let mut s = self.inner.lock().unwrap();
+        if let Some(r) = s
+            .rows
             .iter_mut()
             .find(|r| r.0 == user_id && r.1 == match_id)
         {
             r.2 = predicted_home;
             r.3 = predicted_away;
         } else {
-            rows.push((user_id, match_id, predicted_home, predicted_away));
+            s.rows.push((user_id, match_id, predicted_home, predicted_away));
         }
         Ok(())
     }
@@ -301,6 +373,7 @@ impl PredictionRepo for MemoryPredictionRepo {
     async fn list_other_users_locked(
         &self,
         _viewer_user_id: Uuid,
+        _league_id: Uuid,
         _now: DateTime<Utc>,
     ) -> RepoResult<Vec<OtherUserPrediction>> {
         // The fake intentionally returns empty here — matches needed to gate
@@ -315,20 +388,61 @@ impl PredictionRepo for MemoryPredictionRepo {
         _now: DateTime<Utc>,
     ) -> RepoResult<i64> {
         Ok(self
-            .rows
+            .inner
             .lock()
             .unwrap()
+            .rows
             .iter()
             .filter(|r| r.0 == user_id)
             .count() as i64)
     }
 
-    async fn list_finished_join(&self) -> RepoResult<Vec<FinishedPredictionJoin>> {
-        Ok(Vec::new())
+    async fn list_finished_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<FinishedPredictionJoin>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .finished
+            .iter()
+            .filter(|r| r.league_id == league_id)
+            .map(|r| FinishedPredictionJoin {
+                user_id: r.user_id,
+                match_id: r.match_id,
+                stage: r.stage,
+                kickoff: r.kickoff,
+                score_home: r.score_home,
+                score_away: r.score_away,
+                predicted_home: r.predicted_home,
+                predicted_away: r.predicted_away,
+            })
+            .collect())
     }
 
-    async fn list_leaderboard_join(&self) -> RepoResult<Vec<LeaderboardPredictionRow>> {
-        Ok(Vec::new())
+    async fn list_leaderboard_join(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<LeaderboardPredictionRow>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .leaderboard
+            .iter()
+            .filter(|r| r.league_id == league_id)
+            .map(|r| LeaderboardPredictionRow {
+                user_name: r.user_name.clone(),
+                stage: r.stage,
+                kickoff_time: r.kickoff_time,
+                status: r.status.clone(),
+                score_home: r.score_home,
+                score_away: r.score_away,
+                predicted_home: r.predicted_home,
+                predicted_away: r.predicted_away,
+            })
+            .collect())
     }
 }
 

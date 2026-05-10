@@ -13,9 +13,11 @@ pub struct UserAuth {
     pub id: Uuid,
     pub name: String,
     pub is_admin: bool,
+    pub can_create_league: bool,
     pub phone_number: Option<String>,
     pub jersey_preset: String,
     pub language: String,
+    pub league_id: Uuid,
 }
 
 /// Full record needed by admin operations (token + phone).
@@ -26,6 +28,8 @@ pub struct UserFull {
     pub token: String,
     pub phone_number: Option<String>,
     pub is_admin: bool,
+    pub can_create_league: bool,
+    pub league_id: Uuid,
 }
 
 /// Trimmed projection for admin listings.
@@ -36,6 +40,7 @@ pub struct AdminUserRow {
     pub token: String,
     pub phone_number: Option<String>,
     pub is_admin: bool,
+    pub can_create_league: bool,
 }
 
 /// Lightweight tuple for leaderboard / jersey lookups.
@@ -54,20 +59,33 @@ pub struct NewUser<'a> {
     pub token: &'a str,
     pub is_admin: bool,
     pub phone_number: Option<&'a str>,
+    pub league_id: Uuid,
+    pub language: &'a str,
 }
 
 #[async_trait]
 pub trait UserRepo: Send + Sync {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>>;
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>>;
+    /// Global user count — the `/setup` route uses this to detect a fresh
+    /// install (no users at all). Stays global on purpose.
     async fn count(&self) -> RepoResult<i64>;
+    /// Global admin count — used to refuse demoting the last admin overall.
     async fn count_admins(&self) -> RepoResult<i64>;
-    async fn list_for_admin(&self) -> RepoResult<Vec<AdminUserRow>>;
-    async fn list_basic(&self) -> RepoResult<Vec<UserBasic>>;
-    async fn list_ids(&self) -> RepoResult<Vec<Uuid>>;
+    /// Admin user list scoped to a single league.
+    async fn list_for_admin(&self, league_id: Uuid) -> RepoResult<Vec<AdminUserRow>>;
+    /// Basic user info (name + jersey) for leaderboard rendering, scoped to
+    /// one league.
+    async fn list_basic(&self, league_id: Uuid) -> RepoResult<Vec<UserBasic>>;
+    /// All user ids in a league — denominator for badge calculations.
+    async fn list_ids(&self, league_id: Uuid) -> RepoResult<Vec<Uuid>>;
+    /// All user ids across every league — used by the worker's per-league
+    /// notification dispatch loop.
+    async fn list_all_ids(&self) -> RepoResult<Vec<Uuid>>;
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()>;
     async fn delete(&self, id: Uuid) -> RepoResult<()>;
     async fn set_admin(&self, id: Uuid, is_admin: bool) -> RepoResult<()>;
+    async fn set_can_create_league(&self, id: Uuid, can: bool) -> RepoResult<()>;
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()>;
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
     async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()>;
@@ -89,7 +107,8 @@ impl PgUserRepo {
 impl UserRepo for PgUserRepo {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>> {
         let row = sqlx::query!(
-            "SELECT id, name, is_admin, phone_number, jersey_preset, language FROM users WHERE token = $1",
+            "SELECT id, name, is_admin, can_create_league, phone_number, jersey_preset, language, league_id \
+             FROM users WHERE token = $1",
             token
         )
         .fetch_optional(&self.pool)
@@ -100,15 +119,18 @@ impl UserRepo for PgUserRepo {
             id: r.id,
             name: r.name,
             is_admin: r.is_admin,
+            can_create_league: r.can_create_league,
             phone_number: r.phone_number,
             jersey_preset: r.jersey_preset,
             language: r.language,
+            league_id: r.league_id,
         }))
     }
 
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>> {
         let row = sqlx::query!(
-            "SELECT id, name, token, phone_number, is_admin FROM users WHERE id = $1",
+            "SELECT id, name, token, phone_number, is_admin, can_create_league, league_id \
+             FROM users WHERE id = $1",
             id
         )
         .fetch_optional(&self.pool)
@@ -121,6 +143,8 @@ impl UserRepo for PgUserRepo {
             token: r.token,
             phone_number: r.phone_number,
             is_admin: r.is_admin,
+            can_create_league: r.can_create_league,
+            league_id: r.league_id,
         }))
     }
 
@@ -140,9 +164,11 @@ impl UserRepo for PgUserRepo {
         Ok(c)
     }
 
-    async fn list_for_admin(&self) -> RepoResult<Vec<AdminUserRow>> {
+    async fn list_for_admin(&self, league_id: Uuid) -> RepoResult<Vec<AdminUserRow>> {
         let rows = sqlx::query!(
-            "SELECT id, name, token, phone_number, is_admin FROM users ORDER BY name"
+            "SELECT id, name, token, phone_number, is_admin, can_create_league \
+             FROM users WHERE league_id = $1 ORDER BY name",
+            league_id
         )
         .fetch_all(&self.pool)
         .await
@@ -156,15 +182,19 @@ impl UserRepo for PgUserRepo {
                 token: r.token,
                 phone_number: r.phone_number,
                 is_admin: r.is_admin,
+                can_create_league: r.can_create_league,
             })
             .collect())
     }
 
-    async fn list_basic(&self) -> RepoResult<Vec<UserBasic>> {
-        let rows = sqlx::query!("SELECT id, name, jersey_preset FROM users")
-            .fetch_all(&self.pool)
-            .await
-            .map_err(RepoError::from)?;
+    async fn list_basic(&self, league_id: Uuid) -> RepoResult<Vec<UserBasic>> {
+        let rows = sqlx::query!(
+            "SELECT id, name, jersey_preset FROM users WHERE league_id = $1",
+            league_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
 
         Ok(rows
             .into_iter()
@@ -176,7 +206,18 @@ impl UserRepo for PgUserRepo {
             .collect())
     }
 
-    async fn list_ids(&self) -> RepoResult<Vec<Uuid>> {
+    async fn list_ids(&self, league_id: Uuid) -> RepoResult<Vec<Uuid>> {
+        let ids = sqlx::query_scalar!(
+            "SELECT id FROM users WHERE league_id = $1",
+            league_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(ids)
+    }
+
+    async fn list_all_ids(&self) -> RepoResult<Vec<Uuid>> {
         let ids = sqlx::query_scalar!("SELECT id FROM users")
             .fetch_all(&self.pool)
             .await
@@ -186,12 +227,15 @@ impl UserRepo for PgUserRepo {
 
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()> {
         sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number) VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO users (id, name, token, is_admin, phone_number, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
             new_user.id,
             new_user.name,
             new_user.token,
             new_user.is_admin,
-            new_user.phone_number
+            new_user.phone_number,
+            new_user.league_id,
+            new_user.language
         )
         .execute(&self.pool)
         .await
@@ -211,6 +255,18 @@ impl UserRepo for PgUserRepo {
         sqlx::query!(
             "UPDATE users SET is_admin = $1 WHERE id = $2",
             is_admin,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
+
+    async fn set_can_create_league(&self, id: Uuid, can: bool) -> RepoResult<()> {
+        sqlx::query!(
+            "UPDATE users SET can_create_league = $1 WHERE id = $2",
+            can,
             id
         )
         .execute(&self.pool)
@@ -288,6 +344,7 @@ impl UserRepo for MemoryUserRepo {
             id: u.id,
             name: u.name.clone(),
             is_admin: u.is_admin,
+            can_create_league: u.can_create_league,
             phone_number: u.phone_number.clone(),
             jersey_preset: s
                 .jerseys
@@ -295,6 +352,7 @@ impl UserRepo for MemoryUserRepo {
                 .cloned()
                 .unwrap_or_else(|| "classic".to_string()),
             language: "de".to_string(),
+            league_id: u.league_id,
         }))
     }
 
@@ -318,27 +376,30 @@ impl UserRepo for MemoryUserRepo {
             .count() as i64)
     }
 
-    async fn list_for_admin(&self) -> RepoResult<Vec<AdminUserRow>> {
+    async fn list_for_admin(&self, league_id: Uuid) -> RepoResult<Vec<AdminUserRow>> {
         let s = self.inner.lock().unwrap();
         let mut rows: Vec<AdminUserRow> = s
             .users
             .iter()
+            .filter(|u| u.league_id == league_id)
             .map(|u| AdminUserRow {
                 id: u.id,
                 name: u.name.clone(),
                 token: u.token.clone(),
                 phone_number: u.phone_number.clone(),
                 is_admin: u.is_admin,
+                can_create_league: u.can_create_league,
             })
             .collect();
         rows.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(rows)
     }
 
-    async fn list_basic(&self) -> RepoResult<Vec<UserBasic>> {
+    async fn list_basic(&self, league_id: Uuid) -> RepoResult<Vec<UserBasic>> {
         let s = self.inner.lock().unwrap();
         Ok(s.users
             .iter()
+            .filter(|u| u.league_id == league_id)
             .map(|u| UserBasic {
                 id: u.id,
                 name: u.name.clone(),
@@ -351,7 +412,19 @@ impl UserRepo for MemoryUserRepo {
             .collect())
     }
 
-    async fn list_ids(&self) -> RepoResult<Vec<Uuid>> {
+    async fn list_ids(&self, league_id: Uuid) -> RepoResult<Vec<Uuid>> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .users
+            .iter()
+            .filter(|u| u.league_id == league_id)
+            .map(|u| u.id)
+            .collect())
+    }
+
+    async fn list_all_ids(&self) -> RepoResult<Vec<Uuid>> {
         Ok(self
             .inner
             .lock()
@@ -371,6 +444,8 @@ impl UserRepo for MemoryUserRepo {
             token: new_user.token.to_string(),
             phone_number: new_user.phone_number.map(|p| p.to_string()),
             is_admin: new_user.is_admin,
+            can_create_league: false,
+            league_id: new_user.league_id,
         });
         Ok(())
     }
@@ -386,6 +461,14 @@ impl UserRepo for MemoryUserRepo {
         let mut s = self.inner.lock().unwrap();
         if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
             u.is_admin = is_admin;
+        }
+        Ok(())
+    }
+
+    async fn set_can_create_league(&self, id: Uuid, can: bool) -> RepoResult<()> {
+        let mut s = self.inner.lock().unwrap();
+        if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
+            u.can_create_league = can;
         }
         Ok(())
     }
@@ -412,6 +495,7 @@ impl UserRepo for MemoryUserRepo {
 #[cfg(test)]
 mod memory_tests {
     use super::*;
+    use crate::repo::DEFAULT_LEAGUE_ID;
 
     fn user(name: &str, token: &str, is_admin: bool) -> UserFull {
         UserFull {
@@ -420,6 +504,8 @@ mod memory_tests {
             token: token.to_string(),
             phone_number: None,
             is_admin,
+            can_create_league: false,
+            league_id: DEFAULT_LEAGUE_ID,
         }
     }
 
@@ -433,6 +519,8 @@ mod memory_tests {
             token: "tkn-a",
             is_admin: true,
             phone_number: Some("+491"),
+            league_id: DEFAULT_LEAGUE_ID,
+            language: "de",
         })
         .await
         .unwrap();
@@ -442,6 +530,7 @@ mod memory_tests {
         assert_eq!(auth.name, "Alice");
         assert!(auth.is_admin);
         assert_eq!(auth.phone_number.as_deref(), Some("+491"));
+        assert_eq!(auth.league_id, DEFAULT_LEAGUE_ID);
     }
 
     #[tokio::test]
@@ -451,7 +540,7 @@ mod memory_tests {
         repo.seed(user("Alice", "t2", true), "classic");
         repo.seed(user("Bob", "t3", false), "classic");
 
-        let list = repo.list_for_admin().await.unwrap();
+        let list = repo.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
         let names: Vec<_> = list.iter().map(|u| u.name.as_str()).collect();
         assert_eq!(names, vec!["Alice", "Bob", "Charlie"]);
     }
@@ -495,5 +584,41 @@ mod memory_tests {
         repo.set_jersey(id, "brasilien").await.unwrap();
         let auth = repo.find_by_token("t").await.unwrap().unwrap();
         assert_eq!(auth.jersey_preset, "brasilien");
+    }
+
+    #[tokio::test]
+    async fn list_for_admin_filters_by_league() {
+        let repo = MemoryUserRepo::new();
+        let other_league = Uuid::new_v4();
+        let mut a = user("Alice", "t1", false);
+        a.league_id = DEFAULT_LEAGUE_ID;
+        let mut b = user("Bob", "t2", false);
+        b.league_id = other_league;
+        repo.seed(a, "classic");
+        repo.seed(b, "classic");
+
+        let default_list = repo.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
+        assert_eq!(default_list.len(), 1);
+        assert_eq!(default_list[0].name, "Alice");
+
+        let other_list = repo.list_for_admin(other_league).await.unwrap();
+        assert_eq!(other_list.len(), 1);
+        assert_eq!(other_list[0].name, "Bob");
+    }
+
+    #[tokio::test]
+    async fn list_ids_filters_by_league() {
+        let repo = MemoryUserRepo::new();
+        let other = Uuid::new_v4();
+        let mut a = user("Alice", "t1", false);
+        a.league_id = DEFAULT_LEAGUE_ID;
+        let mut b = user("Bob", "t2", false);
+        b.league_id = other;
+        repo.seed(a, "classic");
+        repo.seed(b, "classic");
+
+        assert_eq!(repo.list_ids(DEFAULT_LEAGUE_ID).await.unwrap().len(), 1);
+        assert_eq!(repo.list_ids(other).await.unwrap().len(), 1);
+        assert_eq!(repo.list_all_ids().await.unwrap().len(), 2);
     }
 }

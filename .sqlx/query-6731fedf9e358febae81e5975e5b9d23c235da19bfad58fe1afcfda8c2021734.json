@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, jersey_preset FROM users",
+  "query": "SELECT id, name, jersey_preset FROM users WHERE league_id = $1",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,9 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
@@ -28,5 +30,5 @@
       false
     ]
   },
-  "hash": "c0c86d822a6dbdd199999f89c2e6feec0279af6c1b91d3db707295c8367cceac"
+  "hash": "6731fedf9e358febae81e5975e5b9d23c235da19bfad58fe1afcfda8c2021734"
 }

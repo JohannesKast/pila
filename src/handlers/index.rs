@@ -46,6 +46,7 @@ struct IndexTemplate {
     tournament_locked: bool,
     champ_preds: Vec<ChampPrediction>,
     is_admin: bool,
+    can_create_league: bool,
     admin_users: Vec<AdminUserView>,
     signal_enabled: bool,
     news_items: Vec<news::NewsItem>,
@@ -88,7 +89,7 @@ pub async fn index(
     let other_preds_rows = state
         .repos
         .predictions
-        .list_other_users_locked(user.id, now)
+        .list_other_users_locked(user.id, user.league_id, now)
         .await
         .unwrap_or_default();
 
@@ -136,7 +137,7 @@ pub async fn index(
         state
             .repos
             .special_predictions
-            .list_with_user_names()
+            .list_with_user_names(user.league_id)
             .await
             .unwrap_or_default()
             .into_iter()
@@ -265,7 +266,7 @@ pub async fn index(
     }
 
     let group_standings = fetch_group_standings(&state.repos).await;
-    let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
+    let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
 
     let user_entry = leaderboard.iter().find(|e| e.name == user.name).cloned();
     let user_total_points = user_entry.as_ref().map(|e| e.total_points).unwrap_or(0);
@@ -291,14 +292,14 @@ pub async fn index(
     .to_string();
 
     let admin_users = if user.is_admin {
-        fetch_admin_users(&state.repos, user.id).await
+        fetch_admin_users(&state.repos, user.league_id, user.id).await
     } else {
         Vec::new()
     };
 
     let news_items = state.news.get().await;
 
-    let badge_ctx_owned = build_badge_context(&state.repos, user.id, now).await;
+    let badge_ctx_owned = build_badge_context(&state.repos, user.id, user.league_id, now).await;
     let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx());
 
     let tipprunden_name = state
@@ -336,6 +337,7 @@ pub async fn index(
         tournament_locked,
         champ_preds,
         is_admin: user.is_admin,
+        can_create_league: user.can_create_league,
         admin_users,
         signal_enabled: notifier::signal_configured(),
         news_items,

@@ -1,20 +1,15 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            SELECT p.user_id,\n                   m.id as match_id,\n                   m.stage as \"stage: Stage\",\n                   m.kickoff_time as \"kickoff!\",\n                   m.score_home as \"score_home!\",\n                   m.score_away as \"score_away!\",\n                   p.predicted_home,\n                   p.predicted_away\n            FROM predictions p\n            JOIN matches m ON m.id = p.match_id\n            WHERE m.status = 'finished'\n              AND m.score_home IS NOT NULL\n              AND m.score_away IS NOT NULL\n              AND m.kickoff_time IS NOT NULL\n            ",
+  "query": "\n            SELECT u.name,\n                   m.stage as \"stage: Stage\",\n                   m.kickoff_time,\n                   m.status,\n                   m.score_home as \"score_home?\",\n                   m.score_away as \"score_away?\",\n                   p.predicted_home,\n                   p.predicted_away\n            FROM predictions p\n            JOIN users u ON u.id = p.user_id\n            JOIN matches m ON m.id = p.match_id\n            WHERE u.league_id = $1\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "user_id",
-        "type_info": "Uuid"
+        "name": "name",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 1,
-        "name": "match_id",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 2,
         "name": "stage: Stage",
         "type_info": {
           "Custom": {
@@ -34,18 +29,23 @@
         }
       },
       {
-        "ordinal": 3,
-        "name": "kickoff!",
+        "ordinal": 2,
+        "name": "kickoff_time",
         "type_info": "Timestamptz"
       },
       {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Varchar"
+      },
+      {
         "ordinal": 4,
-        "name": "score_home!",
+        "name": "score_home?",
         "type_info": "Int4"
       },
       {
         "ordinal": 5,
-        "name": "score_away!",
+        "name": "score_away?",
         "type_info": "Int4"
       },
       {
@@ -60,18 +60,20 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       false,
-      false,
       true,
+      false,
       true,
       true,
       false,
       false
     ]
   },
-  "hash": "8a332553f7a7bd96c217d556e16d3834d8844f5764fe14e202a52f739d71be64"
+  "hash": "3c441b4007fc4e4f173aa1f0f1024f3d489a8baa2f327e7b30ea0bbb9347ea78"
 }

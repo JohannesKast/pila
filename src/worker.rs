@@ -9,21 +9,22 @@ use chrono::{DateTime, NaiveDate, Utc};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::notifier::{in_quiet_hours_now, NotificationEvent, Notifier};
+use crate::notifier::{in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier};
+use crate::repo::league::League;
 use crate::repo::match_::EspnMatchUpsert;
 use crate::repo::team::EspnTeamUpsert;
-use crate::repo::{NotificationRepo, Repos};
+use crate::repo::Repos;
 use crate::scoreboard::{ScoreboardClient, SportsEvent};
 
 // ─── Public entry points ─────────────────────────────────────────────────────
 
 /// Spawn the 30-minute background loop. Pulls fixtures from the configured
 /// scoreboard provider, upserts them via the repo layer, and dispatches due
-/// notifications.
+/// notifications **per league**: every league iterates its own missing-tip
+/// list and uses its own Signal config (or a no-op if the league has none).
 pub async fn start_background_worker(
     repos: Repos,
     scoreboard: Arc<dyn ScoreboardClient>,
-    notifier: Arc<dyn Notifier>,
 ) {
     tokio::spawn(async move {
         loop {
@@ -31,7 +32,7 @@ pub async fn start_background_worker(
             if let Err(e) = update_data(&*scoreboard, &repos).await {
                 tracing::error!("Scoreboard worker error: {:?}", e);
             }
-            if let Err(e) = process_notifications(&repos, &*notifier).await {
+            if let Err(e) = process_notifications(&repos).await {
                 tracing::error!("Notification processing error: {:?}", e);
             }
             tokio::time::sleep(Duration::from_secs(1800)).await;
@@ -39,20 +40,26 @@ pub async fn start_background_worker(
     });
 }
 
-/// Mark all currently-known matches as already notified on first deploy of
-/// the notifier so an existing fixture list does not cause a flood of
-/// MatchClosingSoon notifications. Idempotent via a settings flag.
+/// On every startup, walk every league and silence any not-yet-bootstrapped
+/// one. New leagues created after deploy go through this path on the next
+/// boot so a freshly created league does not flood its group with stale
+/// reminders.
 pub async fn bootstrap_notifications(
-    notifications: &dyn NotificationRepo,
+    repos: &Repos,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    if notifications.was_bootstrapped().await? {
-        return Ok(());
+    let leagues = repos.leagues.list().await?;
+    for league in leagues {
+        if league.notifications_bootstrapped {
+            continue;
+        }
+        repos.notifications.silence_existing_matches(league.id).await?;
+        repos.leagues.set_bootstrapped(league.id).await?;
+        tracing::info!(
+            "Notification bootstrap complete for league {} ({}) — current open matches silenced",
+            league.name,
+            league.id
+        );
     }
-
-    notifications.silence_existing_matches().await?;
-    notifications.mark_bootstrapped().await?;
-
-    tracing::info!("Notification bootstrap complete — current open matches silenced");
     Ok(())
 }
 
@@ -168,29 +175,66 @@ fn tournament_window() -> (NaiveDate, NaiveDate) {
 
 pub(crate) async fn process_notifications(
     repos: &Repos,
-    notifier: &dyn Notifier,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if in_quiet_hours_now() {
         tracing::debug!("Quiet hours: skipping notification dispatch");
         return Ok(());
     }
-    dispatch_pending(repos, notifier, Utc::now()).await
+    dispatch_pending_for_all_leagues(repos, Utc::now()).await
 }
 
-/// Inner dispatch routine — split out from `process_notifications` so tests
-/// can drive it without depending on the wall-clock quiet-hours window.
-async fn dispatch_pending(
+/// Iterate every league, build a per-league notifier from its `LeagueConfig`,
+/// and dispatch pending notifications using that notifier. Leagues without a
+/// Signal group fall back to `NoopNotifier` and stay silent.
+pub(crate) async fn dispatch_pending_for_all_leagues(
     repos: &Repos,
+    now: DateTime<Utc>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let signal_api_url = std::env::var("SIGNAL_API_URL").ok();
+    let base_url = std::env::var("BASE_URL")
+        .unwrap_or_else(|_| "https://pila.example.com".to_string());
+
+    let leagues = repos.leagues.list().await?;
+    for league in leagues {
+        let cfg = repos.leagues.get_config(league.id).await?;
+        let notifier: Box<dyn Notifier> = match (&signal_api_url, &cfg.signal_group_id, &cfg.signal_from_number) {
+            (Some(api), Some(gid), Some(from))
+                if !api.is_empty() && !gid.is_empty() && !from.is_empty() =>
+            {
+                Box::new(SignalNotifier::new(api, from, gid, &base_url))
+            }
+            _ => Box::new(NoopNotifier),
+        };
+        if let Err(e) = dispatch_pending_for_league(repos, &league, notifier.as_ref(), now).await {
+            tracing::error!(
+                "Notification dispatch failed for league {} ({}): {:?}",
+                league.name,
+                league.id,
+                e
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Dispatch pending notifications for one league. Split out so tests can
+/// drive a single league with a recording notifier.
+pub(crate) async fn dispatch_pending_for_league(
+    repos: &Repos,
+    league: &League,
     notifier: &dyn Notifier,
     now: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // 1) Match closing in <24h with at least one user missing a tip.
-    let closing = repos.notifications.list_closing_soon_unnotified().await?;
+    // 1) Match closing in <24h with at least one league member missing a tip.
+    let closing = repos
+        .notifications
+        .list_closing_soon_unnotified(league.id)
+        .await?;
 
     for r in closing {
         let names = repos
             .notifications
-            .users_missing_prediction_for(r.match_id)
+            .users_missing_prediction_for(league.id, r.match_id)
             .await?;
 
         if names.is_empty() {
@@ -208,7 +252,7 @@ async fn dispatch_pending(
         };
         let _ = repos
             .notifications
-            .try_send(notifier, "match_closing_soon", r.match_id, event)
+            .try_send(notifier, league.id, "match_closing_soon", r.match_id, event)
             .await?;
     }
 
@@ -217,11 +261,14 @@ async fn dispatch_pending(
         if lock_at > now && lock_at <= now + chrono::Duration::hours(24) {
             let already = repos
                 .notifications
-                .already_sent("special_lock_soon", 0)
+                .already_sent(league.id, "special_lock_soon", 0)
                 .await?;
 
             if !already {
-                let names = repos.notifications.users_missing_champion().await?;
+                let names = repos
+                    .notifications
+                    .users_missing_champion(league.id)
+                    .await?;
 
                 if !names.is_empty() {
                     let event = NotificationEvent::SpecialPredictionsLock {
@@ -230,7 +277,7 @@ async fn dispatch_pending(
                     };
                     let _ = repos
                         .notifications
-                        .try_send(notifier, "special_lock_soon", 0, event)
+                        .try_send(notifier, league.id, "special_lock_soon", 0, event)
                         .await?;
                 }
             }
@@ -244,11 +291,12 @@ async fn dispatch_pending(
 mod tests {
     use super::*;
     use crate::notifier::NotifierError;
+    use crate::repo::league::{League as LeagueRow, MemoryLeagueRepo};
     use crate::repo::match_::{FakeMatch, MemoryMatchRepo};
-    use crate::repo::notification::ClosingSoonMatch;
+    use crate::repo::notification::{ClosingSoonMatch, NotificationRepo};
     use crate::repo::{
         MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
-        MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
+        MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
     };
     use crate::scoreboard::{FakeScoreboardClient, MatchStatus, SportsEvent, SportsTeam};
     use crate::stage::Stage;
@@ -278,14 +326,29 @@ mod tests {
     }
 
     fn build_repos(notifications: Arc<MemoryNotificationRepo>) -> Repos {
+        let leagues = Arc::new(MemoryLeagueRepo::new());
+        leagues.seed(LeagueRow {
+            id: DEFAULT_LEAGUE_ID,
+            name: "Default".into(),
+            notifications_bootstrapped: false,
+        });
         Repos {
             users: Arc::new(MemoryUserRepo::new()),
+            leagues,
             matches: Arc::new(MemoryMatchRepo::new()),
             predictions: Arc::new(MemoryPredictionRepo::new()),
             special_predictions: Arc::new(MemorySpecialPredictionRepo::new()),
             teams: Arc::new(MemoryTeamRepo::new()),
             settings: Arc::new(MemorySettingsRepo::new()),
             notifications,
+        }
+    }
+
+    fn default_league() -> LeagueRow {
+        LeagueRow {
+            id: DEFAULT_LEAGUE_ID,
+            name: "Default".into(),
+            notifications_bootstrapped: false,
         }
     }
 
@@ -380,26 +443,27 @@ mod tests {
     // ─── bootstrap + process_notifications ─────────────────────────────────
 
     #[tokio::test]
-    async fn bootstrap_silences_existing_matches_and_is_idempotent() {
+    async fn bootstrap_silences_each_league_once() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
         notifications.seed_match_with_both_teams(1);
         notifications.seed_match_with_both_teams(2);
 
-        bootstrap_notifications(&*notifications).await.unwrap();
-        assert!(notifications.was_bootstrapped_sync());
+        let repos = build_repos(notifications.clone());
+
+        bootstrap_notifications(&repos).await.unwrap();
         assert_eq!(notifications.sent_count(), 2);
 
-        // Second call must be a no-op — no extra rows, no double-silencing.
-        bootstrap_notifications(&*notifications).await.unwrap();
+        // Second call must be a no-op for the (now bootstrapped) Default league.
+        bootstrap_notifications(&repos).await.unwrap();
         assert_eq!(notifications.sent_count(), 2);
     }
 
     #[tokio::test]
     async fn process_notifications_dispatches_match_closing_soon() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user("Anna");
-        notifications.seed_user("Ben");
-        notifications.seed_prediction("Ben", 7);
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Ben");
+        notifications.seed_prediction(DEFAULT_LEAGUE_ID, "Ben", 7);
         notifications.seed_closing_soon(ClosingSoonMatch {
             match_id: 7,
             stage: Stage::Group,
@@ -411,7 +475,9 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
 
         let sent = notifier.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
@@ -433,8 +499,8 @@ mod tests {
     #[tokio::test]
     async fn process_notifications_skips_matches_with_no_missing_tippers() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user("Anna");
-        notifications.seed_prediction("Anna", 7);
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
+        notifications.seed_prediction(DEFAULT_LEAGUE_ID, "Anna", 7);
         notifications.seed_closing_soon(ClosingSoonMatch {
             match_id: 7,
             stage: Stage::Group,
@@ -446,7 +512,9 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
         assert!(
             notifier.sent.lock().unwrap().is_empty(),
             "no missing tippers → no notification"
@@ -457,7 +525,7 @@ mod tests {
     #[tokio::test]
     async fn process_notifications_does_not_repeat_sent_match_closing_soon() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user("Anna");
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
         notifications.seed_closing_soon(ClosingSoonMatch {
             match_id: 7,
             stage: Stage::Group,
@@ -470,19 +538,23 @@ mod tests {
         let notifier = RecordingNotifier::default();
 
         // First tick: dispatches.
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
 
-        // Second tick: must be a no-op for the same match_id.
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        // Second tick: must be a no-op for the same (league, match_id).
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
     }
 
     #[tokio::test]
     async fn process_notifications_dispatches_special_lock_when_first_kickoff_is_soon() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user("Anna");
-        notifications.seed_user_with_champion("Ben");
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
+        notifications.seed_user_with_champion(DEFAULT_LEAGUE_ID, "Ben");
 
         let matches = Arc::new(MemoryMatchRepo::new());
         matches.seed(FakeMatch::locked_unfinished(
@@ -493,7 +565,9 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
 
         let sent = notifier.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
@@ -503,13 +577,16 @@ mod tests {
             }
             other => panic!("unexpected event: {other:?}"),
         }
-        assert!(notifications.already_sent("special_lock_soon", 0).await.unwrap());
+        assert!(notifications
+            .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
     async fn process_notifications_skips_special_lock_when_kickoff_is_far_away() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user("Anna");
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
 
         let matches = Arc::new(MemoryMatchRepo::new());
         matches.seed(FakeMatch::locked_unfinished(
@@ -520,16 +597,21 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
-        assert!(!notifications.already_sent("special_lock_soon", 0).await.unwrap());
+        assert!(!notifications
+            .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0)
+            .await
+            .unwrap());
     }
 
     #[tokio::test]
     async fn process_notifications_skips_special_lock_when_no_users_pending() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
-        notifications.seed_user_with_champion("Anna");
-        notifications.seed_user_with_champion("Ben");
+        notifications.seed_user_with_champion(DEFAULT_LEAGUE_ID, "Anna");
+        notifications.seed_user_with_champion(DEFAULT_LEAGUE_ID, "Ben");
 
         let matches = Arc::new(MemoryMatchRepo::new());
         matches.seed(FakeMatch::locked_unfinished(
@@ -540,8 +622,13 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending(&repos, &notifier, Utc::now()).await.unwrap();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
-        assert!(!notifications.already_sent("special_lock_soon", 0).await.unwrap());
+        assert!(!notifications
+            .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0)
+            .await
+            .unwrap());
     }
 }

@@ -22,7 +22,7 @@ pub async fn leaderboard(
     user: AuthenticatedUser,
 ) -> Html<String> {
     let now = chrono::Utc::now();
-    let entries = fetch_leaderboard(&state.repos, &state.jerseys, now).await;
+    let entries = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
     let lang_code = user.language.clone();
     let t = state
         .translations

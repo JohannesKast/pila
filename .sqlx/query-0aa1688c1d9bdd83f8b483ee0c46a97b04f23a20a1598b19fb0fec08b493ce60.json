@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT u.name FROM users u\n            WHERE u.league_id = $1\n              AND NOT EXISTS (\n                SELECT 1 FROM special_predictions sp\n                WHERE sp.user_id = u.id AND sp.champion_id IS NOT NULL\n            )\n            ORDER BY u.name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "0aa1688c1d9bdd83f8b483ee0c46a97b04f23a20a1598b19fb0fec08b493ce60"
+}

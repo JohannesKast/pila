@@ -38,7 +38,7 @@ pub struct AdminCreateForm {
 
 pub async fn admin_create_user(
     State(state): State<AppState>,
-    AdminUser(_admin): AdminUser,
+    AdminUser(admin): AdminUser,
     Form(form): Form<AdminCreateForm>,
 ) -> Result<Html<String>, (StatusCode, &'static str)> {
     let name = form.name.trim();
@@ -51,6 +51,13 @@ pub async fn admin_create_user(
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
 
+    let cfg = state
+        .repos
+        .leagues
+        .get_config(admin.league_id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
     state
         .repos
         .users
@@ -60,6 +67,8 @@ pub async fn admin_create_user(
             token: &token,
             is_admin: false,
             phone_number: phone_opt,
+            league_id: admin.league_id,
+            language: &cfg.default_language,
         })
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
@@ -79,6 +88,7 @@ pub async fn admin_create_user(
         name: name.to_string(),
         phone_number: phone_opt.map(|s| s.to_string()),
         is_admin: false,
+        can_create_league: false,
         magic_link: link,
         is_self: false,
     };
@@ -94,6 +104,19 @@ pub async fn admin_delete_user(
         return Err((
             StatusCode::BAD_REQUEST,
             "Du kannst dich nicht selbst löschen.",
+        ));
+    }
+    let target = state
+        .repos
+        .users
+        .find_full_by_id(id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+    if target.league_id != admin.league_id && !admin.can_create_league {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cross-League-Aktionen erfordern can_create_league.",
         ));
     }
     state
@@ -117,6 +140,12 @@ pub async fn admin_toggle_admin(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
         .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+    if target.league_id != admin.league_id && !admin.can_create_league {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cross-League-Aktionen erfordern can_create_league.",
+        ));
+    }
 
     let new_admin = !target.is_admin;
     if !new_admin {
@@ -154,6 +183,7 @@ pub async fn admin_toggle_admin(
         name: target.name,
         phone_number: target.phone_number,
         is_admin: new_admin,
+        can_create_league: target.can_create_league,
     };
     Ok(render_admin_row(view, notifier::signal_configured()))
 }
@@ -172,6 +202,19 @@ pub async fn admin_rename_user(
     let name = form.name.trim();
     if name.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+    }
+    let target_pre = state
+        .repos
+        .users
+        .find_full_by_id(id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+    if target_pre.league_id != admin.league_id && !admin.can_create_league {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cross-League-Aktionen erfordern can_create_league.",
+        ));
     }
     state
         .repos
@@ -195,6 +238,7 @@ pub async fn admin_rename_user(
         name: target.name,
         phone_number: target.phone_number,
         is_admin: target.is_admin,
+        can_create_league: target.can_create_league,
     };
     Ok(render_admin_row(view, notifier::signal_configured()))
 }

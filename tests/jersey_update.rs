@@ -20,12 +20,14 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
     let user_id = Uuid::new_v4();
     let token = format!("test-token-{}", uuid::Uuid::new_v4());
 
+    let default_league = pila::repo::DEFAULT_LEAGUE_ID;
     sqlx::query!(
-        "INSERT INTO users (id, name, token, jersey_preset) VALUES ($1, $2, $3, $4)",
+        "INSERT INTO users (id, name, token, jersey_preset, league_id) VALUES ($1, $2, $3, $4, $5)",
         user_id,
         "Test User",
         token,
-        "classic"
+        "classic",
+        default_league
     )
     .execute(&pool)
     .await

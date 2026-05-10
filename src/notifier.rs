@@ -85,6 +85,18 @@ pub struct SignalNotifier {
     base_url: String,
 }
 
+impl SignalNotifier {
+    pub fn new(api_url: &str, from_number: &str, group_id: &str, base_url: &str) -> Self {
+        Self {
+            client: Client::new(),
+            api_url: api_url.to_string(),
+            from_number: from_number.to_string(),
+            group_id: group_id.to_string(),
+            base_url: base_url.to_string(),
+        }
+    }
+}
+
 #[derive(Serialize)]
 struct SignalSendBody<'a> {
     message: &'a str,

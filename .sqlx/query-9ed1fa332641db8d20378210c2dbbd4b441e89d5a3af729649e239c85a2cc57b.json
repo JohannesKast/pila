@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT user_id, champion_id FROM special_predictions WHERE champion_id IS NOT NULL",
+  "query": "SELECT sp.user_id, sp.champion_id FROM special_predictions sp JOIN users u ON u.id = sp.user_id WHERE sp.champion_id IS NOT NULL AND u.league_id = $1",
   "describe": {
     "columns": [
       {
@@ -15,12 +15,14 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Uuid"
+      ]
     },
     "nullable": [
       false,
       true
     ]
   },
-  "hash": "de5101bf20571245ea2015f11f44293e5bb7ee2b20deb2b413e0099059a2692f"
+  "hash": "9ed1fa332641db8d20378210c2dbbd4b441e89d5a3af729649e239c85a2cc57b"
 }

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-md mx-auto p-6">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px;">
+        <a href="/admin/leagues" class="pl-mono text-xs" style="color:var(--pl-mute);">←  {{ t.get("league-list") }}</a>
+    </div>
+
+    <h1 class="pl-display" style="font-size:22px; margin-bottom:6px;">⚙️ {{ league.name }}</h1>
+    <p class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; margin-bottom:18px;">{{ t.get("league-settings-heading") }}</p>
+
+    <form action="/admin/leagues/{{ league.id }}/settings" method="POST" class="pl-card" style="padding:18px; display:flex; flex-direction:column; gap:16px;">
+        <div>
+            <label class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-default-language") }}</label>
+            <select name="default_language" style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:14px; border-radius:6px; padding:10px 12px; outline:none;">
+                <option value="de" {% if config.default_language == "de" %}selected{% endif %}>Deutsch</option>
+                <option value="en" {% if config.default_language == "en" %}selected{% endif %}>English</option>
+                <option value="es" {% if config.default_language == "es" %}selected{% endif %}>Español</option>
+                <option value="fr" {% if config.default_language == "fr" %}selected{% endif %}>Français</option>
+            </select>
+            <p class="pl-mono" style="font-size:10px; color:var(--pl-mute); margin-top:4px;">{{ t.get("league-settings-default-language-help") }}</p>
+        </div>
+
+        <div>
+            <label class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-signal-group-id") }}</label>
+            <input type="text" name="signal_group_id" value="{% match config.signal_group_id %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" placeholder="group.xxx"
+                   style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:10px 12px; outline:none;">
+        </div>
+
+        <div>
+            <label class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-signal-from-number") }}</label>
+            <input type="text" name="signal_from_number" value="{% match config.signal_from_number %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" placeholder="+49…"
+                   style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:10px 12px; outline:none;">
+        </div>
+
+        <div>
+            <label class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-rss-url") }}</label>
+            <input type="text" name="rss_feed_url" value="{% match config.rss_feed_url %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" placeholder="https://…/rss"
+                   style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:10px 12px; outline:none;">
+        </div>
+
+        <button type="submit" class="pl-btn pl-btn--primary" style="padding:10px; margin-top:6px;">{{ t.get("league-settings-save") }}</button>
+    </form>
+</div>
+{% endblock %}
