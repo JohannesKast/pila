@@ -5,6 +5,7 @@ pub mod jersey;
 pub mod news;
 pub mod notifier;
 pub mod repo;
+pub mod scoreboard;
 pub mod scoring;
 pub mod stage;
 pub mod views;

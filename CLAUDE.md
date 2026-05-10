@@ -55,7 +55,9 @@ src/
 
 **Auth** is a single Axum extractor reading the `pila_token` cookie. Routes that must be private take `AuthenticatedUser` directly; there is currently no `Option<AuthenticatedUser>` variant — every route except `/play/me/:token` requires auth. Magic links are issued out-of-band via `create_invite.sh`.
 
-**Worker** (`worker.rs`) polls ESPN's soccer/fifa.world scoreboard once per day across `WC_WINDOW_START..=WC_WINDOW_END` (default 2026-06-01 → 2026-07-25, override via env). Single-date queries are required — soccer scoreboards do not return knockout events on date-range queries reliably. Stage classification is heuristic on the competition `notes[].headline` (`"Group A - Matchday 1"`, `"Round of 16"`, `"Quarterfinals"`, etc. — see `classify_stage`). The worker upserts into `matches` keyed on `espn_event_id` so re-runs are idempotent and missed days are backfilled.
+**Worker** (`worker.rs`) polls the configured `ScoreboardClient` once per day across `WC_WINDOW_START..=WC_WINDOW_END` (default 2026-06-01 → 2026-07-25, override via env) and upserts the returned `SportsEvent`s via the repo layer. The worker itself contains no HTTP code — provider details live behind the `pila::scoreboard::ScoreboardClient` trait in `src/scoreboard/`. The default implementation (`EspnClient`) targets ESPN's `soccer/fifa.world` endpoint; stage classification, group-letter resolution, and flag mapping are ESPN-specific and live in `src/scoreboard/espn.rs`.
+
+**Adding or changing a scoreboard provider:** the contract a new `ScoreboardClient` implementation must honour is documented in [`doc/scoreboard_provider.md`](doc/scoreboard_provider.md). **That file is the source of truth** — any change to `ScoreboardClient`, its DTOs (`SportsEvent`, `SportsTeam`, `MatchStatus`), or the worker's expectations of provider behaviour MUST be reflected there in the same commit. Treat it like a public API doc, not a tutorial.
 
 **Notifications** fire on two triggers:
 

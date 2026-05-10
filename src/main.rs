@@ -4,8 +4,11 @@ use std::net::SocketAddr;
 use tower_http::services::ServeDir;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use std::sync::Arc;
+
 use pila::handlers;
 use pila::repo::Repos;
+use pila::scoreboard::EspnClient;
 use pila::{news, notifier, worker, AppState};
 
 #[tokio::main]
@@ -46,7 +49,8 @@ async fn main() {
     }
 
     let notifier = notifier::from_env();
-    worker::start_background_worker(repos, notifier).await;
+    let scoreboard: Arc<dyn pila::scoreboard::ScoreboardClient> = Arc::new(EspnClient::new());
+    worker::start_background_worker(repos, scoreboard, notifier).await;
 
     let app = build_router().with_state(state);
 

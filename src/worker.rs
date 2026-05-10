@@ -1,6 +1,11 @@
+//! Background tournament-data sync + notification dispatch.
+//!
+//! Worker depends only on the repo abstraction (DB) and the
+//! `ScoreboardClient` abstraction (sports data). Neither sqlx nor reqwest
+//! is referenced from this file — each tick is exercisable end-to-end
+//! against in-memory fakes.
+
 use chrono::{DateTime, NaiveDate, Utc};
-use reqwest::Client;
-use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,114 +13,23 @@ use crate::notifier::{in_quiet_hours_now, NotificationEvent, Notifier};
 use crate::repo::match_::EspnMatchUpsert;
 use crate::repo::team::EspnTeamUpsert;
 use crate::repo::{NotificationRepo, Repos};
-use crate::stage::Stage;
-
-// ─── ESPN Scoreboard structs (soccer/fifa.world) ──────────────────────────────
-
-#[derive(Deserialize, Default)]
-struct ScoreboardResponse {
-    #[serde(default)]
-    events: Vec<Event>,
-}
-
-#[derive(Deserialize)]
-struct Event {
-    id: String,
-    #[serde(default)]
-    season: Option<EventSeason>,
-    #[serde(default)]
-    competitions: Vec<Competition>,
-}
-
-#[derive(Deserialize, Default)]
-struct EventSeason {
-    #[serde(default)]
-    slug: String,
-}
-
-#[derive(Deserialize)]
-struct Competition {
-    #[serde(rename = "startDate")]
-    start_date: String,
-    #[serde(default)]
-    competitors: Vec<Competitor>,
-    #[serde(default)]
-    notes: Vec<Note>,
-    status: Option<CompStatus>,
-}
-
-#[derive(Deserialize)]
-struct Note {
-    #[serde(default)]
-    headline: String,
-}
-
-#[derive(Deserialize)]
-struct CompStatus {
-    #[serde(rename = "type")]
-    type_: StatusType,
-}
-
-#[derive(Deserialize)]
-struct StatusType {
-    #[serde(default)]
-    state: String, // "pre" | "in" | "post"
-}
-
-#[derive(Deserialize)]
-struct Competitor {
-    #[serde(rename = "homeAway")]
-    home_away: String,
-    team: EspnTeam,
-    score: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct EspnTeam {
-    id: String,
-    #[serde(rename = "displayName", default)]
-    display_name: String,
-    #[serde(default)]
-    abbreviation: String,
-}
-
-#[derive(Deserialize, Default)]
-struct StandingsResponse {
-    #[serde(default)]
-    children: Vec<StandingsGroup>,
-}
-
-#[derive(Deserialize)]
-struct StandingsGroup {
-    #[serde(default)]
-    name: String,
-    #[serde(default)]
-    standings: Option<StandingsBody>,
-}
-
-#[derive(Deserialize)]
-struct StandingsBody {
-    #[serde(default)]
-    entries: Vec<StandingsEntry>,
-}
-
-#[derive(Deserialize)]
-struct StandingsEntry {
-    team: EspnTeam,
-}
+use crate::scoreboard::{ScoreboardClient, SportsEvent};
 
 // ─── Public entry points ─────────────────────────────────────────────────────
 
-/// Spawn the 30-minute background loop. Pulls fixtures from ESPN, upserts
-/// them via the repo layer, and dispatches due notifications.
-pub async fn start_background_worker(repos: Repos, notifier: Arc<dyn Notifier>) {
-    let client = Client::new();
-
+/// Spawn the 30-minute background loop. Pulls fixtures from the configured
+/// scoreboard provider, upserts them via the repo layer, and dispatches due
+/// notifications.
+pub async fn start_background_worker(
+    repos: Repos,
+    scoreboard: Arc<dyn ScoreboardClient>,
+    notifier: Arc<dyn Notifier>,
+) {
     tokio::spawn(async move {
         loop {
-            tracing::info!("Running ESPN soccer (fifa.world) update...");
-            if let Err(e) = update_data(&client, &repos).await {
-                tracing::error!("ESPN soccer worker error: {:?}", e);
+            tracing::info!("Running scoreboard update...");
+            if let Err(e) = update_data(&*scoreboard, &repos).await {
+                tracing::error!("Scoreboard worker error: {:?}", e);
             }
             if let Err(e) = process_notifications(&repos, &*notifier).await {
                 tracing::error!("Notification processing error: {:?}", e);
@@ -142,44 +56,32 @@ pub async fn bootstrap_notifications(
     Ok(())
 }
 
-// ─── Main update logic ────────────────────────────────────────────────────────
+// ─── Sync loop ───────────────────────────────────────────────────────────────
 
-async fn update_data(
-    client: &Client,
+pub(crate) async fn update_data(
+    scoreboard: &dyn ScoreboardClient,
     repos: &Repos,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let groups_map = fetch_groups_map(client).await;
-    if !groups_map.is_empty() {
-        tracing::info!("Loaded group letters for {} teams from standings", groups_map.len());
-    }
-
     let (window_start, window_end) = tournament_window();
     let mut current = window_start;
     let mut total_events = 0usize;
 
     while current <= window_end {
-        let date = current.format("%Y%m%d").to_string();
-        let url = format!(
-            "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates={date}"
-        );
-
-        let resp: ScoreboardResponse = match client.get(&url).send().await {
-            Ok(r) => r.json().await.unwrap_or_default(),
-            Err(e) => {
-                tracing::warn!("ESPN fetch failed for {}: {:?}", date, e);
-                if current == window_end {
-                    break;
+        match scoreboard.fetch_events(current).await {
+            Ok(events) => {
+                total_events += events.len();
+                for ev in events {
+                    if let Err(e) = upsert_event(repos, &ev).await {
+                        tracing::warn!(
+                            "event {} processing failed: {:?}",
+                            ev.provider_event_id,
+                            e
+                        );
+                    }
                 }
-                current = current.succ_opt().unwrap_or(window_end);
-                continue;
             }
-        };
-
-        total_events += resp.events.len();
-
-        for event in resp.events {
-            if let Err(e) = process_event(repos, &event, &groups_map).await {
-                tracing::warn!("event {} processing failed: {:?}", event.id, e);
+            Err(e) => {
+                tracing::warn!("Scoreboard fetch failed for {}: {:?}", current, e);
             }
         }
 
@@ -193,219 +95,58 @@ async fn update_data(
     Ok(())
 }
 
-async fn process_event(
+async fn upsert_event(
     repos: &Repos,
-    event: &Event,
-    groups_map: &std::collections::HashMap<i32, String>,
+    event: &SportsEvent,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let comp = match event.competitions.first() {
-        Some(c) => c,
-        None => return Ok(()),
+    // Only attach group_letter on group-stage events; knockout teams may
+    // already carry their group letter from earlier syncs.
+    let group_for_team: Option<&str> = match event.stage {
+        crate::stage::Stage::Group => event.group_letter.as_deref(),
+        _ => None,
     };
 
-    let espn_event_id: i64 = match event.id.parse() {
-        Ok(v) => v,
-        Err(_) => {
-            tracing::debug!("skip: unparseable event id {}", event.id);
-            return Ok(());
-        }
-    };
-
-    let headline = comp
-        .notes
-        .iter()
-        .map(|n| n.headline.as_str())
-        .find(|s| !s.is_empty())
-        .unwrap_or("");
-    let slug = event.season.as_ref().map(|s| s.slug.as_str()).unwrap_or("");
-
-    // Slug is authoritative for stage; headline only as fallback. Headline still
-    // useful for group-letter (when present), but ESPN frequently leaves notes empty.
-    let (stage, mut group_letter) = match classify_slug(slug) {
-        Some(s) => (s, classify_stage(headline).1),
-        None => classify_stage(headline),
-    };
-
-    let home = comp.competitors.iter().find(|c| c.home_away == "home");
-    let away = comp.competitors.iter().find(|c| c.home_away == "away");
-    let (home_id, away_id) = match (home, away) {
-        (Some(h), Some(a)) => {
-            let h_id: Option<i32> = h.team.id.parse().ok();
-            let a_id: Option<i32> = a.team.id.parse().ok();
-            (h_id, a_id)
-        }
-        _ => (None, None),
-    };
-
-    // For group matches with no headline letter, derive from standings map.
-    if stage == Stage::Group && group_letter.is_none() {
-        group_letter = home_id
-            .and_then(|id| groups_map.get(&id).cloned())
-            .or_else(|| away_id.and_then(|id| groups_map.get(&id).cloned()));
-    }
-
-    if let (Some(h), Some(a), Some(hid), Some(aid)) = (home, away, home_id, away_id) {
-        let hflag = flag_code_for_abbr(&h.team.abbreviation);
-        let aflag = flag_code_for_abbr(&a.team.abbreviation);
-        // Only attach group_letter on group-stage events (knockout teams may
-        // already carry their group letter from earlier syncs).
-        let group_for_team: Option<&str> = match stage {
-            Stage::Group => group_letter.as_deref(),
-            _ => None,
-        };
-
+    if let Some(home) = &event.home_team {
         repos
             .teams
             .upsert_from_espn(EspnTeamUpsert {
-                espn_id: hid,
-                name: &h.team.display_name,
-                short_name: if h.team.abbreviation.is_empty() {
-                    None
-                } else {
-                    Some(h.team.abbreviation.as_str())
-                },
-                flag_code: hflag.as_deref(),
-                group_letter: group_for_team,
-            })
-            .await?;
-        repos
-            .teams
-            .upsert_from_espn(EspnTeamUpsert {
-                espn_id: aid,
-                name: &a.team.display_name,
-                short_name: if a.team.abbreviation.is_empty() {
-                    None
-                } else {
-                    Some(a.team.abbreviation.as_str())
-                },
-                flag_code: aflag.as_deref(),
+                espn_id: home.provider_team_id,
+                name: &home.display_name,
+                short_name: home.short_name.as_deref(),
+                flag_code: home.flag_code.as_deref(),
                 group_letter: group_for_team,
             })
             .await?;
     }
-
-    let score_h = home.and_then(|c| c.score.as_deref()).and_then(|s| s.parse::<i32>().ok());
-    let score_a = away.and_then(|c| c.score.as_deref()).and_then(|s| s.parse::<i32>().ok());
-
-    let kickoff = parse_espn_datetime(&comp.start_date);
-    let status = comp
-        .status
-        .as_ref()
-        .map(|s| match s.type_.state.as_str() {
-            "in" => "live",
-            "post" => "finished",
-            _ => "scheduled",
-        })
-        .unwrap_or("scheduled");
+    if let Some(away) = &event.away_team {
+        repos
+            .teams
+            .upsert_from_espn(EspnTeamUpsert {
+                espn_id: away.provider_team_id,
+                name: &away.display_name,
+                short_name: away.short_name.as_deref(),
+                flag_code: away.flag_code.as_deref(),
+                group_letter: group_for_team,
+            })
+            .await?;
+    }
 
     repos
         .matches
         .upsert_from_espn(EspnMatchUpsert {
-            espn_event_id,
-            stage,
-            group_letter: group_letter.as_deref(),
-            team_home_id: home_id,
-            team_away_id: away_id,
-            score_home: score_h,
-            score_away: score_a,
-            kickoff_time: kickoff,
-            status,
+            espn_event_id: event.provider_event_id,
+            stage: event.stage,
+            group_letter: event.group_letter.as_deref(),
+            team_home_id: event.home_team.as_ref().map(|t| t.provider_team_id),
+            team_away_id: event.away_team.as_ref().map(|t| t.provider_team_id),
+            score_home: event.score_home,
+            score_away: event.score_away,
+            kickoff_time: event.kickoff,
+            status: event.status.as_db_str(),
         })
         .await?;
 
     Ok(())
-}
-
-/// Heuristic stage classification from the ESPN competition headline.
-/// Examples observed in practice:
-///   "Group A - Matchday 1"
-///   "FIFA World Cup - Group F"
-///   "Round of 32"
-///   "Round of 16"
-///   "Quarterfinals"
-///   "Semifinals"
-///   "Third-Place Match" / "3rd Place"
-///   "Final"
-fn classify_stage(headline: &str) -> (Stage, Option<String>) {
-    let lc = headline.to_lowercase();
-
-    if lc.contains("third") || lc.contains("3rd place") {
-        return (Stage::ThirdPlace, None);
-    }
-    if lc.contains("semifinal") || lc.contains("semi-final") {
-        return (Stage::SemiFinal, None);
-    }
-    if lc.contains("quarterfinal") || lc.contains("quarter-final") {
-        return (Stage::QuarterFinal, None);
-    }
-    if lc.contains("final") {
-        // Standalone "Final" — quarter/semi already returned above.
-        return (Stage::Final, None);
-    }
-    if lc.contains("round of 16") || lc.contains("eighth-final") {
-        return (Stage::RoundOf16, None);
-    }
-    if lc.contains("round of 32") || lc.contains("sixteenth") {
-        return (Stage::RoundOf32, None);
-    }
-    if let Some(letter) = extract_group_letter(&lc) {
-        return (Stage::Group, Some(letter));
-    }
-    (Stage::Group, None)
-}
-
-fn extract_group_letter(lc: &str) -> Option<String> {
-    let idx = lc.find("group ")?;
-    let rest = &lc[idx + 6..];
-    rest.chars().next().filter(|c| c.is_ascii_alphabetic()).map(|c| c.to_ascii_uppercase().to_string())
-}
-
-/// Map ESPN `event.season.slug` → tournament stage. Authoritative when set —
-/// the scoreboard endpoint frequently returns empty `notes[]` so the headline
-/// heuristic alone is unreliable for WC 2026.
-fn classify_slug(slug: &str) -> Option<Stage> {
-    match slug {
-        "group-stage" => Some(Stage::Group),
-        "round-of-32" => Some(Stage::RoundOf32),
-        "round-of-16" => Some(Stage::RoundOf16),
-        "quarterfinals" => Some(Stage::QuarterFinal),
-        "semifinals" => Some(Stage::SemiFinal),
-        "3rd-place-match" | "third-place-match" => Some(Stage::ThirdPlace),
-        "final" => Some(Stage::Final),
-        _ => None,
-    }
-}
-
-/// Fetch the WC standings endpoint and build a `team_id → group letter (A–L)` map.
-/// Used to enrich match.group_letter when the scoreboard payload omits it.
-async fn fetch_groups_map(client: &Client) -> std::collections::HashMap<i32, String> {
-    let url = "https://site.api.espn.com/apis/v2/sports/soccer/fifa.world/standings";
-    let resp: StandingsResponse = match client.get(url).send().await {
-        Ok(r) => r.json().await.unwrap_or_default(),
-        Err(e) => {
-            tracing::warn!("ESPN standings fetch failed: {:?}", e);
-            return Default::default();
-        }
-    };
-    let mut map = std::collections::HashMap::new();
-    for group in resp.children {
-        let Some(letter) = group
-            .name
-            .strip_prefix("Group ")
-            .and_then(|s| s.chars().next())
-            .filter(|c| c.is_ascii_alphabetic())
-            .map(|c| c.to_ascii_uppercase().to_string())
-        else {
-            continue;
-        };
-        let Some(body) = group.standings else { continue };
-        for entry in body.entries {
-            if let Ok(tid) = entry.team.id.parse::<i32>() {
-                map.insert(tid, letter.clone());
-            }
-        }
-    }
-    map
 }
 
 /// World Cup window: poll a generous date range around the tournament so
@@ -421,39 +162,6 @@ fn tournament_window() -> (NaiveDate, NaiveDate) {
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok())
         .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 7, 25).unwrap());
     (start, end)
-}
-
-fn parse_espn_datetime(s: &str) -> Option<DateTime<Utc>> {
-    DateTime::parse_from_rfc3339(s)
-        .map(|dt| dt.with_timezone(&Utc))
-        .or_else(|_| {
-            chrono::NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%MZ")
-                .map(|nd| nd.and_utc())
-        })
-        .ok()
-}
-
-/// Best-effort 3-letter (ESPN/FIFA) → ISO-3166 alpha-2 flag lookup.
-/// Returns None for unknown codes — UI should fall back to short_name text.
-fn flag_code_for_abbr(abbr: &str) -> Option<String> {
-    let map: &[(&str, &str)] = &[
-        ("ARG", "ar"), ("AUS", "au"), ("AUT", "at"), ("BEL", "be"), ("BRA", "br"),
-        ("CAN", "ca"), ("CHI", "cl"), ("CHN", "cn"), ("COL", "co"), ("CRC", "cr"),
-        ("CRO", "hr"), ("CZE", "cz"), ("DEN", "dk"), ("ECU", "ec"), ("EGY", "eg"),
-        ("ENG", "gb-eng"), ("ESP", "es"), ("FRA", "fr"), ("GER", "de"), ("GHA", "gh"),
-        ("GRE", "gr"), ("HON", "hn"), ("IRN", "ir"), ("IRQ", "iq"), ("ISL", "is"),
-        ("ISR", "il"), ("ITA", "it"), ("JAM", "jm"), ("JPN", "jp"), ("KOR", "kr"),
-        ("KSA", "sa"), ("MAR", "ma"), ("MEX", "mx"), ("NED", "nl"), ("NGA", "ng"),
-        ("NOR", "no"), ("NZL", "nz"), ("PAN", "pa"), ("PAR", "py"), ("PER", "pe"),
-        ("POL", "pl"), ("POR", "pt"), ("QAT", "qa"), ("ROU", "ro"), ("RSA", "za"),
-        ("SCO", "gb-sct"), ("SEN", "sn"), ("SRB", "rs"), ("SUI", "ch"), ("SVK", "sk"),
-        ("SVN", "si"), ("SWE", "se"), ("TUN", "tn"), ("TUR", "tr"), ("UKR", "ua"),
-        ("URU", "uy"), ("USA", "us"), ("WAL", "gb-wls"),
-    ];
-    let upper = abbr.to_ascii_uppercase();
-    map.iter()
-        .find(|(k, _)| *k == upper)
-        .map(|(_, v)| (*v).to_string())
 }
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -535,95 +243,6 @@ async fn dispatch_pending(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn classify_group_stage() {
-        let (s, g) = classify_stage("Group A - Matchday 1");
-        assert_eq!(s, Stage::Group);
-        assert_eq!(g, Some("A".to_string()));
-    }
-
-    #[test]
-    fn classify_group_letter_uppercased() {
-        let (s, g) = classify_stage("FIFA World Cup - Group f");
-        assert_eq!(s, Stage::Group);
-        assert_eq!(g, Some("F".to_string()));
-    }
-
-    #[test]
-    fn classify_round_of_32() {
-        assert_eq!(classify_stage("Round of 32").0, Stage::RoundOf32);
-    }
-
-    #[test]
-    fn classify_round_of_16() {
-        assert_eq!(classify_stage("Round of 16").0, Stage::RoundOf16);
-    }
-
-    #[test]
-    fn classify_quarter_final() {
-        assert_eq!(classify_stage("Quarterfinals").0, Stage::QuarterFinal);
-        assert_eq!(classify_stage("Quarter-final").0, Stage::QuarterFinal);
-    }
-
-    #[test]
-    fn classify_semi_final() {
-        assert_eq!(classify_stage("Semifinals").0, Stage::SemiFinal);
-    }
-
-    #[test]
-    fn classify_third_place() {
-        assert_eq!(classify_stage("Third-Place Match").0, Stage::ThirdPlace);
-        assert_eq!(classify_stage("3rd Place").0, Stage::ThirdPlace);
-    }
-
-    #[test]
-    fn classify_final() {
-        assert_eq!(classify_stage("Final").0, Stage::Final);
-    }
-
-    #[test]
-    fn classify_unknown_defaults_to_group() {
-        assert_eq!(classify_stage("").0, Stage::Group);
-    }
-
-    #[test]
-    fn flag_lookup_works_case_insensitive() {
-        assert_eq!(flag_code_for_abbr("ger").as_deref(), Some("de"));
-        assert_eq!(flag_code_for_abbr("USA").as_deref(), Some("us"));
-        assert_eq!(flag_code_for_abbr("ENG").as_deref(), Some("gb-eng"));
-    }
-
-    #[test]
-    fn flag_lookup_unknown() {
-        assert!(flag_code_for_abbr("XYZ").is_none());
-    }
-
-    #[test]
-    fn parse_espn_datetime_rfc3339() {
-        let dt = parse_espn_datetime("2026-06-11T20:00:00Z").unwrap();
-        assert_eq!(dt.to_rfc3339(), "2026-06-11T20:00:00+00:00");
-    }
-
-    #[test]
-    fn parse_espn_datetime_no_seconds() {
-        let dt = parse_espn_datetime("2026-06-11T20:00Z").unwrap();
-        assert_eq!(dt.to_rfc3339(), "2026-06-11T20:00:00+00:00");
-    }
-
-    #[test]
-    fn parse_espn_datetime_date_only_rejected() {
-        assert!(parse_espn_datetime("2026-06-11").is_none());
-    }
-
-    #[test]
-    fn tournament_window_default() {
-        let (start, end) = tournament_window();
-        assert!(start <= end);
-    }
-
-    // ─── End-to-end coverage of bootstrap + process_notifications via fakes ──
-
     use crate::notifier::NotifierError;
     use crate::repo::match_::{FakeMatch, MemoryMatchRepo};
     use crate::repo::notification::ClosingSoonMatch;
@@ -631,8 +250,17 @@ mod tests {
         MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
         MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
     };
+    use crate::scoreboard::{FakeScoreboardClient, MatchStatus, SportsEvent, SportsTeam};
+    use crate::stage::Stage;
+    use chrono::TimeZone;
     use std::sync::Arc;
     use std::sync::Mutex;
+
+    #[test]
+    fn tournament_window_default() {
+        let (start, end) = tournament_window();
+        assert!(start <= end);
+    }
 
     /// Notifier that records every event it receives, so tests can assert
     /// which notifications were dispatched without a real Signal endpoint.
@@ -660,6 +288,96 @@ mod tests {
             notifications,
         }
     }
+
+    fn group_event(id: i64, kickoff: DateTime<Utc>) -> SportsEvent {
+        SportsEvent {
+            provider_event_id: id,
+            stage: Stage::Group,
+            group_letter: Some("A".into()),
+            home_team: Some(SportsTeam {
+                provider_team_id: 100,
+                display_name: "Argentina".into(),
+                short_name: Some("ARG".into()),
+                flag_code: Some("ar".into()),
+            }),
+            away_team: Some(SportsTeam {
+                provider_team_id: 200,
+                display_name: "Brazil".into(),
+                short_name: Some("BRA".into()),
+                flag_code: Some("br".into()),
+            }),
+            score_home: None,
+            score_away: None,
+            kickoff: Some(kickoff),
+            status: MatchStatus::Scheduled,
+        }
+    }
+
+    // ─── update_data ────────────────────────────────────────────────────────
+
+    /// `update_data` walks every date in the configured window. Override
+    /// the env vars to a single-day window so the test runs in O(1) calls.
+    fn single_day_window(date: NaiveDate) {
+        std::env::set_var("WC_WINDOW_START", date.format("%Y-%m-%d").to_string());
+        std::env::set_var("WC_WINDOW_END", date.format("%Y-%m-%d").to_string());
+    }
+
+    #[tokio::test]
+    async fn update_data_upserts_every_event_returned_by_provider() {
+        let date = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+        single_day_window(date);
+
+        let scoreboard = FakeScoreboardClient::new();
+        let kickoff = Utc.with_ymd_and_hms(2026, 6, 11, 18, 0, 0).unwrap();
+        scoreboard.seed(date, vec![group_event(1, kickoff), group_event(2, kickoff)]);
+
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        let repos = build_repos(notifications);
+
+        update_data(&scoreboard, &repos).await.unwrap();
+
+        // Two team upserts per event × two events = four teams (with overlap
+        // collapsed by upsert id).
+        let teams = repos.teams.list_real_for_dropdown().await.unwrap();
+        let names: Vec<&str> = teams.iter().map(|t| t.name.as_str()).collect();
+        assert!(names.contains(&"Argentina"));
+        assert!(names.contains(&"Brazil"));
+    }
+
+    #[tokio::test]
+    async fn update_data_logs_and_continues_on_provider_failure() {
+        let date = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+        single_day_window(date);
+
+        let scoreboard = FakeScoreboardClient::new();
+        scoreboard.fail_once(date);
+        // Even after the failed call, no events to seed → result is empty.
+
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        let repos = build_repos(notifications);
+
+        // Crucially: this must NOT propagate the error — the worker is
+        // designed to log and move on so a single bad day doesn't kill the
+        // background task.
+        update_data(&scoreboard, &repos).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn update_data_handles_empty_window_dates() {
+        let date = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+        single_day_window(date);
+
+        let scoreboard = FakeScoreboardClient::new();
+        // No seed → empty events for that day.
+
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        let repos = build_repos(notifications);
+
+        update_data(&scoreboard, &repos).await.unwrap();
+        assert_eq!(scoreboard.call_count(), 1, "single-day window = 1 call");
+    }
+
+    // ─── bootstrap + process_notifications ─────────────────────────────────
 
     #[tokio::test]
     async fn bootstrap_silences_existing_matches_and_is_idempotent() {
@@ -766,7 +484,6 @@ mod tests {
         notifications.seed_user("Anna");
         notifications.seed_user_with_champion("Ben");
 
-        // First-kickoff source is the matches repo, not notifications.
         let matches = Arc::new(MemoryMatchRepo::new());
         matches.seed(FakeMatch::locked_unfinished(
             1,
