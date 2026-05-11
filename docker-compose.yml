@@ -20,6 +20,24 @@ services:
     container_name: pila_app
     ports:
       - "8000:8000"
+    # Security hardening: drop all capabilities, prevent privilege
+    # escalation, and mount the root filesystem read-only.  /tmp is a
+    # tmpfs so the occasional scratch write (e.g. tokio blocking pool)
+    # still works.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          memory: 128M
     environment:
       DATABASE_URL: postgres://pila:${POSTGRES_PASSWORD}@db:5432/pila_db
       RUST_LOG: info
@@ -41,8 +59,11 @@ services:
       MODE: native
     volumes:
       - signal_cli_config:/home/.local/share/signal-cli
-    ports:
-      - "127.0.0.1:8080:8080"
+    # The REST API is only reached by the app container over the
+    # internal Docker network (hostname `signal-cli`).  Do NOT expose
+    # this port to the host unless you are debugging registration.
+    # ports:
+    #   - "127.0.0.1:8080:8080"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "grep -q ':1F90' /proc/net/tcp /proc/net/tcp6"]
