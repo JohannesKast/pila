@@ -14,40 +14,12 @@ use crate::handlers::util::flag_url;
 use crate::jersey::JerseyPreset;
 use crate::repo::Repos;
 use crate::scoring;
-use crate::views::{
-    AdminUserView, GroupRow, GroupStandingsTable, LeaderboardEntry,
-};
-
-use super::util::build_magic_link;
+use crate::views::{GroupRow, GroupStandingsTable, LeaderboardEntry};
 
 /// Convenience wrapper — handlers reach for "who actually won the cup?" in
 /// several places.
 pub async fn fetch_actual_champion(repos: &Repos) -> Option<i32> {
     repos.matches.actual_champion().await.unwrap_or_default()
-}
-
-pub async fn fetch_admin_users(
-    repos: &Repos,
-    league_id: Uuid,
-    current_user_id: Uuid,
-) -> Vec<AdminUserView> {
-    let rows = repos
-        .users
-        .list_for_admin(league_id)
-        .await
-        .unwrap_or_default();
-
-    rows.into_iter()
-        .map(|r| AdminUserView {
-            magic_link: build_magic_link(&r.token),
-            is_self: r.id == current_user_id,
-            id: r.id,
-            name: r.name,
-            phone_number: r.phone_number,
-            is_admin: r.is_admin,
-            can_create_league: r.can_create_league,
-        })
-        .collect()
 }
 
 /// Build the read-only context the badge engine consumes. One snapshot per

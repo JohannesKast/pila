@@ -1,11 +1,15 @@
 //! Admin user-management routes. All routes require `AdminUser` and most
 //! return an HTMX partial that updates a single row in the admin table.
+//!
+//! User management is *always* scoped to a league. Non-super-admins may only
+//! act on users in their own league; the super-admin (`can_create_league`)
+//! may operate on any league via the `/admin/leagues/:id/users` URLs.
 
 use askama::Template;
 use axum::{
     extract::{Form, Path, State},
     http::StatusCode,
-    response::Html,
+    response::{Html, Redirect},
 };
 use serde::Deserialize;
 use uuid::Uuid;
@@ -14,6 +18,7 @@ use crate::auth::AdminUser;
 use crate::handlers::util::{build_magic_link, html_escape};
 use crate::notifier;
 use crate::repo;
+use crate::translations::T;
 use crate::views::AdminUserView;
 use crate::AppState;
 
@@ -29,6 +34,91 @@ fn render_admin_row(u: AdminUserView, signal_enabled: bool) -> Html<String> {
     Html(tpl.render().unwrap())
 }
 
+fn t_for(state: &AppState, lang: &str) -> T {
+    state
+        .translations
+        .get(lang)
+        .or_else(|| state.translations.get("de"))
+        .expect("de locale always present")
+        .clone()
+}
+
+/// Permission check used by every per-league admin route below: a regular
+/// admin may only touch their own league, a super-admin may touch any.
+fn ensure_league_access(
+    admin: &crate::auth::AuthenticatedUser,
+    league_id: Uuid,
+) -> Result<(), (StatusCode, &'static str)> {
+    if admin.league_id == league_id || admin.can_create_league {
+        Ok(())
+    } else {
+        Err((
+            StatusCode::FORBIDDEN,
+            "Cross-League-Aktionen erfordern can_create_league.",
+        ))
+    }
+}
+
+// ─── Per-league user list page ───────────────────────────────────────────────
+
+#[derive(Template)]
+#[template(path = "admin/league_users.html")]
+struct LeagueUsersTemplate {
+    league: repo::league::League,
+    users: Vec<AdminUserView>,
+    signal_enabled: bool,
+    is_super_admin: bool,
+    t: T,
+    lang_code: String,
+}
+
+pub async fn league_users_page(
+    State(state): State<AppState>,
+    AdminUser(admin): AdminUser,
+    Path(league_id): Path<Uuid>,
+) -> Result<Html<String>, (StatusCode, &'static str)> {
+    ensure_league_access(&admin, league_id)?;
+
+    let league = state
+        .repos
+        .leagues
+        .find_by_id(league_id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+        .ok_or((StatusCode::NOT_FOUND, "Liga nicht gefunden."))?;
+
+    let rows = state
+        .repos
+        .users
+        .list_for_admin(league_id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+    let users: Vec<AdminUserView> = rows
+        .into_iter()
+        .map(|r| AdminUserView {
+            magic_link: build_magic_link(&r.token),
+            is_self: r.id == admin.id,
+            id: r.id,
+            name: r.name,
+            phone_number: r.phone_number,
+            is_admin: r.is_admin,
+            can_create_league: r.can_create_league,
+        })
+        .collect();
+
+    let lang_code = admin.language.clone();
+    let template = LeagueUsersTemplate {
+        league,
+        users,
+        signal_enabled: notifier::signal_configured(),
+        is_super_admin: admin.can_create_league,
+        t: t_for(&state, &admin.language),
+        lang_code,
+    };
+    Ok(Html(template.render().unwrap()))
+}
+
 #[derive(Deserialize)]
 pub struct AdminCreateForm {
     pub name: String,
@@ -39,8 +129,11 @@ pub struct AdminCreateForm {
 pub async fn admin_create_user(
     State(state): State<AppState>,
     AdminUser(admin): AdminUser,
+    Path(league_id): Path<Uuid>,
     Form(form): Form<AdminCreateForm>,
 ) -> Result<Html<String>, (StatusCode, &'static str)> {
+    ensure_league_access(&admin, league_id)?;
+
     let name = form.name.trim();
     if name.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
@@ -54,7 +147,7 @@ pub async fn admin_create_user(
     let cfg = state
         .repos
         .leagues
-        .get_config(admin.league_id)
+        .get_config(league_id)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
@@ -67,7 +160,7 @@ pub async fn admin_create_user(
             token: &token,
             is_admin: false,
             phone_number: phone_opt,
-            league_id: admin.league_id,
+            league_id,
             language: &cfg.default_language,
         })
         .await
@@ -93,6 +186,13 @@ pub async fn admin_create_user(
         is_self: false,
     };
     Ok(render_admin_row(view, signal_enabled))
+}
+
+/// Convenience redirect: `/admin/users` is the index "User-Verwaltung" entry
+/// point — sends the admin straight to their own league's user list. Kept as
+/// a stable endpoint so external bookmarks / scripts don't break.
+pub async fn admin_users_redirect(AdminUser(admin): AdminUser) -> Redirect {
+    Redirect::to(&format!("/admin/leagues/{}/users", admin.league_id))
 }
 
 pub async fn admin_delete_user(

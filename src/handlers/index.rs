@@ -8,20 +8,20 @@ use axum::{
     response::{Html, IntoResponse, Redirect, Response},
 };
 
+use uuid::Uuid;
+
 use crate::auth::MaybeAuthenticatedUser;
 use crate::badges;
 use crate::handlers::services::{
-    build_badge_context, fetch_actual_champion, fetch_admin_users, fetch_group_standings,
-    fetch_leaderboard,
+    build_badge_context, fetch_actual_champion, fetch_group_standings, fetch_leaderboard,
 };
 use crate::handlers::util::{flag_url, format_kickoff};
 use crate::news;
-use crate::notifier;
 use crate::scoring;
 use crate::translations::T;
 use crate::views::{
-    AdminUserView, ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView,
-    SpecialPredictionsView, StageGroups, TeamView, UserPrediction,
+    ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView, SpecialPredictionsView,
+    StageGroups, TeamView, UserPrediction,
 };
 use crate::AppState;
 
@@ -47,8 +47,8 @@ struct IndexTemplate {
     champ_preds: Vec<ChampPrediction>,
     is_admin: bool,
     can_create_league: bool,
-    admin_users: Vec<AdminUserView>,
-    signal_enabled: bool,
+    league_id: Uuid,
+    league_name: String,
     news_items: Vec<news::NewsItem>,
     badges: Vec<badges::BadgeView>,
     t: T,
@@ -291,11 +291,15 @@ pub async fn index(
     }
     .to_string();
 
-    let admin_users = if user.is_admin {
-        fetch_admin_users(&state.repos, user.league_id, user.id).await
-    } else {
-        Vec::new()
-    };
+    let league_name = state
+        .repos
+        .leagues
+        .find_by_id(user.league_id)
+        .await
+        .ok()
+        .flatten()
+        .map(|l| l.name)
+        .unwrap_or_default();
 
     let news_items = state.news.get().await;
 
@@ -338,8 +342,8 @@ pub async fn index(
         champ_preds,
         is_admin: user.is_admin,
         can_create_league: user.can_create_league,
-        admin_users,
-        signal_enabled: notifier::signal_configured(),
+        league_id: user.league_id,
+        league_name,
         news_items,
         badges: badges_list,
         t,

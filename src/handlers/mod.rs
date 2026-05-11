@@ -20,7 +20,7 @@ pub mod util;
 // `pila::handlers` to wire up its router.
 pub use admin::{
     admin_create_user, admin_delete_user, admin_rename_user, admin_resend_invite,
-    admin_toggle_admin,
+    admin_toggle_admin, admin_users_redirect, league_users_page,
 };
 pub use auth::login_magic_link;
 pub use index::index;

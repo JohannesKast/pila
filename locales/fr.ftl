@@ -221,3 +221,13 @@ league-settings-signal-from-number = Expéditeur Signal (téléphone)
 league-settings-rss-url = URL du flux RSS
 # Submit button on the per-league settings form
 league-settings-save = Enregistrer
+# Action button on the leagues table that opens the user list of one league
+league-manage-users = Joueurs
+# Heading of the per-league user-management page (followed by the league name)
+league-users-heading = Gestion des joueurs
+# Card heading on the index admin tab linking to the per-league user list
+admin-card-users-title = Joueurs de cette ligue
+# Sub-text under the per-league user-management card on the index admin tab
+admin-card-users-sub = Inviter, renommer, attribuer des droits
+# Action label on the per-league user-management card
+admin-card-users-cta = Ouvrir

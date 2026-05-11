@@ -89,6 +89,7 @@ async fn admin_create_user_rejects_blank_name() {
     let res = admin_create_user(
         State(h.state.clone()),
         admin,
+        Path(DEFAULT_LEAGUE_ID),
         Form(AdminCreateForm {
             name: "   ".into(),
             phone_number: String::new(),
@@ -105,6 +106,7 @@ async fn admin_create_user_persists_new_user_and_returns_row_html() {
     let res = admin_create_user(
         State(h.state.clone()),
         admin,
+        Path(DEFAULT_LEAGUE_ID),
         Form(AdminCreateForm {
             name: "Bob".into(),
             phone_number: String::new(),

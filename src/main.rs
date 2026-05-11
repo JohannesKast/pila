@@ -81,7 +81,9 @@ fn build_router() -> Router<AppState> {
         )
         .route("/profile/jersey", axum::routing::post(handlers::jersey_post))
         .route("/profile/language", axum::routing::post(handlers::set_language_post))
-        .route("/admin/users", axum::routing::post(handlers::admin_create_user))
+        // Convenience landing — redirects the admin to their own league's
+        // user list. Kept so old bookmarks / scripts keep working.
+        .route("/admin/users", get(handlers::admin_users_redirect))
         .route(
             "/admin/users/:id/delete",
             axum::routing::post(handlers::admin_delete_user),
@@ -106,6 +108,12 @@ fn build_router() -> Router<AppState> {
         .route(
             "/admin/leagues/:id/settings",
             get(handlers::league_settings_form).post(handlers::league_settings_save),
+        )
+        // User management always lives inside a league scope. Both the league
+        // admin (own league) and the super-admin (any league) reach this URL.
+        .route(
+            "/admin/leagues/:id/users",
+            get(handlers::league_users_page).post(handlers::admin_create_user),
         )
         .nest_service("/static", ServeDir::new("static"))
 }

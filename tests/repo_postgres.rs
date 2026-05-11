@@ -35,6 +35,19 @@ async fn pool() -> PgPool {
         .run(&pool)
         .await
         .expect("migrate");
+
+    // Migrations no longer seed a default league, but every test in this
+    // file references `DEFAULT_LEAGUE_ID` as a stable tenant. Seed it here
+    // once (idempotent) so foreign-key inserts succeed.
+    sqlx::query!(
+        "INSERT INTO leagues (id, name, notifications_bootstrapped) \
+         VALUES ($1, 'Test Default', true) ON CONFLICT (id) DO NOTHING",
+        DEFAULT_LEAGUE_ID
+    )
+    .execute(&pool)
+    .await
+    .expect("seed default test league");
+
     pool
 }
 

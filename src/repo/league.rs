@@ -17,9 +17,9 @@ use uuid::Uuid;
 
 use super::{RepoError, RepoResult};
 
-/// Stable UUID of the seeded "Default" league created by the
-/// `20260601000004_leagues.sql` migration. Existing users were migrated into
-/// this league.
+/// Stable UUID used by the test suite as a fixed league id. Production
+/// leagues are created via the `/setup` flow or the super-admin "create
+/// league" form — no league is seeded by migration.
 pub const DEFAULT_LEAGUE_ID: Uuid = Uuid::from_u128(0x00000000_0000_0000_0000_000000000001);
 
 /// Lightweight league row used by listings and the auth layer.

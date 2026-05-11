@@ -20,14 +20,24 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
     let user_id = Uuid::new_v4();
     let token = format!("test-token-{}", uuid::Uuid::new_v4());
 
-    let default_league = pila::repo::DEFAULT_LEAGUE_ID;
+    // No league is seeded by migration anymore — create one explicitly so
+    // the user row's NOT NULL `league_id` foreign key resolves.
+    let league_id = Uuid::new_v4();
+    sqlx::query!(
+        "INSERT INTO leagues (id, name) VALUES ($1, $2)",
+        league_id,
+        "Test League"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
     sqlx::query!(
         "INSERT INTO users (id, name, token, jersey_preset, league_id) VALUES ($1, $2, $3, $4, $5)",
         user_id,
         "Test User",
         token,
         "classic",
-        default_league
+        league_id
     )
     .execute(&pool)
     .await

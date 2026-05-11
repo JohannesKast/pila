@@ -37,7 +37,10 @@
                         {% endmatch %}
                     </td>
                     <td style="padding:10px 12px;">
-                        <a href="/admin/leagues/{{ l.id }}/settings" class="pl-btn" style="padding:4px 10px; font-size:11px;">{{ t.get("league-edit-settings") }}</a>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <a href="/admin/leagues/{{ l.id }}/users" class="pl-btn" style="padding:4px 10px; font-size:11px;">{{ t.get("league-manage-users") }}</a>
+                            <a href="/admin/leagues/{{ l.id }}/settings" class="pl-btn" style="padding:4px 10px; font-size:11px;">{{ t.get("league-edit-settings") }}</a>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

@@ -15,7 +15,7 @@ use chrono::Utc;
 use uuid::Uuid;
 
 use pila::badges;
-use pila::handlers::services::{build_badge_context, fetch_admin_users, fetch_leaderboard};
+use pila::handlers::services::{build_badge_context, fetch_leaderboard};
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::prediction::{FakeFinishedRow, FakeLeaderboardRow};
 use pila::repo::user::{NewUser, UserFull};
@@ -566,14 +566,14 @@ async fn badges_compute_only_within_one_league() {
 }
 
 #[tokio::test]
-async fn fetch_admin_users_only_returns_league_members() {
+async fn admin_user_list_only_returns_league_members() {
     let t = setup_two_leagues();
-    let view_a = fetch_admin_users(&t.repos, t.league_a, t.a_alice).await;
-    let names_a: Vec<&str> = view_a.iter().map(|u| u.name.as_str()).collect();
+    let rows_a = t.repos.users.list_for_admin(t.league_a).await.unwrap();
+    let names_a: Vec<&str> = rows_a.iter().map(|u| u.name.as_str()).collect();
     assert_eq!(names_a, vec!["Alice", "Bob"]);
 
-    let view_b = fetch_admin_users(&t.repos, t.league_b, t.b_charlie).await;
-    let names_b: Vec<&str> = view_b.iter().map(|u| u.name.as_str()).collect();
+    let rows_b = t.repos.users.list_for_admin(t.league_b).await.unwrap();
+    let names_b: Vec<&str> = rows_b.iter().map(|u| u.name.as_str()).collect();
     assert_eq!(names_b, vec!["Charlie"]);
 }
 

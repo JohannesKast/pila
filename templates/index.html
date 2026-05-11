@@ -6,7 +6,7 @@
     <div style="display:flex; align-items:center; gap:9px; min-width:0;">
         <img src="/static/pila-logo.svg" width="32" height="32" alt="Pila" style="flex-shrink:0;">
         <div style="min-width:0;">
-            <div class="pl-display" style="font-size:16px; line-height:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tipprunden_name }}</div>
+            <div class="pl-display" style="font-size:16px; line-height:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tipprunden_name }} - {{ league_name }}</div>
             <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.12em; margin-top:2px;">PILA · {{ user_name|upper }}</div>
         </div>
     </div>
@@ -392,55 +392,34 @@
     {% if is_admin %}
     {# ===== TAB: ADMIN ===== #}
     <section data-panel="admin" class="tab-panel mt-3 hidden">
-        {% if can_create_league %}
-        <div class="pl-card" style="padding:14px 16px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
-            <span style="font-size:18px;">🏆</span>
-            <span class="pl-display" style="font-size:13px;">{{ t.get("league-list") }}</span>
-            <a href="/admin/leagues" class="pl-btn" style="margin-left:auto; padding:6px 12px; font-size:11px;">{{ t.get("league-edit-settings") }}</a>
-        </div>
-        {% endif %}
-        <div class="pl-card" style="padding:16px; margin-bottom:16px;">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                <span style="font-size:18px;">➕</span>
-                <span class="pl-display" style="font-size:14px;">{{ t.get("admin-new-user") }}</span>
+        <a href="/admin/leagues/{{ league_id }}/users" class="pl-card" style="padding:16px; margin-bottom:12px; display:flex; align-items:center; gap:14px; text-decoration:none;">
+            <span style="font-size:24px;">👥</span>
+            <div style="flex:1; min-width:0;">
+                <div class="pl-display" style="font-size:14px;">{{ t.get("admin-card-users-title") }}</div>
+                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.04em; margin-top:2px;">{{ league_name }} · {{ t.get("admin-card-users-sub") }}</div>
             </div>
-            {% if !signal_enabled %}
-            <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; margin-bottom:10px;">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</div>
-            {% endif %}
-            <form hx-post="/admin/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px;">
-                <input type="text" name="name" placeholder="{{ t.get("col-name") }}" required maxlength="255"
-                       style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
-                <input type="text" name="phone_number" placeholder="{{ t.get("admin-phone-placeholder") }}" maxlength="32"
-                       style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
-                <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">{{ t.get("admin-create-btn") }}</button>
-            </form>
-        </div>
+            <span class="pl-btn" style="padding:6px 12px; font-size:11px;">{{ t.get("admin-card-users-cta") }} →</span>
+        </a>
 
-        <div class="pl-card" style="padding:0; overflow:hidden;">
-            <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
-                <span style="font-size:18px;">👥</span>
-                <span class="pl-display" style="font-size:14px;">{{ t.get("admin-user-mgmt") }}</span>
-                <span class="pl-mono" style="font-size:9px; color:var(--pl-mute); margin-left:auto;">{{ admin_users.len() }}</span>
+        <a href="/admin/leagues/{{ league_id }}/settings" class="pl-card" style="padding:16px; margin-bottom:12px; display:flex; align-items:center; gap:14px; text-decoration:none;">
+            <span style="font-size:24px;">⚙️</span>
+            <div style="flex:1; min-width:0;">
+                <div class="pl-display" style="font-size:14px;">{{ t.get("league-settings-heading") }}</div>
+                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.04em; margin-top:2px;">{{ league_name }}</div>
             </div>
-            <div style="overflow-x:auto;">
-                <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                    <thead>
-                        <tr style="background:rgba(116,255,140,.04); border-bottom:1px solid var(--pl-line);">
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-name") }}</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-phone") }}</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-role") }}</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-magic-link") }}</th>
-                            <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-actions") }}</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-user-list" style="border-top:1px solid var(--pl-line);">
-                        {% for u in admin_users %}
-                            {% include "admin_row.html" %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <span class="pl-btn" style="padding:6px 12px; font-size:11px;">{{ t.get("admin-card-users-cta") }} →</span>
+        </a>
+
+        {% if can_create_league %}
+        <a href="/admin/leagues" class="pl-card" style="padding:16px; display:flex; align-items:center; gap:14px; text-decoration:none;">
+            <span style="font-size:24px;">🏆</span>
+            <div style="flex:1; min-width:0;">
+                <div class="pl-display" style="font-size:14px;">{{ t.get("league-list") }}</div>
+                <div class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.04em; margin-top:2px;">Super-Admin</div>
             </div>
-        </div>
+            <span class="pl-btn" style="padding:6px 12px; font-size:11px;">{{ t.get("admin-card-users-cta") }} →</span>
+        </a>
+        {% endif %}
     </section>
     {% endif %}
 

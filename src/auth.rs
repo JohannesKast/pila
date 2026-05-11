@@ -20,7 +20,8 @@ pub struct AuthenticatedUser {
     pub jersey_preset: String,
     pub language: String,
     /// Tenancy boundary — every aggregate query in handlers must filter by
-    /// this id. Existing users were migrated to the seeded "Default" league.
+    /// this id. Set when the user is created (via `/setup` or the per-league
+    /// admin form); there is no seeded "Default" league.
     pub league_id: Uuid,
 }
 
