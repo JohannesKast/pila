@@ -1,3 +1,7 @@
+use axum::extract::State;
+use axum::http::StatusCode;
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use axum::{routing::get, Router};
 use sqlx::postgres::PgPoolOptions;
 use std::net::SocketAddr;
@@ -43,6 +47,9 @@ async fn main() {
         news: news::NewsCache::from_env(),
         repos: repos.clone(),
         translations: pila::translations::load_all(),
+        concurrency_limit: Arc::new(tokio::sync::Semaphore::new(
+            pila::MAX_CONCURRENT_REQUESTS,
+        )),
     };
 
     if let Err(e) = worker::bootstrap_notifications(&repos).await {
@@ -52,7 +59,12 @@ async fn main() {
     let scoreboard: Arc<dyn pila::scoreboard::ScoreboardClient> = Arc::new(EspnClient::new());
     worker::start_background_worker(repos, scoreboard).await;
 
-    let app = build_router().with_state(state);
+    let app = build_router()
+        .with_state(state.clone())
+        .layer(middleware::from_fn_with_state(
+            state,
+            concurrency_limit_middleware,
+        ));
 
     let port = std::env::var("PORT").unwrap_or_else(|_| "8000".into());
     let addr: SocketAddr = format!("0.0.0.0:{port}").parse().expect("Invalid PORT");
@@ -61,8 +73,30 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
+/// Global concurrency gate.  Acquires one permit from the shared semaphore
+/// before every request and releases it when the response is sent.
+/// Requests beyond `MAX_CONCURRENT_REQUESTS` queue up, providing
+/// backpressure without dropping connections.
+async fn concurrency_limit_middleware(
+    State(state): State<AppState>,
+    request: axum::extract::Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    let _permit = state
+        .concurrency_limit
+        .clone()
+        .acquire_owned()
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    Ok(next.run(request).await)
+}
+
 /// Wire up every route. Pulled out of `main` so integration tests can spin
 /// up a real `axum::Router` against a fake `AppState` (see `tests/`).
+///
+/// The concurrency-limiting middleware is applied in `main()` *after*
+/// `with_state` so the semaphore is truly global (shared across all TCP
+/// connections) rather than per-connection.
 fn build_router() -> Router<AppState> {
     Router::new()
         .route("/", get(handlers::index))

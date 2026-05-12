@@ -50,6 +50,7 @@ fn build_harness() -> Harness {
         news: pila::news::NewsCache::from_env(),
         repos,
         translations: std::collections::HashMap::new(),
+        concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
     };
 
     Harness { state, users }

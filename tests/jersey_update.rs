@@ -1,5 +1,6 @@
 use pila::AppState;
 use sqlx::postgres::PgPoolOptions;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -65,6 +66,7 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         news: pila::news::NewsCache::from_env(),
         repos: pila::repo::Repos::from_pool(pool.clone()),
         translations: std::collections::HashMap::new(),
+        concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
     };
 
     let new_jersey = "brasilien";
