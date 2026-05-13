@@ -130,12 +130,12 @@ fn relative_time(t: DateTime<Utc>) -> String {
     }
     let mins = secs / 60;
     if mins < 60 {
-        return format!("vor {}m", mins);
+        return format!("vor {mins}m");
     }
     let hours = mins / 60;
     if hours < 24 {
-        return format!("vor {}h", hours);
+        return format!("vor {hours}h");
     }
     let days = hours / 24;
-    format!("vor {}d", days)
+    format!("vor {days}d")
 }

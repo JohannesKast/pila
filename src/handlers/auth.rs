@@ -8,7 +8,7 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 
-use crate::handlers::util::make_login_cookie;
+use crate::handlers::util::{make_csrf_cookie, make_login_cookie};
 use crate::AppState;
 
 pub async fn login_magic_link(
@@ -25,7 +25,9 @@ pub async fn login_magic_link(
         .is_some();
 
     if exists {
-        let updated_jar = jar.add(make_login_cookie(token));
+        let updated_jar = jar
+            .add(make_login_cookie(token.clone()))
+            .add(make_csrf_cookie(token));
         Ok((updated_jar, Redirect::to("/")))
     } else {
         Err((StatusCode::UNAUTHORIZED, "Ungültiger oder abgelaufener Link."))

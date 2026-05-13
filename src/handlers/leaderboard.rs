@@ -5,6 +5,7 @@ use axum::{extract::State, response::Html};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
+use crate::handlers::util::render_template;
 use crate::translations::T;
 use crate::views::LeaderboardEntry;
 use crate::AppState;
@@ -31,5 +32,5 @@ pub async fn leaderboard(
         .expect("de locale always present")
         .clone();
     let template = LeaderboardTemplate { entries, t, lang_code };
-    Html(template.render().unwrap())
+    render_template(&template).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
 }

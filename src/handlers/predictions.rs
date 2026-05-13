@@ -1,5 +1,6 @@
 //! Per-match score tip and the singleton Weltmeister pick.
 
+use askama::Template;
 use axum::{
     extract::{Form, Path, State},
     http::StatusCode,
@@ -8,7 +9,16 @@ use axum::{
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
+use crate::handlers::util::render_template;
 use crate::AppState;
+
+#[derive(Template)]
+#[template(path = "predict_form.html")]
+struct PredictFormTemplate {
+    match_id: i32,
+    score_home: i32,
+    score_away: i32,
+}
 
 #[derive(Deserialize)]
 pub struct PredictionForm {
@@ -62,16 +72,12 @@ pub async fn predict_match(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
 
-    let html = format!(
-        r##"<form id="tip-form-{id}" hx-post="/predict/{id}" hx-swap="outerHTML" hx-target="#tip-form-{id}" style="display:flex; align-items:center; gap:6px;">
-  <input class="pl-num" type="number" name="score_home" min="0" max="20" value="{h}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
-  <span class="pl-mono" style="color:var(--pl-mute);">:</span>
-  <input class="pl-num" type="number" name="score_away" min="0" max="20" value="{a}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
-  <button type="submit" class="pl-btn pl-btn--primary" style="height:42px; padding:0 12px; font-size:11px;">OK</button>
-</form>"##,
-        id = match_id, h = form.score_home, a = form.score_away
-    );
-    Ok(Html(html))
+    let template = PredictFormTemplate {
+        match_id,
+        score_home: form.score_home,
+        score_away: form.score_away,
+    };
+    Ok(render_template(&template)?)
 }
 
 fn deserialize_optional_int<'de, D>(de: D) -> Result<Option<i32>, D::Error>

@@ -141,23 +141,26 @@ pub async fn send_signal_message(
     Ok(())
 }
 
-pub fn signal_configured() -> bool {
-    let api = std::env::var("SIGNAL_API_URL").ok();
-    let from = std::env::var("SIGNAL_FROM_NUMBER").ok();
-    matches!((api, from), (Some(a), Some(f)) if !a.is_empty() && !f.is_empty())
+pub fn signal_configured(
+    api_url: &Option<String>,
+    from_number: &Option<String>,
+) -> bool {
+    matches!((api_url, from_number), (Some(a), Some(f)) if !a.is_empty() && !f.is_empty())
 }
 
 pub async fn send_invite_via_signal(
     phone: &str,
     name: &str,
     magic_link: &str,
+    api_url: &Option<String>,
+    from_number: &Option<String>,
 ) -> Result<(), NotifierError> {
-    let api = std::env::var("SIGNAL_API_URL")
-        .ok()
+    let api = api_url
+        .as_deref()
         .filter(|s| !s.is_empty())
         .ok_or("SIGNAL_API_URL not set")?;
-    let from = std::env::var("SIGNAL_FROM_NUMBER")
-        .ok()
+    let from = from_number
+        .as_deref()
         .filter(|s| !s.is_empty())
         .ok_or("SIGNAL_FROM_NUMBER not set")?;
 
@@ -165,7 +168,7 @@ pub async fn send_invite_via_signal(
         "Hallo {name}! Du bist beim Pila WM-Tippspiel dabei. Dein Login-Link: {magic_link}"
     );
     let client = Client::new();
-    send_signal_message(&client, &api, &from, phone, &message).await
+    send_signal_message(&client, api, from, phone, &message).await
 }
 
 fn names_or_count(names: &[String]) -> String {

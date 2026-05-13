@@ -5,7 +5,7 @@ use askama::Template;
 use axum::{
     extract::State,
     http::StatusCode,
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
 };
 
 use uuid::Uuid;
@@ -15,7 +15,7 @@ use crate::badges;
 use crate::handlers::services::{
     build_badge_context, fetch_actual_champion, fetch_group_standings, fetch_leaderboard,
 };
-use crate::handlers::util::{flag_url, format_kickoff};
+use crate::handlers::util::{flag_url, format_kickoff, render_template};
 use crate::news;
 use crate::scoring;
 use crate::translations::T;
@@ -349,5 +349,5 @@ pub async fn index(
         t,
         lang_code,
     };
-    Ok(Html(template.render().unwrap()).into_response())
+    Ok(render_template(&template)?.into_response())
 }

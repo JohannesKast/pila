@@ -31,6 +31,9 @@ async fn main() {
     let db_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let pool = PgPoolOptions::new()
         .max_connections(5)
+        .acquire_timeout(std::time::Duration::from_secs(3))
+        .idle_timeout(std::time::Duration::from_secs(300))
+        .max_lifetime(std::time::Duration::from_secs(1800))
         .connect(&db_url)
         .await
         .unwrap();
@@ -41,8 +44,20 @@ async fn main() {
         .await
         .expect("Failed to run DB migrations");
 
-    let repos = Repos::from_pool(pool);
+    let repos = Repos::from_pool(pool.clone());
+
+    // Read once at startup so handlers and the worker don't call
+    // `std::env::var` on every request / notification tick.
+    let base_url = std::env::var("BASE_URL")
+        .unwrap_or_else(|_| "http://localhost:8000".into());
+    let signal_api_url = std::env::var("SIGNAL_API_URL").ok();
+    let signal_from_number = std::env::var("SIGNAL_FROM_NUMBER").ok();
+    let signal_group_id = std::env::var("SIGNAL_GROUP_ID").ok();
+
+    let http_client = reqwest::Client::new();
+
     let state = AppState {
+        db: Some(pool.clone()),
         jerseys: pila::jersey::load(),
         news: news::NewsCache::from_env(),
         repos: repos.clone(),
@@ -50,6 +65,11 @@ async fn main() {
         concurrency_limit: Arc::new(tokio::sync::Semaphore::new(
             pila::MAX_CONCURRENT_REQUESTS,
         )),
+        base_url: base_url.clone(),
+        signal_api_url: signal_api_url.clone(),
+        signal_from_number: signal_from_number.clone(),
+        signal_group_id: signal_group_id.clone(),
+        http_client: http_client.clone(),
     };
 
     if let Err(e) = worker::bootstrap_notifications(&repos).await {
@@ -57,7 +77,7 @@ async fn main() {
     }
 
     let scoreboard: Arc<dyn pila::scoreboard::ScoreboardClient> = Arc::new(EspnClient::new());
-    worker::start_background_worker(repos, scoreboard).await;
+    worker::start_background_worker(repos, scoreboard, base_url, signal_api_url).await;
 
     let app = build_router()
         .with_state(state.clone())
@@ -70,7 +90,86 @@ async fn main() {
     let addr: SocketAddr = format!("0.0.0.0:{port}").parse().expect("Invalid PORT");
     tracing::info!("Listening on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+}
+
+/// Set security-related HTTP response headers on every response.
+async fn security_headers_middleware(request: axum::extract::Request, next: Next) -> Response {
+    let mut response = next.run(request).await;
+    let headers = response.headers_mut();
+
+    headers.insert(
+        "Strict-Transport-Security",
+        "max-age=63072000; includeSubDomains".parse().unwrap(),
+    );
+    headers.insert("X-Frame-Options", "DENY".parse().unwrap());
+    headers.insert("X-Content-Type-Options", "nosniff".parse().unwrap());
+    headers.insert("Referrer-Policy", "strict-origin-when-cross-origin".parse().unwrap());
+    headers.insert("Permissions-Policy", "camera=(), microphone=(), geolocation=()".parse().unwrap());
+
+    response
+}
+
+/// Validates the `X-CSRF-Token` request header against the `pila_csrf`
+/// cookie (double-submit-cookie pattern) for state-changing POST routes.
+/// Exempts `/setup` (no cookie yet) and `/play/me/*` (login flow).
+async fn csrf_middleware(
+    request: axum::extract::Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if request.method() != axum::http::Method::POST {
+        return Ok(next.run(request).await);
+    }
+
+    let path = request.uri().path();
+    if path == "/setup" || path.starts_with("/play/me/") {
+        return Ok(next.run(request).await);
+    }
+
+    let jar = axum_extra::extract::CookieJar::from_headers(request.headers());
+    let cookie_token = jar.get("pila_csrf").map(|c| c.value().to_owned());
+
+    let header_token = request
+        .headers()
+        .get("X-CSRF-Token")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_owned());
+
+    match (cookie_token, header_token) {
+        (Some(c), Some(h)) if c == h => Ok(next.run(request).await),
+        _ => Err(StatusCode::FORBIDDEN),
+    }
+}
+
+/// Waits for SIGTERM (Unix) or SIGINT (Ctrl+C), then returns so
+/// `axum::serve().with_graceful_shutdown()` can drain connections.
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("Shutdown signal received, starting graceful shutdown...");
 }
 
 /// Global concurrency gate.  Acquires one permit from the shared semaphore
@@ -99,7 +198,10 @@ async fn concurrency_limit_middleware(
 /// connections) rather than per-connection.
 fn build_router() -> Router<AppState> {
     Router::new()
+        .layer(middleware::from_fn(security_headers_middleware))
+        .layer(middleware::from_fn(csrf_middleware))
         .route("/", get(handlers::index))
+        .route("/healthz", get(handlers::healthz))
         .route("/play/me/:token", get(handlers::login_magic_link))
         .route(
             "/setup",

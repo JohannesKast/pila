@@ -36,11 +36,14 @@ services:
         limits:
           cpus: '1.0'
           memory: 512M
+          pids: 100
         reservations:
           memory: 128M
+    mem_swappiness: 0
     environment:
       DATABASE_URL: postgres://pila:${POSTGRES_PASSWORD}@db:5432/pila_db
       RUST_LOG: info
+      # Internal Docker network — TLS not needed between containers.
       SIGNAL_API_URL: ${SIGNAL_API_URL:-http://signal-cli:8080}
       SIGNAL_FROM_NUMBER: ${SIGNAL_FROM_NUMBER:-}
       SIGNAL_GROUP_ID: ${SIGNAL_GROUP_ID:-}
@@ -51,6 +54,17 @@ services:
       signal-cli:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: 3
 
   signal-cli:
     image: bbernhard/signal-cli-rest-api:latest

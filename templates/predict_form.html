@@ -1,0 +1,6 @@
+<form id="tip-form-{{ match_id }}" hx-post="/predict/{{ match_id }}" hx-swap="outerHTML" hx-target="#tip-form-{{ match_id }}" style="display:flex; align-items:center; gap:6px;">
+  <input class="pl-num" type="number" name="score_home" min="0" max="20" value="{{ score_home }}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+  <span class="pl-mono" style="color:var(--pl-mute);">:</span>
+  <input class="pl-num" type="number" name="score_away" min="0" max="20" value="{{ score_away }}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+  <button type="submit" class="pl-btn pl-btn--primary" style="height:42px; padding:0 12px; font-size:11px;">OK</button>
+</form>

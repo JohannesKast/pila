@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::html_escape;
+use crate::handlers::util::{html_escape, render_template};
 use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;
@@ -68,7 +68,7 @@ pub async fn jersey_picker_get(
         current: user.jersey_preset,
         t,
     };
-    Html(template.render().unwrap())
+    render_template(&template).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
 }
 
 pub async fn jersey_picker_close() -> Html<&'static str> {

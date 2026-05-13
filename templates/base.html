@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://flagcdn.com; connect-src 'self';">
     <title>Pila — WM Tippspiel</title>
     <link rel="icon" type="image/svg+xml" href="/static/pila-logo.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,6 +41,17 @@
         }
     </script>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <meta name="csrf-token-name" content="pila_csrf">
+    <meta name="csrf-header-name" content="X-CSRF-Token">
+    <script>
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            const cookies = document.cookie.split('; ');
+            const token = cookies.find(row => row.startsWith('pila_csrf='))?.split('=')[1];
+            if (token) {
+                event.detail.headers['X-CSRF-Token'] = token;
+            }
+        });
+    </script>
 </head>
 <body class="pl-app min-h-screen">
     {% block topbar %}{% endblock %}

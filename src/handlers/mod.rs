@@ -31,3 +31,8 @@ pub use leagues::{
 };
 pub use predictions::{predict_match, predict_special};
 pub use setup::{setup_get, setup_post};
+
+/// Simple liveness endpoint for container orchestrators.
+pub async fn healthz() -> &'static str {
+    "OK"
+}

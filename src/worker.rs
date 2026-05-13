@@ -25,6 +25,8 @@ use crate::scoreboard::{ScoreboardClient, SportsEvent};
 pub async fn start_background_worker(
     repos: Repos,
     scoreboard: Arc<dyn ScoreboardClient>,
+    base_url: String,
+    signal_api_url: Option<String>,
 ) {
     tokio::spawn(async move {
         loop {
@@ -32,7 +34,7 @@ pub async fn start_background_worker(
             if let Err(e) = update_data(&*scoreboard, &repos).await {
                 tracing::error!("Scoreboard worker error: {:?}", e);
             }
-            if let Err(e) = process_notifications(&repos).await {
+            if let Err(e) = process_notifications(&repos, &base_url, &signal_api_url).await {
                 tracing::error!("Notification processing error: {:?}", e);
             }
             tokio::time::sleep(Duration::from_secs(1800)).await;
@@ -164,10 +166,10 @@ fn tournament_window() -> (NaiveDate, NaiveDate) {
     let end_str = std::env::var("WC_WINDOW_END").ok();
     let start = start_str
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok())
-        .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 6, 1).unwrap());
+        .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 6, 1).expect("2026-06-01 is valid"));
     let end = end_str
         .and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok())
-        .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 7, 25).unwrap());
+        .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 7, 25).expect("2026-07-25 is valid"));
     (start, end)
 }
 
@@ -175,12 +177,14 @@ fn tournament_window() -> (NaiveDate, NaiveDate) {
 
 pub(crate) async fn process_notifications(
     repos: &Repos,
+    base_url: &str,
+    signal_api_url: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if in_quiet_hours_now() {
         tracing::debug!("Quiet hours: skipping notification dispatch");
         return Ok(());
     }
-    dispatch_pending_for_all_leagues(repos, Utc::now()).await
+    dispatch_pending_for_all_leagues(repos, Utc::now(), base_url, signal_api_url).await
 }
 
 /// Iterate every league, build a per-league notifier from its `LeagueConfig`,
@@ -189,19 +193,17 @@ pub(crate) async fn process_notifications(
 pub(crate) async fn dispatch_pending_for_all_leagues(
     repos: &Repos,
     now: DateTime<Utc>,
+    base_url: &str,
+    signal_api_url: &Option<String>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let signal_api_url = std::env::var("SIGNAL_API_URL").ok();
-    let base_url = std::env::var("BASE_URL")
-        .unwrap_or_else(|_| "https://pila.example.com".to_string());
-
     let leagues = repos.leagues.list().await?;
     for league in leagues {
         let cfg = repos.leagues.get_config(league.id).await?;
-        let notifier: Box<dyn Notifier> = match (&signal_api_url, &cfg.signal_group_id, &cfg.signal_from_number) {
+        let notifier: Box<dyn Notifier> = match (signal_api_url, &cfg.signal_group_id, &cfg.signal_from_number) {
             (Some(api), Some(gid), Some(from))
                 if !api.is_empty() && !gid.is_empty() && !from.is_empty() =>
             {
-                Box::new(SignalNotifier::new(api, from, gid, &base_url))
+                Box::new(SignalNotifier::new(api, from, gid, base_url))
             }
             _ => Box::new(NoopNotifier),
         };

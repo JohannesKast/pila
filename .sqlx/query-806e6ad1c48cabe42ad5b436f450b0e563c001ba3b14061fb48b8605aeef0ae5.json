@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE users SET can_create_league = TRUE WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "806e6ad1c48cabe42ad5b436f450b0e563c001ba3b14061fb48b8605aeef0ae5"
+}

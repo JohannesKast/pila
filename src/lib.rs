@@ -14,6 +14,7 @@ pub mod worker;
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use sqlx::PgPool;
 use tokio::sync::Semaphore;
 
 /// Maximum in-flight requests the server handles concurrently.
@@ -23,6 +24,9 @@ pub const MAX_CONCURRENT_REQUESTS: usize = 30;
 
 #[derive(Clone)]
 pub struct AppState {
+    /// Direct pool handle used by `setup_post` for its multi-table
+    /// transaction. `None` in tests that use in-memory repos.
+    pub db: Option<PgPool>,
     pub jerseys: Arc<HashMap<String, jersey::JerseyPreset>>,
     pub news: Arc<news::NewsCache>,
     pub repos: repo::Repos,
@@ -31,4 +35,14 @@ pub struct AppState {
     /// The middleware layer acquires a permit before handing the request
     /// to the router and releases it when the response is sent.
     pub concurrency_limit: Arc<Semaphore>,
+    /// Cached at startup so handlers and the worker don't call
+    /// `std::env::var` on every request / notification tick.
+    pub base_url: String,
+    pub signal_api_url: Option<String>,
+    pub signal_from_number: Option<String>,
+    pub signal_group_id: Option<String>,
+    /// Reusable HTTP client (connection pooling, keep-alive).  Built once
+    /// at startup so `notifier` and `news` don't create a fresh client on
+    /// every request / notification tick.
+    pub http_client: reqwest::Client,
 }

@@ -18,6 +18,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::SuperAdminUser;
+use crate::handlers::util::{render_template, t_for};
 use crate::repo::league::{League, LeagueConfig};
 use crate::translations::T;
 use crate::AppState;
@@ -36,15 +37,6 @@ struct LeagueRow {
     id: Uuid,
     name: String,
     config: LeagueConfig,
-}
-
-fn t_for(state: &AppState, lang: &str) -> T {
-    state
-        .translations
-        .get(lang)
-        .or_else(|| state.translations.get("de"))
-        .expect("de locale always present")
-        .clone()
 }
 
 pub async fn leagues_list(
@@ -78,7 +70,7 @@ pub async fn leagues_list(
         t: t_for(&state, &user.language),
         lang_code: user.language.clone(),
     };
-    Ok(Html(template.render().unwrap()))
+    render_template(&template)
 }
 
 #[derive(Template)]
@@ -96,7 +88,7 @@ pub async fn leagues_new_form(
         t: t_for(&state, &user.language),
         lang_code: user.language.clone(),
     };
-    Html(template.render().unwrap())
+    render_template(&template).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
 }
 
 #[derive(Deserialize)]
@@ -160,7 +152,7 @@ pub async fn league_settings_form(
         t: t_for(&state, &user.language),
         lang_code: user.language.clone(),
     };
-    Ok(Html(template.render().unwrap()))
+    render_template(&template)
 }
 
 #[derive(Deserialize)]

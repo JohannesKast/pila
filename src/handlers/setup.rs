@@ -10,16 +10,16 @@ use askama::Template;
 use axum::{
     extract::{Form, State},
     http::StatusCode,
-    response::{Html, IntoResponse, Redirect, Response},
+    response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::handlers::util::{build_magic_link, make_login_cookie};
-use crate::notifier;
+use crate::handlers::util::{build_magic_link, make_login_cookie, render_template};
+use crate::notifier::{self, signal_configured};
 use crate::repo::league::LeagueConfig;
-use crate::repo::{self, Repos};
+use crate::repo::{Repos};
 use crate::AppState;
 
 #[derive(Template)]
@@ -51,7 +51,7 @@ pub async fn setup_get(
         return Ok(Redirect::to("/").into_response());
     }
     let template = SetupTemplate { lang_code: "de" };
-    Ok(Html(template.render().unwrap()).into_response())
+    Ok(render_template(&template)?.into_response())
 }
 
 const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
@@ -100,70 +100,101 @@ pub async fn setup_post(
     let phone = form.phone_number.trim().to_string();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(&phone) };
 
-    // Create the league first — the user row needs its id as a foreign key.
-    let league_id = state
-        .repos
-        .leagues
-        .create(&league_name)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
-
-    // Persist initial league settings. Empty inputs are *not* written, so
-    // `LeagueConfig::default()` keeps applying for unset keys.
-    persist_setting(&state, league_id, LeagueConfig::KEY_DEFAULT_LANGUAGE, lang).await?;
-    persist_setting(
-        &state,
-        league_id,
-        LeagueConfig::KEY_SIGNAL_GROUP_ID,
-        form.signal_group_id.trim(),
-    )
-    .await?;
-    persist_setting(
-        &state,
-        league_id,
-        LeagueConfig::KEY_SIGNAL_FROM_NUMBER,
-        form.signal_from_number.trim(),
-    )
-    .await?;
-    persist_setting(
-        &state,
-        league_id,
-        LeagueConfig::KEY_RSS_FEED_URL,
-        form.rss_feed_url.trim(),
-    )
-    .await?;
-
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
-    let magic_link = build_magic_link(&token);
+    let magic_link = build_magic_link(&token, &state.base_url);
 
-    state
-        .repos
-        .users
-        .create(repo::user::NewUser {
+    // ── Transaction: league + settings + user + can_create_league ──
+    // If any step fails the whole setup rolls back; a half-created league
+    // or orphan user can never exist.
+    {
+        let mut tx = state
+            .db
+            .as_ref()
+            .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "DB not available"))?
+            .begin()
+            .await
+            .map_err(|e| {
+                tracing::error!(%e, "setup: begin transaction failed");
+                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            })?;
+
+        // 1. Create league
+        let league_id: Uuid = sqlx::query_scalar!(
+            "INSERT INTO leagues (name) VALUES ($1) RETURNING id",
+            &league_name
+        )
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| {
+            tracing::error!(%e, "setup: create league failed");
+            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+        })?;
+
+        // 2. Persist settings (only non-empty values)
+        let settings: &[(&str, &str)] = &[
+            (LeagueConfig::KEY_DEFAULT_LANGUAGE, lang),
+            (LeagueConfig::KEY_SIGNAL_GROUP_ID, form.signal_group_id.trim()),
+            (LeagueConfig::KEY_SIGNAL_FROM_NUMBER, form.signal_from_number.trim()),
+            (LeagueConfig::KEY_RSS_FEED_URL, form.rss_feed_url.trim()),
+        ];
+        for (key, value) in settings {
+            if value.is_empty() {
+                continue;
+            }
+            sqlx::query!(
+                "INSERT INTO league_settings (league_id, key, value) VALUES ($1, $2, $3) \
+                 ON CONFLICT (league_id, key) DO UPDATE SET value = EXCLUDED.value",
+                league_id,
+                key,
+                value
+            )
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                tracing::error!(%e, key, "setup: insert setting failed");
+                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            })?;
+        }
+
+        // 3. Create user
+        sqlx::query!(
+            "INSERT INTO users (id, name, token, is_admin, phone_number, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7)",
             id,
-            name: &name,
-            token: &token,
-            is_admin: true,
-            phone_number: phone_opt,
+            &name,
+            &token,
+            true, // is_admin
+            phone_opt,
             league_id,
-            language: lang,
-        })
+            lang
+        )
+        .execute(&mut *tx)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|e| {
+            tracing::error!(%e, "setup: create user failed");
+            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+        })?;
 
-    // First admin during setup gets full multi-league powers — without this,
-    // a fresh deploy would have no path to ever create a second league.
-    state
-        .repos
-        .users
-        .set_can_create_league(id, true)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        // 4. Grant super-admin
+        sqlx::query!("UPDATE users SET can_create_league = TRUE WHERE id = $1", id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| {
+                tracing::error!(%e, "setup: grant can_create_league failed");
+                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            })?;
 
+        tx.commit().await.map_err(|e| {
+            tracing::error!(%e, "setup: commit failed");
+            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+        })?;
+    }
+
+    // Signal invite is outside the transaction — best-effort side effect.
     if let Some(p) = phone_opt {
-        if notifier::signal_configured() {
-            if let Err(e) = notifier::send_invite_via_signal(p, &name, &magic_link).await {
+        if signal_configured(&state.signal_api_url, &state.signal_from_number) {
+            if let Err(e) = notifier::send_invite_via_signal(p, &name, &magic_link, &state.signal_api_url, &state.signal_from_number).await {
                 tracing::warn!("Setup: Signal-Einladung an {p} fehlgeschlagen: {e}");
             }
         }
@@ -175,22 +206,7 @@ pub async fn setup_post(
         magic_link,
         name,
     };
-    Ok((updated_jar, Html(page.render().unwrap()).into_response()))
-}
-
-async fn persist_setting(
-    state: &AppState,
-    league_id: Uuid,
-    key: &str,
-    value: &str,
-) -> Result<(), (StatusCode, &'static str)> {
-    let v: Option<&str> = if value.is_empty() { None } else { Some(value) };
-    state
-        .repos
-        .leagues
-        .set_setting(league_id, key, v)
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))
+    Ok((updated_jar, render_template(&page)?.into_response()))
 }
 
 fn lang_static(lang: &str) -> &'static str {

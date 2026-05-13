@@ -51,6 +51,11 @@ fn build_harness() -> Harness {
         repos,
         translations: std::collections::HashMap::new(),
         concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
+        db: None,
+        base_url: "http://localhost:8000".into(),
+        signal_api_url: None,
+        signal_from_number: None,
+        signal_group_id: None,
     };
 
     Harness { state, users }

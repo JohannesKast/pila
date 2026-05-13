@@ -15,8 +15,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::AdminUser;
-use crate::handlers::util::{build_magic_link, html_escape};
-use crate::notifier;
+use crate::handlers::util::{build_magic_link, html_escape, render_template, t_for};
+use crate::notifier::{self, signal_configured};
 use crate::repo;
 use crate::translations::T;
 use crate::views::AdminUserView;
@@ -31,16 +31,7 @@ struct AdminRowTemplate {
 
 fn render_admin_row(u: AdminUserView, signal_enabled: bool) -> Html<String> {
     let tpl = AdminRowTemplate { u, signal_enabled };
-    Html(tpl.render().unwrap())
-}
-
-fn t_for(state: &AppState, lang: &str) -> T {
-    state
-        .translations
-        .get(lang)
-        .or_else(|| state.translations.get("de"))
-        .expect("de locale always present")
-        .clone()
+    render_template(&tpl).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
 }
 
 /// Permission check used by every per-league admin route below: a regular
@@ -94,10 +85,13 @@ pub async fn league_users_page(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
+    let base_url = &state.base_url;
+    let sig_cfg = (&state.signal_api_url, &state.signal_from_number);
+
     let users: Vec<AdminUserView> = rows
         .into_iter()
         .map(|r| AdminUserView {
-            magic_link: build_magic_link(&r.token),
+            magic_link: build_magic_link(&r.token, base_url),
             is_self: r.id == admin.id,
             id: r.id,
             name: r.name,
@@ -111,12 +105,12 @@ pub async fn league_users_page(
     let template = LeagueUsersTemplate {
         league,
         users,
-        signal_enabled: notifier::signal_configured(),
+        signal_enabled: signal_configured(sig_cfg.0, sig_cfg.1),
         is_super_admin: admin.can_create_league,
         t: t_for(&state, &admin.language),
         lang_code,
     };
-    Ok(Html(template.render().unwrap()))
+    render_template(&template)
 }
 
 #[derive(Deserialize)]
@@ -166,11 +160,11 @@ pub async fn admin_create_user(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
-    let signal_enabled = notifier::signal_configured();
-    let link = build_magic_link(&token);
+    let signal_enabled = signal_configured(&state.signal_api_url, &state.signal_from_number);
+    let link = build_magic_link(&token, &state.base_url);
     if let Some(p) = phone_opt {
         if signal_enabled {
-            if let Err(e) = notifier::send_invite_via_signal(p, name, &link).await {
+            if let Err(e) = notifier::send_invite_via_signal(p, name, &link, &state.signal_api_url, &state.signal_from_number).await {
                 tracing::warn!("Admin: Signal-Einladung an {p} fehlgeschlagen: {e}");
             }
         }
@@ -277,7 +271,7 @@ pub async fn admin_toggle_admin(
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
     let view = AdminUserView {
-        magic_link: build_magic_link(&target.token),
+        magic_link: build_magic_link(&target.token, &state.base_url),
         is_self: id == admin.id,
         id,
         name: target.name,
@@ -285,7 +279,7 @@ pub async fn admin_toggle_admin(
         is_admin: new_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, notifier::signal_configured()))
+    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number)))
 }
 
 #[derive(Deserialize)]
@@ -332,7 +326,7 @@ pub async fn admin_rename_user(
         .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
 
     let view = AdminUserView {
-        magic_link: build_magic_link(&target.token),
+        magic_link: build_magic_link(&target.token, &state.base_url),
         is_self: id == admin.id,
         id,
         name: target.name,
@@ -340,7 +334,7 @@ pub async fn admin_rename_user(
         is_admin: target.is_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, notifier::signal_configured()))
+    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number)))
 }
 
 pub async fn admin_resend_invite(
@@ -360,14 +354,14 @@ pub async fn admin_resend_invite(
                 .to_string(),
         );
     };
-    if !notifier::signal_configured() {
+    if !signal_configured(&state.signal_api_url, &state.signal_from_number) {
         return Html(
             r#"<span class="text-amber-400 text-xs">Signal nicht konfiguriert</span>"#
                 .to_string(),
         );
     }
-    let link = build_magic_link(&row.token);
-    match notifier::send_invite_via_signal(phone, &row.name, &link).await {
+    let link = build_magic_link(&row.token, &state.base_url);
+    match notifier::send_invite_via_signal(phone, &row.name, &link, &state.signal_api_url, &state.signal_from_number).await {
         Ok(_) => Html(
             r#"<span class="text-emerald-400 text-xs">✓ gesendet</span>"#.to_string(),
         ),
