@@ -9,7 +9,8 @@ use axum::{
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
-use crate::handlers::util::render_template;
+use crate::handlers::util::{flag_url, render_template};
+use crate::scoring::{self, MatchScoringSystem};
 use crate::stage::Stage;
 use crate::AppState;
 
@@ -19,12 +20,20 @@ struct PredictFormTemplate {
     match_id: i32,
     score_home: i32,
     score_away: i32,
+    winner_only_mode: bool,
+    allow_draw_prediction: bool,
+    home_name: String,
+    away_name: String,
+    home_flag: String,
+    away_flag: String,
 }
 
 #[derive(Deserialize)]
 pub struct PredictionForm {
-    pub score_home: i32,
-    pub score_away: i32,
+    pub score_home: Option<i32>,
+    pub score_away: Option<i32>,
+    #[serde(default)]
+    pub outcome: String,
 }
 
 pub async fn predict_match(
@@ -33,13 +42,6 @@ pub async fn predict_match(
     Path(match_id): Path<i32>,
     Form(form): Form<PredictionForm>,
 ) -> Result<Html<String>, (StatusCode, &'static str)> {
-    if !(0..=20).contains(&form.score_home) || !(0..=20).contains(&form.score_away) {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Ungültiger Tipp: Werte müssen zwischen 0 und 20 liegen.",
-        ));
-    }
-
     let m = state
         .repos
         .matches
@@ -80,19 +82,60 @@ pub async fn predict_match(
         }
     }
 
+    let allow_draw_prediction = m.stage == Stage::Group;
+    let (score_home, score_away) = normalize_prediction(&config, &form, allow_draw_prediction)?;
+
     state
         .repos
         .predictions
-        .upsert(user.id, match_id, form.score_home, form.score_away)
+        .upsert(user.id, match_id, score_home, score_away)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
 
     let template = PredictFormTemplate {
         match_id,
-        score_home: form.score_home,
-        score_away: form.score_away,
+        score_home,
+        score_away,
+        winner_only_mode: config.match_scoring_system == MatchScoringSystem::WinnerOnly,
+        allow_draw_prediction,
+        home_name: m.home_name,
+        away_name: m.away_name,
+        home_flag: flag_url(&m.home_flag_code),
+        away_flag: flag_url(&m.away_flag_code),
     };
     render_template(&template)
+}
+
+fn normalize_prediction(
+    config: &crate::repo::league::LeagueConfig,
+    form: &PredictionForm,
+    allow_draw_prediction: bool,
+) -> Result<(i32, i32), (StatusCode, &'static str)> {
+    if config.match_scoring_system == MatchScoringSystem::WinnerOnly {
+        let outcome = scoring::outcome_bet_from_form(form.outcome.trim(), allow_draw_prediction)
+            .ok_or((
+                StatusCode::BAD_REQUEST,
+                "Ungültiger Tipp: Sieger-Auswahl nicht erkannt.",
+            ))?;
+        return Ok(scoring::outcome_bet_to_stored_scores(outcome));
+    }
+
+    let score_home = form
+        .score_home
+        .ok_or((StatusCode::BAD_REQUEST, "Ungültiger Tipp: Heimtore fehlen."))?;
+    let score_away = form.score_away.ok_or((
+        StatusCode::BAD_REQUEST,
+        "Ungültiger Tipp: Auswärtstore fehlen.",
+    ))?;
+
+    if !(0..=20).contains(&score_home) || !(0..=20).contains(&score_away) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Ungültiger Tipp: Werte müssen zwischen 0 und 20 liegen.",
+        ));
+    }
+
+    Ok((score_home, score_away))
 }
 
 fn deserialize_optional_int<'de, D>(de: D) -> Result<Option<i32>, D::Error>

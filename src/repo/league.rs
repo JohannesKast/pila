@@ -16,6 +16,7 @@ use std::sync::Mutex;
 use uuid::Uuid;
 
 use super::{RepoError, RepoResult};
+use crate::scoring::MatchScoringSystem;
 
 /// Stable UUID used by the test suite as a fixed league id. Production
 /// leagues are created via the `/setup` flow or the super-admin "create
@@ -48,6 +49,8 @@ pub struct LeagueConfig {
     pub rss_feed_url: Option<String>,
     /// When true, group-stage matches are hidden and cannot be tipped.
     pub predict_knockout_only: bool,
+    /// Per-league match scoring system.
+    pub match_scoring_system: MatchScoringSystem,
 }
 
 impl Default for LeagueConfig {
@@ -58,6 +61,7 @@ impl Default for LeagueConfig {
             default_language: "de".to_string(),
             rss_feed_url: None,
             predict_knockout_only: false,
+            match_scoring_system: MatchScoringSystem::ExactScore,
         }
     }
 }
@@ -68,6 +72,7 @@ impl LeagueConfig {
     pub const KEY_DEFAULT_LANGUAGE: &'static str = "default_language";
     pub const KEY_RSS_FEED_URL: &'static str = "rss_feed_url";
     pub const KEY_KO_ONLY: &'static str = "predict_knockout_only";
+    pub const KEY_MATCH_SCORING_SYSTEM: &'static str = "match_scoring_system";
 
     fn from_kv(kv: HashMap<String, String>) -> Self {
         Self {
@@ -82,7 +87,15 @@ impl LeagueConfig {
                 .get(Self::KEY_KO_ONLY)
                 .map(|s| s == "true")
                 .unwrap_or(false),
+            match_scoring_system: kv
+                .get(Self::KEY_MATCH_SCORING_SYSTEM)
+                .and_then(|value| MatchScoringSystem::from_setting_value(value))
+                .unwrap_or_default(),
         }
+    }
+
+    pub fn uses_winner_only_scoring(&self) -> bool {
+        self.match_scoring_system.is_winner_only()
     }
 }
 
@@ -94,12 +107,7 @@ pub trait LeagueRepo: Send + Sync {
     async fn set_bootstrapped(&self, league_id: Uuid) -> RepoResult<()>;
     async fn get_config(&self, league_id: Uuid) -> RepoResult<LeagueConfig>;
     /// Set a single key/value pair. Passing `None` deletes the row.
-    async fn set_setting(
-        &self,
-        league_id: Uuid,
-        key: &str,
-        value: Option<&str>,
-    ) -> RepoResult<()>;
+    async fn set_setting(&self, league_id: Uuid, key: &str, value: Option<&str>) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -117,12 +125,11 @@ impl PgLeagueRepo {
 #[async_trait]
 impl LeagueRepo for PgLeagueRepo {
     async fn list(&self) -> RepoResult<Vec<League>> {
-        let rows = sqlx::query!(
-            "SELECT id, name, notifications_bootstrapped FROM leagues ORDER BY name"
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(RepoError::from)?;
+        let rows =
+            sqlx::query!("SELECT id, name, notifications_bootstrapped FROM leagues ORDER BY name")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(RepoError::from)?;
 
         Ok(rows
             .into_iter()
@@ -151,13 +158,10 @@ impl LeagueRepo for PgLeagueRepo {
     }
 
     async fn create(&self, name: &str) -> RepoResult<Uuid> {
-        let row = sqlx::query!(
-            "INSERT INTO leagues (name) VALUES ($1) RETURNING id",
-            name
-        )
-        .fetch_one(&self.pool)
-        .await
-        .map_err(RepoError::from)?;
+        let row = sqlx::query!("INSERT INTO leagues (name) VALUES ($1) RETURNING id", name)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(RepoError::from)?;
         Ok(row.id)
     }
 
@@ -188,12 +192,7 @@ impl LeagueRepo for PgLeagueRepo {
         Ok(LeagueConfig::from_kv(kv))
     }
 
-    async fn set_setting(
-        &self,
-        league_id: Uuid,
-        key: &str,
-        value: Option<&str>,
-    ) -> RepoResult<()> {
+    async fn set_setting(&self, league_id: Uuid, key: &str, value: Option<&str>) -> RepoResult<()> {
         match value {
             Some(v) => {
                 sqlx::query!(
@@ -309,12 +308,7 @@ impl LeagueRepo for MemoryLeagueRepo {
         Ok(LeagueConfig::from_kv(kv))
     }
 
-    async fn set_setting(
-        &self,
-        league_id: Uuid,
-        key: &str,
-        value: Option<&str>,
-    ) -> RepoResult<()> {
+    async fn set_setting(&self, league_id: Uuid, key: &str, value: Option<&str>) -> RepoResult<()> {
         let mut s = self.inner.lock().unwrap();
         match value {
             Some(v) => {
@@ -387,6 +381,7 @@ mod memory_tests {
         assert!(cfg.signal_from_number.is_none());
         assert!(cfg.rss_feed_url.is_none());
         assert!(!cfg.predict_knockout_only);
+        assert_eq!(cfg.match_scoring_system, MatchScoringSystem::ExactScore);
     }
 
     #[tokio::test]
@@ -405,11 +400,19 @@ mod memory_tests {
         repo.set_setting(id, LeagueConfig::KEY_KO_ONLY, Some("true"))
             .await
             .unwrap();
+        repo.set_setting(
+            id,
+            LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+            Some(MatchScoringSystem::WINNER_ONLY_VALUE),
+        )
+        .await
+        .unwrap();
         let cfg = repo.get_config(id).await.unwrap();
         assert_eq!(cfg.signal_group_id.as_deref(), Some("group.123"));
         assert_eq!(cfg.default_language, "en");
         assert_eq!(cfg.rss_feed_url.as_deref(), Some("https://x/rss"));
         assert!(cfg.predict_knockout_only);
+        assert_eq!(cfg.match_scoring_system, MatchScoringSystem::WinnerOnly);
     }
 
     #[tokio::test]

@@ -207,6 +207,8 @@ league-language = Langue
 league-signal = Signal
 # Column header for the per-league RSS feed URL state
 league-rss = RSS
+# Column header for the per-league scoring system
+league-scoring = Score
 # Action button "edit settings" in the leagues table
 league-edit-settings = Réglages
 # Button to open the new-league form
@@ -227,6 +229,14 @@ league-settings-signal-group-id = ID de groupe Signal
 league-settings-signal-from-number = Expéditeur Signal (téléphone)
 # Label for the RSS feed URL input
 league-settings-rss-url = URL du flux RSS
+# Label for the scoring-system picker
+league-settings-scoring-system = Système de points
+# Help text below the scoring-system picker
+league-settings-scoring-system-help = Choisissez entre score exact et pronostic du vainqueur uniquement. D'autres systèmes pourront être ajoutés via ce même réglage de ligue.
+# Option label for classic exact-score mode
+league-settings-scoring-system-exact = Score exact
+# Option label for winner-only mode
+league-settings-scoring-system-winner-only = Vainqueur uniquement
 # Label for the "predict knockout only" checkbox
 league-settings-ko-only = Pronostiquer uniquement les phases éliminatoires
 # Help text under the KO-only checkbox: group-stage matches are hidden and cannot be tipped

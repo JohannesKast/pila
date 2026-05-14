@@ -38,6 +38,10 @@ pub struct MatchLockInfo {
     pub team_home_id: Option<i32>,
     pub team_away_id: Option<i32>,
     pub stage: Stage,
+    pub home_name: String,
+    pub away_name: String,
+    pub home_flag_code: Option<String>,
+    pub away_flag_code: Option<String>,
 }
 
 /// One scored row of a finished group-stage match, joined with team display
@@ -82,10 +86,7 @@ pub trait MatchRepo: Send + Sync {
     async fn finished_group_rows(&self) -> RepoResult<Vec<FinishedGroupMatch>>;
     /// Count of matches with both teams known whose kickoff has already
     /// passed — used as the denominator of the "Tippmoral" badge.
-    async fn started_with_both_teams_count(
-        &self,
-        now: DateTime<Utc>,
-    ) -> RepoResult<i64>;
+    async fn started_with_both_teams_count(&self, now: DateTime<Utc>) -> RepoResult<i64>;
 
     /// Upsert one match from the ESPN sync. Idempotent on `espn_event_id`.
     async fn upsert_from_espn(&self, upsert: EspnMatchUpsert<'_>) -> RepoResult<()>;
@@ -181,7 +182,20 @@ impl MatchRepo for PgMatchRepo {
 
     async fn find_lock_info(&self, match_id: i32) -> RepoResult<Option<MatchLockInfo>> {
         let row = sqlx::query!(
-            "SELECT kickoff_time, team_home_id, team_away_id, stage as \"stage: Stage\" FROM matches WHERE id = $1",
+            r#"
+            SELECT m.kickoff_time,
+                   m.team_home_id as "team_home_id?",
+                   m.team_away_id as "team_away_id?",
+                   m.stage as "stage: Stage",
+                   COALESCE(th.name, 'TBD') as "home_name!",
+                   COALESCE(ta.name, 'TBD') as "away_name!",
+                   th.flag_code as "home_flag_code?",
+                   ta.flag_code as "away_flag_code?"
+            FROM matches m
+            LEFT JOIN teams th ON th.id = m.team_home_id
+            LEFT JOIN teams ta ON ta.id = m.team_away_id
+            WHERE m.id = $1
+            "#,
             match_id
         )
         .fetch_optional(&self.pool)
@@ -193,6 +207,10 @@ impl MatchRepo for PgMatchRepo {
             team_home_id: r.team_home_id,
             team_away_id: r.team_away_id,
             stage: r.stage,
+            home_name: r.home_name,
+            away_name: r.away_name,
+            home_flag_code: r.home_flag_code,
+            away_flag_code: r.away_flag_code,
         }))
     }
 
@@ -232,13 +250,13 @@ impl MatchRepo for PgMatchRepo {
         .await
         .map_err(RepoError::from)?;
 
-        Ok(row.and_then(|r| {
-            match (r.score_home, r.score_away, r.team_home_id, r.team_away_id) {
+        Ok(row.and_then(
+            |r| match (r.score_home, r.score_away, r.team_home_id, r.team_away_id) {
                 (Some(sh), Some(sa), Some(hid), _) if sh > sa => Some(hid),
                 (Some(sh), Some(sa), _, Some(aid)) if sa > sh => Some(aid),
                 _ => None,
-            }
-        }))
+            },
+        ))
     }
 
     async fn finished_group_rows(&self) -> RepoResult<Vec<FinishedGroupMatch>> {
@@ -283,10 +301,7 @@ impl MatchRepo for PgMatchRepo {
             .collect())
     }
 
-    async fn started_with_both_teams_count(
-        &self,
-        now: DateTime<Utc>,
-    ) -> RepoResult<i64> {
+    async fn started_with_both_teams_count(&self, now: DateTime<Utc>) -> RepoResult<i64> {
         let c = sqlx::query_scalar!(
             r#"
             SELECT COUNT(*) AS "c!"
@@ -476,6 +491,10 @@ impl MatchRepo for MemoryMatchRepo {
                 team_home_id: m.team_home_id,
                 team_away_id: m.team_away_id,
                 stage: m.stage,
+                home_name: m.home_name.clone(),
+                away_name: m.away_name.clone(),
+                home_flag_code: m.home_flag.clone(),
+                away_flag_code: m.away_flag.clone(),
             }))
     }
 
@@ -544,10 +563,7 @@ impl MatchRepo for MemoryMatchRepo {
             .collect())
     }
 
-    async fn started_with_both_teams_count(
-        &self,
-        now: DateTime<Utc>,
-    ) -> RepoResult<i64> {
+    async fn started_with_both_teams_count(&self, now: DateTime<Utc>) -> RepoResult<i64> {
         Ok(self
             .matches
             .lock()
@@ -569,10 +585,7 @@ impl MatchRepo for MemoryMatchRepo {
 
         // Look up by ESPN id first (the unique key); fall back to numeric id
         // for tests that pre-seed without an ESPN id.
-        if let Some(existing) = matches
-            .iter_mut()
-            .find(|m| m.id as i64 == u.espn_event_id)
-        {
+        if let Some(existing) = matches.iter_mut().find(|m| m.id as i64 == u.espn_event_id) {
             existing.stage = u.stage;
             existing.group_letter = trimmed_letter;
             existing.team_home_id = u.team_home_id.or(existing.team_home_id);
@@ -638,8 +651,7 @@ mod memory_tests {
     fn ts(h: u32) -> DateTime<Utc> {
         // h is interpreted as "h hours after the WC kickoff" so callers can
         // freely use values >24 without crashing on invalid clock hours.
-        Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap()
-            + chrono::Duration::hours(h as i64)
+        Utc.with_ymd_and_hms(2026, 6, 11, 0, 0, 0).unwrap() + chrono::Duration::hours(h as i64)
     }
 
     #[tokio::test]
@@ -720,10 +732,7 @@ mod memory_tests {
         m.team_away_id = None;
         repo.seed(m);
 
-        assert_eq!(
-            repo.started_with_both_teams_count(ts(20)).await.unwrap(),
-            1
-        );
+        assert_eq!(repo.started_with_both_teams_count(ts(20)).await.unwrap(), 1);
     }
 
     #[tokio::test]

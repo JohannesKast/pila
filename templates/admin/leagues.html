@@ -16,6 +16,7 @@
                     <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-language") }}</th>
                     <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-signal") }}</th>
                     <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-rss") }}</th>
+                    <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-scoring") }}</th>
                     <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("league-ko-only") }}</th>
                     <th style="padding:10px 12px; text-align:left; font-weight:500; color:var(--pl-mute); text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-actions") }}</th>
                 </tr>
@@ -36,6 +37,9 @@
                         {% when Some with (_url) %}<span style="color:var(--pl-green);">✓</span>
                         {% when None %}<span style="color:var(--pl-mute);">—</span>
                         {% endmatch %}
+                    </td>
+                    <td style="padding:10px 12px;" class="pl-mono">
+                        {% if l.config.uses_winner_only_scoring() %}{{ t.get("league-settings-scoring-system-winner-only") }}{% else %}{{ t.get("league-settings-scoring-system-exact") }}{% endif %}
                     </td>
                     <td style="padding:10px 12px;" class="pl-mono">
                         {% if l.config.predict_knockout_only %}<span style="color:var(--pl-green);">✓</span>{% else %}<span style="color:var(--pl-mute);">—</span>{% endif %}

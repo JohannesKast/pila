@@ -38,6 +38,15 @@
                    style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:10px 12px; outline:none;">
         </div>
 
+        <div>
+            <label class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-scoring-system") }}</label>
+            <select name="match_scoring_system" style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:14px; border-radius:6px; padding:10px 12px; outline:none;">
+                <option value="exact_score" {% if config.match_scoring_system.as_setting_value() == "exact_score" %}selected{% endif %}>{{ t.get("league-settings-scoring-system-exact") }}</option>
+                <option value="winner_only" {% if config.match_scoring_system.as_setting_value() == "winner_only" %}selected{% endif %}>{{ t.get("league-settings-scoring-system-winner-only") }}</option>
+            </select>
+            <p class="pl-mono" style="font-size:10px; color:var(--pl-mute); margin-top:4px;">{{ t.get("league-settings-scoring-system-help") }}</p>
+        </div>
+
         <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
             <input type="checkbox" id="ko_only" name="ko_only" value="true" {% if config.predict_knockout_only %}checked{% endif %}
                    style="accent-color:var(--pl-green); width:16px; height:16px;">

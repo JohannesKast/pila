@@ -20,6 +20,7 @@ use uuid::Uuid;
 use crate::auth::SuperAdminUser;
 use crate::handlers::util::{render_template, t_for};
 use crate::repo::league::{League, LeagueConfig};
+use crate::scoring::MatchScoringSystem;
 use crate::translations::T;
 use crate::AppState;
 
@@ -167,6 +168,8 @@ pub struct LeagueSettingsForm {
     pub rss_feed_url: String,
     #[serde(default)]
     pub ko_only: bool,
+    #[serde(default)]
+    pub match_scoring_system: String,
 }
 
 const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
@@ -183,12 +186,39 @@ pub async fn league_settings_save(
     if !lang.is_empty() && !VALID_LOCALES.contains(&lang) {
         return Err((StatusCode::BAD_REQUEST, "Unbekannte Sprache."));
     }
+    let scoring_system = MatchScoringSystem::from_setting_value(form.match_scoring_system.trim())
+        .ok_or((StatusCode::BAD_REQUEST, "Unbekanntes Punktesystem."))?;
 
     set_or_clear_bool(&state, league_id, LeagueConfig::KEY_KO_ONLY, form.ko_only).await?;
-    set_or_clear(&state, league_id, LeagueConfig::KEY_SIGNAL_GROUP_ID, &form.signal_group_id).await?;
-    set_or_clear(&state, league_id, LeagueConfig::KEY_SIGNAL_FROM_NUMBER, &form.signal_from_number).await?;
+    set_or_clear(
+        &state,
+        league_id,
+        LeagueConfig::KEY_SIGNAL_GROUP_ID,
+        &form.signal_group_id,
+    )
+    .await?;
+    set_or_clear(
+        &state,
+        league_id,
+        LeagueConfig::KEY_SIGNAL_FROM_NUMBER,
+        &form.signal_from_number,
+    )
+    .await?;
     set_or_clear(&state, league_id, LeagueConfig::KEY_DEFAULT_LANGUAGE, lang).await?;
-    set_or_clear(&state, league_id, LeagueConfig::KEY_RSS_FEED_URL, &form.rss_feed_url).await?;
+    set_or_clear(
+        &state,
+        league_id,
+        LeagueConfig::KEY_RSS_FEED_URL,
+        &form.rss_feed_url,
+    )
+    .await?;
+    set_or_clear(
+        &state,
+        league_id,
+        LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+        scoring_system.as_setting_value(),
+    )
+    .await?;
 
     Ok(Redirect::to("/admin/leagues"))
 }
@@ -200,7 +230,11 @@ async fn set_or_clear(
     value: &str,
 ) -> Result<(), (StatusCode, &'static str)> {
     let trimmed = value.trim();
-    let v: Option<&str> = if trimmed.is_empty() { None } else { Some(trimmed) };
+    let v: Option<&str> = if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
+    };
     state
         .repos
         .leagues

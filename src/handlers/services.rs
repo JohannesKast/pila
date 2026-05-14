@@ -33,6 +33,11 @@ pub async fn build_badge_context(
     league_id: Uuid,
     now: DateTime<Utc>,
 ) -> badges::BadgeContextOwned {
+    let league_config = repos
+        .leagues
+        .get_config(league_id)
+        .await
+        .unwrap_or_default();
     let finished_predictions: Vec<badges::PredictionRow> = repos
         .predictions
         .list_finished_join(league_id)
@@ -48,6 +53,7 @@ pub async fn build_badge_context(
             score_a: r.score_away,
             pred_h: r.predicted_home,
             pred_a: r.predicted_away,
+            scoring_system: league_config.match_scoring_system,
         })
         .collect();
 
@@ -83,9 +89,7 @@ pub async fn build_badge_context(
             flag_url: flag_url(&c.flag_code),
         });
 
-    let berlin_today = now
-        .with_timezone(&chrono_tz::Europe::Berlin)
-        .date_naive();
+    let berlin_today = now.with_timezone(&chrono_tz::Europe::Berlin).date_naive();
 
     badges::BadgeContextOwned {
         user_id,
@@ -107,9 +111,10 @@ pub async fn fetch_leaderboard(
     league_id: Uuid,
     now: DateTime<Utc>,
 ) -> Vec<LeaderboardEntry> {
-    let users = repos
-        .users
-        .list_basic(league_id)
+    let users = repos.users.list_basic(league_id).await.unwrap_or_default();
+    let league_config = repos
+        .leagues
+        .get_config(league_id)
         .await
         .unwrap_or_default();
 
@@ -131,7 +136,8 @@ pub async fn fetch_leaderboard(
 
         if finished {
             if let (Some(sh), Some(sa)) = (r.score_home, r.score_away) {
-                entry.0 += scoring::calculate_match_points(
+                entry.0 += scoring::calculate_match_points_for_system(
+                    league_config.match_scoring_system,
                     r.stage,
                     sh,
                     sa,
@@ -141,10 +147,16 @@ pub async fn fetch_leaderboard(
             }
         } else if started {
             // locked but not finished — full max remains achievable
-            entry.1 += scoring::max_potential_points(r.stage);
+            entry.1 += scoring::max_potential_points_for_system(
+                league_config.match_scoring_system,
+                r.stage,
+            );
         } else {
             // open — also count max as potential (user already tipped)
-            entry.1 += scoring::max_potential_points(r.stage);
+            entry.1 += scoring::max_potential_points_for_system(
+                league_config.match_scoring_system,
+                r.stage,
+            );
         }
     }
 

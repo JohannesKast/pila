@@ -73,7 +73,7 @@ fn build_harness() -> Harness {
         signal_group_id: None,
         http_client: reqwest::Client::new(),
         smtp_config: None,
-            mock_now: pila::time::new_mock_time(),
+        mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 
@@ -105,12 +105,15 @@ fn fake_user() -> AuthenticatedUser {
 #[tokio::test]
 async fn predict_match_rejects_score_out_of_range() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     let user = fake_user();
     let form = PredictionForm {
-        score_home: 21,
-        score_away: 0,
+        score_home: Some(21),
+        score_away: Some(0),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
     let err = res.unwrap_err();
@@ -120,12 +123,15 @@ async fn predict_match_rejects_score_out_of_range() {
 #[tokio::test]
 async fn predict_match_rejects_negative_score() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     let user = fake_user();
     let form = PredictionForm {
-        score_home: -1,
-        score_away: 0,
+        score_home: Some(-1),
+        score_away: Some(0),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -136,8 +142,9 @@ async fn predict_match_rejects_unknown_match() {
     let h = build_harness();
     let user = fake_user();
     let form = PredictionForm {
-        score_home: 2,
-        score_away: 1,
+        score_home: Some(2),
+        score_away: Some(1),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(404), Form(form)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::NOT_FOUND);
@@ -146,12 +153,15 @@ async fn predict_match_rejects_unknown_match() {
 #[tokio::test]
 async fn predict_match_rejects_when_kickoff_already_passed() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() - Duration::hours(1)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() - Duration::hours(1),
+    ));
     let user = fake_user();
     let form = PredictionForm {
-        score_home: 2,
-        score_away: 1,
+        score_home: Some(2),
+        score_away: Some(1),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -165,8 +175,9 @@ async fn predict_match_lock_follows_mock_time() {
     let kickoff = Utc::now() + Duration::days(30);
     h.matches.seed(FakeMatch::locked_unfinished(1, kickoff));
     let form = || PredictionForm {
-        score_home: 2,
-        score_away: 1,
+        score_home: Some(2),
+        score_away: Some(1),
+        outcome: String::new(),
     };
 
     // Mock time AFTER kickoff → must be locked (400)
@@ -196,8 +207,9 @@ async fn predict_match_rejects_when_team_is_tbd() {
     h.matches.seed(m);
     let user = fake_user();
     let form = PredictionForm {
-        score_home: 2,
-        score_away: 1,
+        score_home: Some(2),
+        score_away: Some(1),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -206,24 +218,133 @@ async fn predict_match_rejects_when_team_is_tbd() {
 #[tokio::test]
 async fn predict_match_persists_valid_tip() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(7, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        7,
+        Utc::now() + Duration::hours(2),
+    ));
     let user = fake_user();
     let user_id = user.id;
     let form = PredictionForm {
-        score_home: 3,
-        score_away: 1,
+        score_home: Some(3),
+        score_away: Some(1),
+        outcome: String::new(),
     };
     let html = predict_match(State(h.state.clone()), user, Path(7), Form(form))
         .await
         .expect("ok");
     let body = html.0;
-    assert!(body.contains("score_home"), "response should be inline form");
+    assert!(
+        body.contains("score_home"),
+        "response should be inline form"
+    );
     assert!(body.contains("value=\"3\""));
     assert!(body.contains("value=\"1\""));
 
     let stored = h.predictions.all();
     assert_eq!(stored, vec![(user_id, 7, 3, 1)]);
+}
+
+#[tokio::test]
+async fn predict_match_persists_winner_only_home_tip_as_canonical_scores() {
+    let h = build_harness();
+    h.matches.seed(FakeMatch::locked_unfinished(
+        8,
+        Utc::now() + Duration::hours(2),
+    ));
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(
+            DEFAULT_LEAGUE_ID,
+            LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+            Some(pila::scoring::MatchScoringSystem::WINNER_ONLY_VALUE),
+        )
+        .await
+        .unwrap();
+
+    let user = fake_user();
+    let user_id = user.id;
+    let form = PredictionForm {
+        score_home: None,
+        score_away: None,
+        outcome: "home".into(),
+    };
+    let html = predict_match(State(h.state.clone()), user, Path(8), Form(form))
+        .await
+        .expect("ok");
+    let body = html.0;
+    assert!(body.contains("name=\"outcome\""));
+    assert!(body.contains("value=\"home\""));
+    assert!(body.contains("TeamA"));
+    assert!(body.contains("TeamB"));
+
+    let stored = h.predictions.all();
+    assert_eq!(stored, vec![(user_id, 8, 1, 0)]);
+}
+
+#[tokio::test]
+async fn predict_match_persists_winner_only_draw_tip_for_group_stage() {
+    let h = build_harness();
+    h.matches.seed(FakeMatch::locked_unfinished(
+        9,
+        Utc::now() + Duration::hours(2),
+    ));
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(
+            DEFAULT_LEAGUE_ID,
+            LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+            Some(pila::scoring::MatchScoringSystem::WINNER_ONLY_VALUE),
+        )
+        .await
+        .unwrap();
+
+    let user = fake_user();
+    let user_id = user.id;
+    let form = PredictionForm {
+        score_home: None,
+        score_away: None,
+        outcome: "draw".into(),
+    };
+    let _ = predict_match(State(h.state.clone()), user, Path(9), Form(form))
+        .await
+        .expect("ok");
+
+    let stored = h.predictions.all();
+    assert_eq!(stored, vec![(user_id, 9, 0, 0)]);
+}
+
+#[tokio::test]
+async fn predict_match_rejects_winner_only_draw_tip_for_knockout_stage() {
+    let h = build_harness();
+    let mut m = FakeMatch::locked_unfinished(10, Utc::now() + Duration::hours(2));
+    m.stage = Stage::RoundOf16;
+    h.matches.seed(m);
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(
+            DEFAULT_LEAGUE_ID,
+            LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+            Some(pila::scoring::MatchScoringSystem::WINNER_ONLY_VALUE),
+        )
+        .await
+        .unwrap();
+
+    let form = PredictionForm {
+        score_home: None,
+        score_away: None,
+        outcome: "draw".into(),
+    };
+    let res = predict_match(State(h.state.clone()), fake_user(), Path(10), Form(form)).await;
+    assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -243,18 +364,66 @@ async fn predict_match_rejects_group_stage_for_ko_only_league() {
 
     let user = fake_user();
     let form = PredictionForm {
-        score_home: 2,
-        score_away: 1,
+        score_home: Some(2),
+        score_away: Some(1),
+        outcome: String::new(),
     };
     let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
+async fn predict_match_allows_winner_only_knockout_tip_in_ko_only_league() {
+    let h = build_harness();
+    let mut m = FakeMatch::locked_unfinished(11, Utc::now() + Duration::hours(2));
+    m.stage = Stage::QuarterFinal;
+    h.matches.seed(m);
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(DEFAULT_LEAGUE_ID, LeagueConfig::KEY_KO_ONLY, Some("true"))
+        .await
+        .unwrap();
+    h.state
+        .repos
+        .leagues
+        .set_setting(
+            DEFAULT_LEAGUE_ID,
+            LeagueConfig::KEY_MATCH_SCORING_SYSTEM,
+            Some(pila::scoring::MatchScoringSystem::WINNER_ONLY_VALUE),
+        )
+        .await
+        .unwrap();
+
+    let user = fake_user();
+    let user_id = user.id;
+    let res = predict_match(
+        State(h.state.clone()),
+        user,
+        Path(11),
+        Form(PredictionForm {
+            score_home: None,
+            score_away: None,
+            outcome: "away".into(),
+        }),
+    )
+    .await;
+    assert!(
+        res.is_ok(),
+        "winner-only knockout tip should be allowed in KO-only league"
+    );
+    assert_eq!(h.predictions.all(), vec![(user_id, 11, 0, 1)]);
+}
+
+#[tokio::test]
 async fn predict_match_overwrites_existing_tip() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(7, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        7,
+        Utc::now() + Duration::hours(2),
+    ));
     let user = fake_user();
     let user_id = user.id;
     let _ = predict_match(
@@ -265,8 +434,9 @@ async fn predict_match_overwrites_existing_tip() {
         },
         Path(7),
         Form(PredictionForm {
-            score_home: 1,
-            score_away: 0,
+            score_home: Some(1),
+            score_away: Some(0),
+            outcome: String::new(),
         }),
     )
     .await
@@ -276,8 +446,9 @@ async fn predict_match_overwrites_existing_tip() {
         user,
         Path(7),
         Form(PredictionForm {
-            score_home: 2,
-            score_away: 2,
+            score_home: Some(2),
+            score_away: Some(2),
+            outcome: String::new(),
         }),
     )
     .await
@@ -320,10 +491,15 @@ async fn predict_special_allows_champion_pick_until_first_ko_for_ko_only_league(
     let res = predict_special(
         State(h.state.clone()),
         fake_user(),
-        Form(SpecialPredictionForm { champion_id: Some(11) }),
+        Form(SpecialPredictionForm {
+            champion_id: Some(11),
+        }),
     )
     .await;
-    assert!(res.is_ok(), "champion pick should be allowed until first KO match");
+    assert!(
+        res.is_ok(),
+        "champion pick should be allowed until first KO match"
+    );
 }
 
 #[tokio::test]
@@ -336,7 +512,9 @@ async fn predict_special_rejects_after_tournament_kickoff() {
     let res = predict_special(
         State(h.state.clone()),
         user,
-        Form(SpecialPredictionForm { champion_id: Some(11) }),
+        Form(SpecialPredictionForm {
+            champion_id: Some(11),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -345,8 +523,10 @@ async fn predict_special_rejects_after_tournament_kickoff() {
 #[tokio::test]
 async fn predict_special_rejects_unknown_team() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     h.teams.seed(TeamOption {
         id: 11,
         name: "Germany".into(),
@@ -355,7 +535,9 @@ async fn predict_special_rejects_unknown_team() {
     let res = predict_special(
         State(h.state.clone()),
         fake_user(),
-        Form(SpecialPredictionForm { champion_id: Some(99) }),
+        Form(SpecialPredictionForm {
+            champion_id: Some(99),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -364,8 +546,10 @@ async fn predict_special_rejects_unknown_team() {
 #[tokio::test]
 async fn predict_special_rejects_placeholder_team() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     h.teams.seed(TeamOption {
         id: 50,
         name: "Group A Winner".into(),
@@ -374,7 +558,9 @@ async fn predict_special_rejects_placeholder_team() {
     let res = predict_special(
         State(h.state.clone()),
         fake_user(),
-        Form(SpecialPredictionForm { champion_id: Some(50) }),
+        Form(SpecialPredictionForm {
+            champion_id: Some(50),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -383,8 +569,10 @@ async fn predict_special_rejects_placeholder_team() {
 #[tokio::test]
 async fn predict_special_persists_real_team_pick() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     h.teams.seed(TeamOption {
         id: 11,
         name: "Germany".into(),
@@ -395,7 +583,9 @@ async fn predict_special_persists_real_team_pick() {
     let res = predict_special(
         State(h.state.clone()),
         user,
-        Form(SpecialPredictionForm { champion_id: Some(11) }),
+        Form(SpecialPredictionForm {
+            champion_id: Some(11),
+        }),
     )
     .await;
     assert!(res.is_ok());
@@ -410,8 +600,10 @@ async fn predict_special_persists_real_team_pick() {
 #[tokio::test]
 async fn predict_special_allows_clearing_pick() {
     let h = build_harness();
-    h.matches
-        .seed(FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2)));
+    h.matches.seed(FakeMatch::locked_unfinished(
+        1,
+        Utc::now() + Duration::hours(2),
+    ));
     let user = fake_user();
     let user_id = user.id;
     let _ = predict_special(

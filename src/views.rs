@@ -35,21 +35,23 @@ pub struct MatchView {
     pub score_away: Option<i32>,
     pub predicted_home: Option<i32>,
     pub predicted_away: Option<i32>,
+    pub prediction_display: Option<String>,
     pub kickoff_display: String,
     pub locked: bool,
     pub is_live: bool,
     pub is_finished: bool,
     pub own_points: Option<i32>,
     pub max_phase_points: i32,
+    pub winner_only_mode: bool,
+    pub allow_draw_prediction: bool,
     pub other_preds: Vec<UserPrediction>,
 }
 
 impl MatchView {
     pub fn predicted_str(&self) -> String {
-        match (self.predicted_home, self.predicted_away) {
-            (Some(h), Some(a)) => format!("{h}:{a}"),
-            _ => "–".to_string(),
-        }
+        self.prediction_display
+            .clone()
+            .unwrap_or_else(|| "–".to_string())
     }
     pub fn score_str(&self) -> String {
         match (self.score_home, self.score_away) {
@@ -60,13 +62,30 @@ impl MatchView {
     pub fn has_prediction(&self) -> bool {
         self.predicted_home.is_some() && self.predicted_away.is_some()
     }
+    pub fn predicts_home_win(&self) -> bool {
+        matches!(
+            (self.predicted_home, self.predicted_away),
+            (Some(home), Some(away)) if home > away
+        )
+    }
+    pub fn predicts_draw(&self) -> bool {
+        matches!(
+            (self.predicted_home, self.predicted_away),
+            (Some(home), Some(away)) if home == away
+        )
+    }
+    pub fn predicts_away_win(&self) -> bool {
+        matches!(
+            (self.predicted_home, self.predicted_away),
+            (Some(home), Some(away)) if home < away
+        )
+    }
 }
 
 /// Other user's tip on a locked match.
 pub struct UserPrediction {
     pub name: String,
-    pub home: i32,
-    pub away: i32,
+    pub label: String,
     pub points: Option<i32>,
 }
 

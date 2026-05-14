@@ -11,7 +11,7 @@ use chrono_tz::Europe::Berlin;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
-use crate::scoring;
+use crate::scoring::{self, MatchScoringSystem};
 use crate::stage::Stage;
 
 const UNDERDOG_THRESHOLD: f32 = 0.30;
@@ -162,6 +162,7 @@ pub struct PredictionRow {
     pub score_a: i32,
     pub pred_h: i32,
     pub pred_a: i32,
+    pub scoring_system: MatchScoringSystem,
 }
 
 impl PredictionRow {
@@ -169,7 +170,8 @@ impl PredictionRow {
         self.kickoff.with_timezone(&Berlin).date_naive()
     }
     pub fn base_points(&self) -> i32 {
-        scoring::calculate_match_points(
+        scoring::calculate_match_points_for_system(
+            self.scoring_system,
             self.stage,
             self.score_h,
             self.score_a,
@@ -178,7 +180,9 @@ impl PredictionRow {
         )
     }
     pub fn is_exact(&self) -> bool {
-        self.pred_h == self.score_h && self.pred_a == self.score_a
+        self.scoring_system == MatchScoringSystem::ExactScore
+            && self.pred_h == self.score_h
+            && self.pred_a == self.score_a
     }
 }
 
@@ -304,7 +308,10 @@ impl Badge for MatchdayWinsBadge {
         // Pro Tag Max bestimmen, dann zählen, wie oft `user_id` Max erreicht (>0).
         let mut day_max: HashMap<NaiveDate, i32> = HashMap::new();
         for (&(day, _), &pts) in &by_day_user {
-            day_max.entry(day).and_modify(|m| *m = (*m).max(pts)).or_insert(pts);
+            day_max
+                .entry(day)
+                .and_modify(|m| *m = (*m).max(pts))
+                .or_insert(pts);
         }
         let mut wins = 0;
         for ((day, uid), pts) in &by_day_user {
@@ -608,9 +615,7 @@ impl Badge for RankDeltaBadge {
             return BadgeDisplay::Metric(BadgeValue::Delta(None));
         }
         // Punkte je User für prev (nur Matches mit Datum < heute).
-        let prev_final_decided = prev_rows
-            .iter()
-            .any(|r| matches!(r.stage, Stage::Final));
+        let prev_final_decided = prev_rows.iter().any(|r| matches!(r.stage, Stage::Final));
         let prev_totals = totals_with_champion(
             &prev_rows,
             ctx.all_user_ids,
@@ -681,7 +686,8 @@ fn totals_with_champion(
     if let Some(actual) = actual_champion {
         for (uid, pick) in special_picks {
             if *pick == actual {
-                *totals.entry(*uid).or_insert(0) += scoring::champion_points(Some(*pick), Some(actual));
+                *totals.entry(*uid).or_insert(0) +=
+                    scoring::champion_points(Some(*pick), Some(actual));
             }
         }
     }
@@ -729,6 +735,7 @@ mod tests {
             score_a: score.1,
             pred_h: prediction.0,
             pred_a: prediction.1,
+            scoring_system: MatchScoringSystem::ExactScore,
         }
     }
 
@@ -1336,5 +1343,4 @@ mod tests {
             assert!(!v.icon.is_empty());
         }
     }
-
 }

@@ -18,6 +18,7 @@ use crate::handlers::services::{
 use crate::handlers::util::{flag_url, format_kickoff, render_template};
 use crate::news;
 use crate::scoring;
+use crate::scoring::MatchScoringSystem;
 use crate::translations::T;
 use crate::views::{
     ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView, SpecialPredictionsView,
@@ -97,10 +98,11 @@ pub async fn index(
     let mut preds_by_match: std::collections::HashMap<i32, Vec<(String, i32, i32)>> =
         std::collections::HashMap::new();
     for p in other_preds_rows {
-        preds_by_match
-            .entry(p.match_id)
-            .or_default()
-            .push((p.user_name, p.predicted_home, p.predicted_away));
+        preds_by_match.entry(p.match_id).or_default().push((
+            p.user_name,
+            p.predicted_home,
+            p.predicted_away,
+        ));
     }
 
     let league_config = state
@@ -212,7 +214,14 @@ pub async fn index(
                 r.predicted_away,
             ) {
                 (Some(sh), Some(sa), Some(ph), Some(pa)) => {
-                    Some(scoring::calculate_match_points(r.stage, sh, sa, ph, pa))
+                    Some(scoring::calculate_match_points_for_system(
+                        league_config.match_scoring_system,
+                        r.stage,
+                        sh,
+                        sa,
+                        ph,
+                        pa,
+                    ))
                 }
                 _ => None,
             }
@@ -229,9 +238,16 @@ pub async fn index(
                 .map(|(name, home, away)| {
                     let points = if finished {
                         match (r.score_home, r.score_away) {
-                            (Some(sh), Some(sa)) => Some(scoring::calculate_match_points(
-                                r.stage, sh, sa, home, away,
-                            )),
+                            (Some(sh), Some(sa)) => {
+                                Some(scoring::calculate_match_points_for_system(
+                                    league_config.match_scoring_system,
+                                    r.stage,
+                                    sh,
+                                    sa,
+                                    home,
+                                    away,
+                                ))
+                            }
                             _ => None,
                         }
                     } else {
@@ -239,8 +255,14 @@ pub async fn index(
                     };
                     UserPrediction {
                         name,
-                        home,
-                        away,
+                        label: format_prediction_label(
+                            league_config.match_scoring_system,
+                            r.stage,
+                            &r.home_name,
+                            &r.away_name,
+                            home,
+                            away,
+                        ),
                         points,
                     }
                 })
@@ -253,6 +275,17 @@ pub async fn index(
         }
 
         let is_live = r.status == "in_progress";
+        let prediction_display = match (r.predicted_home, r.predicted_away) {
+            (Some(ph), Some(pa)) => Some(format_prediction_label(
+                league_config.match_scoring_system,
+                r.stage,
+                &r.home_name,
+                &r.away_name,
+                ph,
+                pa,
+            )),
+            _ => None,
+        };
         let mv = MatchView {
             id: r.id,
             stage: r.stage,
@@ -266,12 +299,18 @@ pub async fn index(
             score_away: r.score_away,
             predicted_home: r.predicted_home,
             predicted_away: r.predicted_away,
+            prediction_display,
             kickoff_display: format_kickoff(r.kickoff_time),
             locked,
             is_live,
             is_finished: finished,
             own_points,
-            max_phase_points: scoring::max_points_for_phase(r.stage.to_tournament_phase()),
+            max_phase_points: scoring::max_points_for_phase_with_system(
+                league_config.match_scoring_system,
+                r.stage.to_tournament_phase(),
+            ),
+            winner_only_mode: league_config.match_scoring_system.is_winner_only(),
+            allow_draw_prediction: r.stage == crate::stage::Stage::Group,
             other_preds,
         };
 
@@ -373,4 +412,22 @@ pub async fn index(
         dev_mode: state.dev_mode,
     };
     Ok(render_template(&template)?.into_response())
+}
+
+fn format_prediction_label(
+    scoring_system: MatchScoringSystem,
+    stage: crate::stage::Stage,
+    home_name: &str,
+    away_name: &str,
+    predicted_home: i32,
+    predicted_away: i32,
+) -> String {
+    if scoring_system.is_winner_only() {
+        let allow_draw = stage == crate::stage::Stage::Group;
+        return scoring::outcome_bet_from_stored_scores(predicted_home, predicted_away, allow_draw)
+            .map(|outcome| scoring::winner_only_prediction_label(outcome, home_name, away_name))
+            .unwrap_or_else(|| "–".to_string());
+    }
+
+    format!("{predicted_home}:{predicted_away}")
 }

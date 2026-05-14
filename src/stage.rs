@@ -46,8 +46,10 @@ impl Stage {
     pub fn to_tournament_phase(&self) -> crate::scoring::TournamentPhase {
         match self {
             Stage::Group => crate::scoring::TournamentPhase::Group,
-            Stage::RoundOf32 | Stage::RoundOf16 => crate::scoring::TournamentPhase::R32R16,
-            Stage::QuarterFinal | Stage::SemiFinal => crate::scoring::TournamentPhase::QFSF,
+            Stage::RoundOf32 => crate::scoring::TournamentPhase::R32,
+            Stage::RoundOf16 => crate::scoring::TournamentPhase::R16,
+            Stage::QuarterFinal => crate::scoring::TournamentPhase::QF,
+            Stage::SemiFinal => crate::scoring::TournamentPhase::SF,
             Stage::ThirdPlace | Stage::Final => crate::scoring::TournamentPhase::Finals,
         }
     }
