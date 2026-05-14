@@ -2,6 +2,7 @@ pub mod auth;
 pub mod badges;
 pub mod handlers;
 pub mod jersey;
+pub mod mail;
 pub mod news;
 pub mod notifier;
 pub mod repo;
@@ -51,4 +52,6 @@ pub struct AppState {
     pub mock_now: time::MockTime,
     /// Whether dev mode is enabled (`PILA_DEV_MODE=true`).
     pub dev_mode: bool,
+    /// Global SMTP configuration. `None` = email delivery disabled.
+    pub smtp_config: Option<crate::mail::SmtpConfig>,
 }

@@ -21,13 +21,15 @@
             <span style="font-size:18px;">➕</span>
             <span class="pl-display" style="font-size:14px;">{{ t.get("admin-new-user") }}</span>
         </div>
-        {% if !signal_enabled %}
-        <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; margin-bottom:10px;">Signal nicht konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</div>
+        {% if !signal_enabled && !smtp_enabled %}
+        <div class="pl-mono" style="font-size:10px; color:var(--pl-yellow); letter-spacing:.08em; margin-bottom:10px;">Weder Signal noch SMTP konfiguriert — Einladung wird nicht gesendet, nutze 📋 zum Kopieren.</div>
         {% endif %}
-        <form hx-post="/admin/leagues/{{ league.id }}/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr 1fr auto; gap:10px;">
+        <form hx-post="/admin/leagues/{{ league.id }}/users" hx-target="#admin-user-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px;">
             <input type="text" name="name" placeholder="{{ t.get("col-name") }}" required maxlength="255"
                    style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
             <input type="text" name="phone_number" placeholder="{{ t.get("admin-phone-placeholder") }}" maxlength="32"
+                   style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
+            <input type="email" name="email" placeholder="{{ t.get("admin-email-placeholder") }}" maxlength="255"
                    style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
             <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">{{ t.get("admin-create-btn") }}</button>
         </form>
@@ -45,6 +47,7 @@
                     <tr style="background:rgba(116,255,140,.04); border-bottom:1px solid var(--pl-line);">
                         <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-name") }}</th>
                         <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-phone") }}</th>
+                        <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-email") }}</th>
                         <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-role") }}</th>
                         <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-magic-link") }}</th>
                         <th style="padding:10px 12px; font-weight:500; color:var(--pl-mute); text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.08em;">{{ t.get("col-actions") }}</th>

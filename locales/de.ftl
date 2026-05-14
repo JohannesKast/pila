@@ -121,6 +121,9 @@ admin-new-user = Neuen User anlegen
 # Placeholder for the phone number field in the user creation form
 admin-phone-placeholder = Telefon (+49…) optional
 
+# Placeholder for the email field in the user creation form
+admin-email-placeholder = E-Mail optional
+
 # Submit button for user creation
 admin-create-btn = Anlegen
 
@@ -130,6 +133,10 @@ admin-user-mgmt = User-Verwaltung
 # Table column headers
 col-name = Name
 col-phone = Telefon
+
+# Column header for user email
+col-email = E-Mail
+
 col-role = Rolle
 col-magic-link = Magic-Link
 col-actions = Aktionen

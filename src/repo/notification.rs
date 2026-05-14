@@ -18,6 +18,25 @@ use super::{RepoError, RepoResult};
 use crate::notifier::{NotificationEvent, Notifier};
 use crate::stage::Stage;
 
+/// Sentinel UUID used for group notifications where no specific user
+/// is targeted (Signal group messages). PK columns cannot be NULL.
+const NO_USER: Uuid = Uuid::from_u128(0);
+
+/// Convert an optional user_id to the sentinel for DB storage.
+fn user_id_for_db(user_id: Option<Uuid>) -> Uuid {
+    user_id.unwrap_or(NO_USER)
+}
+
+/// Convert a DB user_id back to Option, mapping the sentinel to None.
+#[allow(dead_code)]
+fn user_id_from_db(user_id: Uuid) -> Option<Uuid> {
+    if user_id == NO_USER {
+        None
+    } else {
+        Some(user_id)
+    }
+}
+
 /// One match that's about to lock and still has at least one missing tip.
 #[derive(Debug, Clone)]
 pub struct ClosingSoonMatch {
@@ -54,12 +73,13 @@ pub trait NotificationRepo: Send + Sync {
     /// Names of users in `league_id` without a champion pick.
     async fn users_missing_champion(&self, league_id: Uuid) -> RepoResult<Vec<String>>;
 
-    /// Whether `(league_id, kind, ref_id)` has already been recorded as sent.
+    /// Whether `(league_id, kind, ref_id, user_id)` has already been recorded as sent.
     async fn already_sent(
         &self,
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
     ) -> RepoResult<bool>;
 
     /// Atomic dispatch primitive. In one transaction:
@@ -72,12 +92,16 @@ pub trait NotificationRepo: Send + Sync {
     ///
     /// Idempotency is partitioned by `league_id` — two leagues can each
     /// receive the same `(kind, ref_id)` independently.
+    ///
+    /// `user_id` is `None` for group notifications (Signal), `Some(id)`
+    /// for per-user notifications (email).
     async fn try_send(
         &self,
         notifier: &dyn Notifier,
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
         event: NotificationEvent,
     ) -> RepoResult<bool>;
 }
@@ -99,10 +123,11 @@ impl NotificationRepo for PgNotificationRepo {
     async fn silence_existing_matches(&self, league_id: Uuid) -> RepoResult<()> {
         sqlx::query!(
             r#"
-            INSERT INTO sent_notifications (league_id, kind, ref_id)
-            SELECT $1, 'match_closing_soon', m.id FROM matches m
+            INSERT INTO sent_notifications (league_id, kind, ref_id, user_id)
+            SELECT $1, 'match_closing_soon', m.id, '00000000-0000-0000-0000-000000000000'
+            FROM matches m
             WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL
-            ON CONFLICT (league_id, kind, ref_id) DO NOTHING
+            ON CONFLICT (league_id, kind, ref_id, user_id) DO NOTHING
             "#,
             league_id
         )
@@ -201,13 +226,16 @@ impl NotificationRepo for PgNotificationRepo {
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
     ) -> RepoResult<bool> {
+        let uid = user_id_for_db(user_id);
         let row = sqlx::query!(
             "SELECT 1 AS dummy FROM sent_notifications \
-             WHERE league_id = $1 AND kind = $2 AND ref_id = $3",
+             WHERE league_id = $1 AND kind = $2 AND ref_id = $3 AND user_id = $4",
             league_id,
             kind,
-            ref_id
+            ref_id,
+            uid
         )
         .fetch_optional(&self.pool)
         .await
@@ -221,17 +249,20 @@ impl NotificationRepo for PgNotificationRepo {
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
         event: NotificationEvent,
     ) -> RepoResult<bool> {
+        let uid = user_id_for_db(user_id);
         let mut tx = self.pool.begin().await.map_err(RepoError::from)?;
 
         let inserted = sqlx::query_scalar!(
-            "INSERT INTO sent_notifications (league_id, kind, ref_id) VALUES ($1, $2, $3)
-             ON CONFLICT (league_id, kind, ref_id) DO NOTHING
+            "INSERT INTO sent_notifications (league_id, kind, ref_id, user_id) VALUES ($1, $2, $3, $4) \
+             ON CONFLICT (league_id, kind, ref_id, user_id) DO NOTHING \
              RETURNING ref_id",
             league_id,
             kind,
-            ref_id
+            ref_id,
+            uid
         )
         .fetch_optional(&mut *tx)
         .await
@@ -247,15 +278,16 @@ impl NotificationRepo for PgNotificationRepo {
         match notifier.notify(event).await {
             Ok(()) => {
                 tx.commit().await.map_err(RepoError::from)?;
-                tracing::info!("Sent notification: league={} {} {}", league_id, kind, ref_id);
+                tracing::info!("Sent notification: league={} {} {} user={:?}", league_id, kind, ref_id, user_id);
                 Ok(true)
             }
             Err(e) => {
                 tracing::error!(
-                    "Notifier failed for league={} {} {}: {:?}",
+                    "Notifier failed for league={} {} {} user={:?}: {:?}",
                     league_id,
                     kind,
                     ref_id,
+                    user_id,
                     e
                 );
                 let _ = tx.rollback().await;
@@ -269,8 +301,8 @@ impl NotificationRepo for PgNotificationRepo {
 
 #[derive(Default)]
 struct MemoryNotificationState {
-    /// (league_id, kind, ref_id) → marker; mirrors the Pg PK.
-    sent: HashSet<(Uuid, String, i32)>,
+    /// (league_id, kind, ref_id, user_id) → marker; mirrors the Pg PK.
+    sent: HashSet<(Uuid, String, i32, Option<Uuid>)>,
     /// Matches indexed by id. Test code seeds this so the queries have rows
     /// to find. Keeps the fake decoupled from `MemoryMatchRepo`.
     closing_soon: Vec<ClosingSoonMatch>,
@@ -339,7 +371,7 @@ impl NotificationRepo for MemoryNotificationRepo {
         let ids: Vec<i32> = s.matches_with_both_teams.clone();
         for id in ids {
             s.sent
-                .insert((league_id, "match_closing_soon".into(), id));
+                .insert((league_id, "match_closing_soon".into(), id, None));
         }
         Ok(())
     }
@@ -353,7 +385,7 @@ impl NotificationRepo for MemoryNotificationRepo {
             .iter()
             .filter(|m| {
                 !s.sent
-                    .contains(&(league_id, "match_closing_soon".into(), m.match_id))
+                    .contains(&(league_id, "match_closing_soon".into(), m.match_id, None))
             })
             .cloned()
             .collect())
@@ -398,13 +430,14 @@ impl NotificationRepo for MemoryNotificationRepo {
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
     ) -> RepoResult<bool> {
         Ok(self
             .state
             .lock()
             .unwrap()
             .sent
-            .contains(&(league_id, kind.to_string(), ref_id)))
+            .contains(&(league_id, kind.to_string(), ref_id, user_id)))
     }
 
     async fn try_send(
@@ -413,13 +446,14 @@ impl NotificationRepo for MemoryNotificationRepo {
         league_id: Uuid,
         kind: &str,
         ref_id: i32,
+        user_id: Option<Uuid>,
         event: NotificationEvent,
     ) -> RepoResult<bool> {
         // Two-phase emulation of the Pg tx semantics: tentatively reserve the
         // slot, run the notifier, commit on success and release on failure.
         {
             let mut s = self.state.lock().unwrap();
-            if !s.sent.insert((league_id, kind.to_string(), ref_id)) {
+            if !s.sent.insert((league_id, kind.to_string(), ref_id, user_id)) {
                 return Ok(false);
             }
         }
@@ -432,7 +466,7 @@ impl NotificationRepo for MemoryNotificationRepo {
                     .lock()
                     .unwrap()
                     .sent
-                    .remove(&(league_id, kind.to_string(), ref_id));
+                    .remove(&(league_id, kind.to_string(), ref_id, user_id));
                 Ok(false)
             }
         }
@@ -474,12 +508,12 @@ mod memory_tests {
     async fn try_send_succeeds_first_time_and_records_slot() {
         let repo = MemoryNotificationRepo::new();
         let sent = repo
-            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, lock_event())
+            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None, lock_event())
             .await
             .unwrap();
         assert!(sent);
         assert!(repo
-            .already_sent(DEFAULT_LEAGUE_ID, "match_closing_soon", 1)
+            .already_sent(DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None)
             .await
             .unwrap());
     }
@@ -488,11 +522,11 @@ mod memory_tests {
     async fn try_send_skips_already_recorded_slot() {
         let repo = MemoryNotificationRepo::new();
         let _ = repo
-            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, lock_event())
+            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None, lock_event())
             .await
             .unwrap();
         let sent_again = repo
-            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, lock_event())
+            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None, lock_event())
             .await
             .unwrap();
         assert!(!sent_again, "second call must be a no-op");
@@ -503,13 +537,13 @@ mod memory_tests {
     async fn try_send_releases_slot_on_notifier_failure() {
         let repo = MemoryNotificationRepo::new();
         let sent = repo
-            .try_send(&FailNotifier, DEFAULT_LEAGUE_ID, "special_lock_soon", 0, lock_event())
+            .try_send(&FailNotifier, DEFAULT_LEAGUE_ID, "special_lock_soon", 0, None, lock_event())
             .await
             .unwrap();
         assert!(!sent);
         assert!(
             !repo
-                .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0)
+                .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0, None)
                 .await
                 .unwrap(),
             "slot must be released so the next tick retries"
@@ -525,11 +559,11 @@ mod memory_tests {
         repo.silence_existing_matches(DEFAULT_LEAGUE_ID).await.unwrap();
 
         assert!(repo
-            .already_sent(DEFAULT_LEAGUE_ID, "match_closing_soon", 1)
+            .already_sent(DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None)
             .await
             .unwrap());
         assert!(!repo
-            .already_sent(other_league, "match_closing_soon", 1)
+            .already_sent(other_league, "match_closing_soon", 1, None)
             .await
             .unwrap());
     }
@@ -593,7 +627,7 @@ mod memory_tests {
         });
         // Default league marked match 1 as sent.
         let _ = repo
-            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, lock_event())
+            .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, "match_closing_soon", 1, None, lock_event())
             .await
             .unwrap();
 

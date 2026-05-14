@@ -14,6 +14,7 @@ pub struct AdminUserView {
     pub id: Uuid,
     pub name: String,
     pub phone_number: Option<String>,
+    pub email: Option<String>,
     pub is_admin: bool,
     pub can_create_league: bool,
     pub magic_link: String,

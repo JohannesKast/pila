@@ -61,6 +61,8 @@ pub struct SetupForm {
     name: String,
     #[serde(default)]
     phone_number: String,
+    #[serde(default)]
+    email: String,
     league_name: String,
     #[serde(default)]
     default_language: String,
@@ -99,6 +101,8 @@ pub async fn setup_post(
 
     let phone = form.phone_number.trim().to_string();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(&phone) };
+    let email = form.email.trim().to_string();
+    let email_opt: Option<&str> = if email.is_empty() { None } else { Some(&email) };
 
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
@@ -159,13 +163,14 @@ pub async fn setup_post(
 
         // 3. Create user
         sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number, league_id, language) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             id,
             &name,
             &token,
             true, // is_admin
             phone_opt,
+            email_opt,
             league_id,
             lang
         )
@@ -196,6 +201,14 @@ pub async fn setup_post(
         if signal_configured(&state.signal_api_url, &state.signal_from_number) {
             if let Err(e) = notifier::send_invite_via_signal(p, &name, &magic_link, &state.signal_api_url, &state.signal_from_number).await {
                 tracing::warn!("Setup: Signal-Einladung an {p} fehlgeschlagen: {e}");
+            }
+        }
+    }
+    // Email invite — also best-effort.
+    if let Some(e) = email_opt {
+        if let Some(ref smtp) = state.smtp_config {
+            if let Err(err) = crate::mail::send_invite_email(smtp, &name, e, &magic_link).await {
+                tracing::warn!("Setup: E-Mail-Einladung an {e} fehlgeschlagen: {err}");
             }
         }
     }

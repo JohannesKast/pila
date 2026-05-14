@@ -56,7 +56,8 @@ fn build_harness() -> Harness {
         signal_from_number: None,
         signal_group_id: None,
         http_client: reqwest::Client::new(),
-        mock_now: pila::time::new_mock_time(),
+        smtp_config: None,
+            mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 
@@ -70,6 +71,7 @@ fn fake_user() -> pila::auth::AuthenticatedUser {
         is_admin: false,
         can_create_league: false,
         phone_number: None,
+        email: None,
         jersey_preset: "classic".into(),
         language: "de".into(),
         league_id: DEFAULT_LEAGUE_ID,
@@ -88,6 +90,7 @@ async fn index_renders_with_valid_csp_and_without_document_body_in_head() {
             name: user.name.clone(),
             token: "test-token".into(),
             phone_number: None,
+        email: None,
             is_admin: false,
             can_create_league: false,
             league_id: user.league_id,

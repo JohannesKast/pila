@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, token, phone_number, is_admin, can_create_league FROM users WHERE league_id = $1 ORDER BY name",
+  "query": "SELECT id, name, token, phone_number, email, is_admin, can_create_league, league_id FROM users WHERE id = $1",
   "describe": {
     "columns": [
       {
@@ -25,13 +25,23 @@
       },
       {
         "ordinal": 4,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
         "name": "is_admin",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "can_create_league",
         "type_info": "Bool"
+      },
+      {
+        "ordinal": 7,
+        "name": "league_id",
+        "type_info": "Uuid"
       }
     ],
     "parameters": {
@@ -44,9 +54,11 @@
       false,
       false,
       true,
+      true,
+      false,
       false,
       false
     ]
   },
-  "hash": "b907217df785f015bcdc54ee575d60ed75c059b591f9064774e8b056053d12fc"
+  "hash": "1d6a5551b9a0231a211698d853019db274070e52f9dde96e06c8ba5a3e7febda"
 }

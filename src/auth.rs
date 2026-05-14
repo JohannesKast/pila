@@ -17,6 +17,7 @@ pub struct AuthenticatedUser {
     /// leagues and manage settings on any league.
     pub can_create_league: bool,
     pub phone_number: Option<String>,
+    pub email: Option<String>,
     pub jersey_preset: String,
     pub language: String,
     /// Tenancy boundary — every aggregate query in handlers must filter by
@@ -36,6 +37,7 @@ async fn lookup_user(
         is_admin: u.is_admin,
         can_create_league: u.can_create_league,
         phone_number: u.phone_number,
+        email: u.email,
         jersey_preset: u.jersey_preset,
         language: u.language,
         league_id: u.league_id,

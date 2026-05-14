@@ -33,7 +33,7 @@ USER_ID=$(cat /proc/sys/kernel/random/uuid)
 # 3) Insert with league_id (NOT NULL) — language defaults to 'de' at column level
 #    or whatever the migration sets.
 docker exec -i pila_db psql -U pila -d pila_db -c \
-    "INSERT INTO users (id, name, token, is_admin, league_id) \
+    "INSERT INTO users (id, name, token, is_admin, league_id, email) \
      VALUES ('$USER_ID', '$USER_NAME', '$TOKEN', false, '$LEAGUE_ID');"
 
 echo ""

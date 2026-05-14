@@ -65,6 +65,7 @@ async fn user_repo_create_find_rename_set_admin_delete_round_trip() {
         is_admin: false,
         phone_number: Some("+490"),
         league_id: DEFAULT_LEAGUE_ID,
+        email: None,
         language: "de",
     })
     .await
@@ -107,6 +108,7 @@ async fn user_repo_set_jersey_persists() {
         is_admin: false,
         phone_number: None,
         league_id: DEFAULT_LEAGUE_ID,
+        email: None,
         language: "de",
     })
     .await
@@ -180,6 +182,7 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
             is_admin: false,
             phone_number: None,
             league_id: DEFAULT_LEAGUE_ID,
+            email: None,
             language: "de",
         })
         .await
@@ -248,6 +251,7 @@ async fn special_prediction_repo_upsert_round_trip() {
             is_admin: false,
             phone_number: None,
             league_id: DEFAULT_LEAGUE_ID,
+            email: None,
             language: "de",
         })
         .await
@@ -446,17 +450,17 @@ async fn notification_repo_try_send_records_then_skips_duplicate() {
     };
 
     let first = notifications
-        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, event.clone())
+        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, None, event.clone())
         .await
         .unwrap();
     assert!(first);
     assert!(notifications
-        .already_sent(DEFAULT_LEAGUE_ID, &kind, 1)
+        .already_sent(DEFAULT_LEAGUE_ID, &kind, 1, None)
         .await
         .unwrap());
 
     let second = notifications
-        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, event)
+        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, None, event)
         .await
         .unwrap();
     assert!(!second, "duplicate must be a no-op");
@@ -488,13 +492,13 @@ async fn notification_repo_try_send_rolls_back_on_notifier_failure() {
     };
 
     let outcome = notifications
-        .try_send(&FailNotifier, DEFAULT_LEAGUE_ID, &kind, 7, event)
+        .try_send(&FailNotifier, DEFAULT_LEAGUE_ID, &kind, 7, None, event)
         .await
         .unwrap();
     assert!(!outcome, "a failed notifier must report not-sent");
     assert!(
         !notifications
-            .already_sent(DEFAULT_LEAGUE_ID, &kind, 7)
+            .already_sent(DEFAULT_LEAGUE_ID, &kind, 7, None)
             .await
             .unwrap(),
         "the slot must be rolled back so the next tick retries"

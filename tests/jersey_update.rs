@@ -73,7 +73,8 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         signal_from_number: None,
         signal_group_id: None,
         http_client: reqwest::Client::new(),
-        mock_now: pila::time::new_mock_time(),
+        smtp_config: None,
+            mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 

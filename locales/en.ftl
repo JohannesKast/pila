@@ -67,10 +67,18 @@ no-open-tips = No open tips right now.
 
 admin-new-user = Add User
 admin-phone-placeholder = Phone (+49…) optional
+
+# Placeholder for the email field in the user creation form
+admin-email-placeholder = Email optional
+
 admin-create-btn = Create
 admin-user-mgmt = User Management
 col-name = Name
 col-phone = Phone
+
+# Column header for user email
+col-email = Email
+
 col-role = Role
 col-magic-link = Magic Link
 col-actions = Actions

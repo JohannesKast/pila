@@ -27,10 +27,11 @@ use crate::AppState;
 struct AdminRowTemplate {
     u: AdminUserView,
     signal_enabled: bool,
+    smtp_enabled: bool,
 }
 
-fn render_admin_row(u: AdminUserView, signal_enabled: bool) -> Html<String> {
-    let tpl = AdminRowTemplate { u, signal_enabled };
+fn render_admin_row(u: AdminUserView, signal_enabled: bool, smtp_enabled: bool) -> Html<String> {
+    let tpl = AdminRowTemplate { u, signal_enabled, smtp_enabled };
     render_template(&tpl).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
 }
 
@@ -58,6 +59,7 @@ struct LeagueUsersTemplate {
     league: repo::league::League,
     users: Vec<AdminUserView>,
     signal_enabled: bool,
+    smtp_enabled: bool,
     is_super_admin: bool,
     t: T,
     lang_code: String,
@@ -96,16 +98,19 @@ pub async fn league_users_page(
             id: r.id,
             name: r.name,
             phone_number: r.phone_number,
+            email: r.email,
             is_admin: r.is_admin,
             can_create_league: r.can_create_league,
         })
         .collect();
 
+    let smtp_enabled = state.smtp_config.is_some();
     let lang_code = admin.language.clone();
     let template = LeagueUsersTemplate {
         league,
         users,
         signal_enabled: signal_configured(sig_cfg.0, sig_cfg.1),
+        smtp_enabled,
         is_super_admin: admin.can_create_league,
         t: t_for(&state, &admin.language),
         lang_code,
@@ -118,6 +123,8 @@ pub struct AdminCreateForm {
     pub name: String,
     #[serde(default)]
     pub phone_number: String,
+    #[serde(default)]
+    pub email: String,
 }
 
 pub async fn admin_create_user(
@@ -134,6 +141,8 @@ pub async fn admin_create_user(
     }
     let phone = form.phone_number.trim();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
+    let email = form.email.trim();
+    let email_opt: Option<&str> = if email.is_empty() { None } else { Some(email) };
 
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
@@ -154,6 +163,7 @@ pub async fn admin_create_user(
             token: &token,
             is_admin: false,
             phone_number: phone_opt,
+            email: email_opt,
             league_id,
             language: &cfg.default_language,
         })
@@ -169,17 +179,25 @@ pub async fn admin_create_user(
             }
         }
     }
+    if let Some(e) = email_opt {
+        if let Some(ref smtp) = state.smtp_config {
+            if let Err(err) = crate::mail::send_invite_email(smtp, name, e, &link).await {
+                tracing::warn!("Admin: E-Mail-Einladung an {e} fehlgeschlagen: {err}");
+            }
+        }
+    }
 
     let view = AdminUserView {
         id,
         name: name.to_string(),
         phone_number: phone_opt.map(|s| s.to_string()),
+        email: email_opt.map(|s| s.to_string()),
         is_admin: false,
         can_create_league: false,
         magic_link: link,
         is_self: false,
     };
-    Ok(render_admin_row(view, signal_enabled))
+    Ok(render_admin_row(view, signal_enabled, state.smtp_config.is_some()))
 }
 
 /// Convenience redirect: `/admin/users` is the index "User-Verwaltung" entry
@@ -276,10 +294,11 @@ pub async fn admin_toggle_admin(
         id,
         name: target.name,
         phone_number: target.phone_number,
+        email: target.email,
         is_admin: new_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number)))
+    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number), state.smtp_config.is_some()))
 }
 
 #[derive(Deserialize)]
@@ -331,10 +350,11 @@ pub async fn admin_rename_user(
         id,
         name: target.name,
         phone_number: target.phone_number,
+        email: target.email,
         is_admin: target.is_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number)))
+    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number), state.smtp_config.is_some()))
 }
 
 pub async fn admin_resend_invite(
@@ -348,26 +368,39 @@ pub async fn admin_resend_invite(
             r#"<span class="text-red-400 text-xs">User nicht gefunden</span>"#.to_string(),
         );
     };
-    let Some(phone) = row.phone_number.as_deref() else {
-        return Html(
-            r#"<span class="text-amber-400 text-xs">Keine Telefonnummer hinterlegt</span>"#
-                .to_string(),
-        );
-    };
-    if !signal_configured(&state.signal_api_url, &state.signal_from_number) {
-        return Html(
-            r#"<span class="text-amber-400 text-xs">Signal nicht konfiguriert</span>"#
-                .to_string(),
-        );
-    }
     let link = build_magic_link(&row.token, &state.base_url);
-    match notifier::send_invite_via_signal(phone, &row.name, &link, &state.signal_api_url, &state.signal_from_number).await {
-        Ok(_) => Html(
-            r#"<span class="text-emerald-400 text-xs">✓ gesendet</span>"#.to_string(),
-        ),
-        Err(e) => Html(format!(
-            r#"<span class="text-red-400 text-xs">✗ Fehler: {}</span>"#,
-            html_escape(&e.to_string())
-        )),
+
+    // Try Signal first if phone number exists
+    if let Some(phone) = row.phone_number.as_deref() {
+        if signal_configured(&state.signal_api_url, &state.signal_from_number) {
+            match notifier::send_invite_via_signal(phone, &row.name, &link, &state.signal_api_url, &state.signal_from_number).await {
+                Ok(_) => return Html(
+                    r#"<span class="text-emerald-400 text-xs">✓ Signal gesendet</span>"#.to_string(),
+                ),
+                Err(e) => return Html(format!(
+                    r#"<span class="text-red-400 text-xs">✗ Signal-Fehler: {}</span>"#,
+                    html_escape(&e.to_string())
+                )),
+            }
+        }
     }
+
+    // Try email if address exists
+    if let Some(email) = row.email.as_deref() {
+        if let Some(ref smtp) = state.smtp_config {
+            match crate::mail::send_invite_email(smtp, &row.name, email, &link).await {
+                Ok(_) => return Html(
+                    r#"<span class="text-emerald-400 text-xs">✓ E-Mail gesendet</span>"#.to_string(),
+                ),
+                Err(e) => return Html(format!(
+                    r#"<span class="text-red-400 text-xs">✗ E-Mail-Fehler: {}</span>"#,
+                    html_escape(&e.to_string())
+                )),
+            }
+        }
+    }
+
+    Html(
+        r#"<span class="text-amber-400 text-xs">Keine Kontaktdaten oder Versandkanal konfiguriert</span>"#.to_string(),
+    )
 }

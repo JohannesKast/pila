@@ -57,7 +57,8 @@ fn build_harness() -> Harness {
         signal_from_number: None,
         signal_group_id: None,
         http_client: reqwest::Client::new(),
-        mock_now: pila::time::new_mock_time(),
+        smtp_config: None,
+            mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 
@@ -71,6 +72,7 @@ fn admin_extractor(id: Uuid) -> AdminUser {
         is_admin: true,
         can_create_league: false,
         phone_number: None,
+        email: None,
         jersey_preset: "classic".into(),
         language: "de".into(),
         league_id: DEFAULT_LEAGUE_ID,
@@ -83,6 +85,7 @@ fn user_full(id: Uuid, name: &str, token: &str, is_admin: bool) -> UserFull {
         name: name.into(),
         token: token.into(),
         phone_number: None,
+        email: None,
         is_admin,
         can_create_league: false,
         league_id: DEFAULT_LEAGUE_ID,
@@ -102,6 +105,7 @@ async fn admin_create_user_rejects_blank_name() {
         Form(AdminCreateForm {
             name: "   ".into(),
             phone_number: String::new(),
+            email: "".to_string(),
         }),
     )
     .await;
@@ -119,6 +123,7 @@ async fn admin_create_user_persists_new_user_and_returns_row_html() {
         Form(AdminCreateForm {
             name: "Bob".into(),
             phone_number: String::new(),
+            email: "".to_string(),
         }),
     )
     .await
@@ -156,6 +161,7 @@ async fn admin_delete_user_removes_target() {
             phone_number: None,
             league_id: DEFAULT_LEAGUE_ID,
             language: "de",
+        email: None,
         })
         .await
         .unwrap();

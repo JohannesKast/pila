@@ -67,10 +67,18 @@ no-open-tips = Pas de pronostics ouverts.
 
 admin-new-user = Ajouter un utilisateur
 admin-phone-placeholder = Téléphone (+49…) optionnel
+
+# Placeholder for the email field in the user creation form
+admin-email-placeholder = E-mail optionnel
+
 admin-create-btn = Créer
 admin-user-mgmt = Gestion des utilisateurs
 col-name = Nom
 col-phone = Téléphone
+
+# Column header for user email
+col-email = E-mail
+
 col-role = Rôle
 col-magic-link = Magic Link
 col-actions = Actions

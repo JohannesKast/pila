@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sent_notifications (league_id, kind, ref_id, user_id)\n            SELECT $1, 'match_closing_soon', m.id, '00000000-0000-0000-0000-000000000000'\n            FROM matches m\n            WHERE m.team_home_id IS NOT NULL AND m.team_away_id IS NOT NULL\n            ON CONFLICT (league_id, kind, ref_id, user_id) DO NOTHING\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b1b6becc0c7e82a7389ed971478e7d08e0b4775a0cf5b8c8763c6bea4b99cf07"
+}

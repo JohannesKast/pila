@@ -1,0 +1,40 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT u.id, u.name, u.email AS \"email!\", u.token\n            FROM users u\n            WHERE u.league_id = $1\n              AND u.email IS NOT NULL\n              AND NOT EXISTS (\n                SELECT 1 FROM special_predictions sp\n                WHERE sp.user_id = u.id AND sp.champion_id IS NOT NULL\n              )\n            ORDER BY u.name\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "email!",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "token",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "f77a932dbd58f1b456041d05eb63819382cd9c7cc474006a525d67b359b8a89c"
+}

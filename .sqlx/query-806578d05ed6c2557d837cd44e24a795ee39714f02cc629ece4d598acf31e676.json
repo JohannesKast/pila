@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO sent_notifications (league_id, kind, ref_id) VALUES ($1, $2, $3)\n             ON CONFLICT (league_id, kind, ref_id) DO NOTHING\n             RETURNING ref_id",
+  "query": "INSERT INTO sent_notifications (league_id, kind, ref_id, user_id) VALUES ($1, $2, $3, $4) ON CONFLICT (league_id, kind, ref_id, user_id) DO NOTHING RETURNING ref_id",
   "describe": {
     "columns": [
       {
@@ -13,12 +13,13 @@
       "Left": [
         "Uuid",
         "Varchar",
-        "Int4"
+        "Int4",
+        "Uuid"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "80e8ff226e170bc513a5dfd0ffb07f370a8412f90acdcff42a703b3cb47863ab"
+  "hash": "806578d05ed6c2557d837cd44e24a795ee39714f02cc629ece4d598acf31e676"
 }

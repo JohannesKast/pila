@@ -57,6 +57,13 @@ async fn main() {
 
     let http_client = reqwest::Client::new();
 
+    let smtp_config = pila::mail::SmtpConfig::from_env();
+    if smtp_config.is_some() {
+        tracing::info!("SMTP configured — email delivery enabled");
+    } else {
+        tracing::info!("SMTP env vars not set — email delivery disabled");
+    }
+
     // Dev mode enables the /dev/* routes for testing. Must be explicitly enabled.
     let dev_mode = std::env::var("PILA_DEV_MODE")
         .map(|v| v == "true" || v == "1")
@@ -86,6 +93,7 @@ async fn main() {
         http_client: http_client.clone(),
         mock_now,
         dev_mode,
+        smtp_config: smtp_config.clone(),
     };
 
     if let Err(e) = worker::bootstrap_notifications(&repos).await {
@@ -115,7 +123,7 @@ async fn main() {
             }
         }
     } else {
-        worker::start_background_worker(repos, scoreboard, base_url, signal_api_url).await;
+        worker::start_background_worker(repos, scoreboard, base_url, signal_api_url, smtp_config).await;
     }
 
     let app = build_router();

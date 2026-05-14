@@ -28,7 +28,7 @@ pub fn now(mock: &MockTime) -> DateTime<Utc> {
     // Fast path: read lock, check if mock is set
     // In production (mock always None), this is just a cheap read
     mock.read()
-        .map(|guard| guard.unwrap_or_else(|| Utc::now()))
+        .map(|guard| guard.unwrap_or_else(Utc::now))
         .unwrap_or_else(|_| Utc::now())
 }
 

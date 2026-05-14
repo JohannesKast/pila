@@ -10,6 +10,9 @@
         <span class="text-xs text-slate-300">{% match u.phone_number %}{% when Some with (p) %}{{ p }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
     </td>
     <td class="px-2 py-2 align-top">
+        <span class="text-xs text-slate-300">{% match u.email %}{% when Some with (e) %}{{ e }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
+    </td>
+    <td class="px-2 py-2 align-top">
         {% if u.is_admin %}
         <span class="inline-flex items-center gap-1 text-fifa-gold text-[11px] font-bold uppercase tracking-wider">★ Admin</span>
         {% else %}
@@ -37,12 +40,12 @@
                 {% if u.is_admin %}Demote{% else %}Promote{% endif %}
             </button>
             {% endif %}
-            {% if u.phone_number.is_some() %}
+            {% if u.phone_number.is_some() || u.email.is_some() %}
             <button type="button"
                     hx-post="/admin/users/{{ u.id }}/resend"
                     hx-swap="innerHTML"
                     hx-target="#resend-status-{{ u.id }}"
-                    {% if !signal_enabled %}disabled title="Signal nicht konfiguriert"{% endif %}
+                    {% if !signal_enabled && !smtp_enabled %}disabled title="Weder Signal noch SMTP konfiguriert"{% endif %}
                     class="text-[10px] font-bold uppercase px-2 py-1 rounded bg-emerald-700/40 hover:bg-emerald-700/60 text-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed">
                 Resend
             </button>

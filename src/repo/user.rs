@@ -15,18 +15,20 @@ pub struct UserAuth {
     pub is_admin: bool,
     pub can_create_league: bool,
     pub phone_number: Option<String>,
+    pub email: Option<String>,
     pub jersey_preset: String,
     pub language: String,
     pub league_id: Uuid,
 }
 
-/// Full record needed by admin operations (token + phone).
+/// Full record needed by admin operations (token + phone + email).
 #[derive(Debug, Clone)]
 pub struct UserFull {
     pub id: Uuid,
     pub name: String,
     pub token: String,
     pub phone_number: Option<String>,
+    pub email: Option<String>,
     pub is_admin: bool,
     pub can_create_league: bool,
     pub league_id: Uuid,
@@ -39,6 +41,7 @@ pub struct AdminUserRow {
     pub name: String,
     pub token: String,
     pub phone_number: Option<String>,
+    pub email: Option<String>,
     pub is_admin: bool,
     pub can_create_league: bool,
 }
@@ -59,6 +62,7 @@ pub struct NewUser<'a> {
     pub token: &'a str,
     pub is_admin: bool,
     pub phone_number: Option<&'a str>,
+    pub email: Option<&'a str>,
     pub league_id: Uuid,
     pub language: &'a str,
 }
@@ -89,6 +93,20 @@ pub trait UserRepo: Send + Sync {
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()>;
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
     async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()>;
+    async fn set_email(&self, id: Uuid, email: Option<&str>) -> RepoResult<()>;
+    /// Users in a league who have an email address and are missing a
+    /// prediction for the given match. Returns (user_id, name, email, token).
+    async fn users_missing_prediction_with_email(
+        &self,
+        league_id: Uuid,
+        match_id: i32,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>>;
+    /// Users in a league who have an email and no champion pick.
+    /// Returns (user_id, name, email, token).
+    async fn users_missing_champion_with_email(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -107,7 +125,7 @@ impl PgUserRepo {
 impl UserRepo for PgUserRepo {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>> {
         let row = sqlx::query!(
-            "SELECT id, name, is_admin, can_create_league, phone_number, jersey_preset, language, league_id \
+            "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, league_id \
              FROM users WHERE token = $1",
             token
         )
@@ -121,6 +139,7 @@ impl UserRepo for PgUserRepo {
             is_admin: r.is_admin,
             can_create_league: r.can_create_league,
             phone_number: r.phone_number,
+            email: r.email,
             jersey_preset: r.jersey_preset,
             language: r.language,
             league_id: r.league_id,
@@ -129,7 +148,7 @@ impl UserRepo for PgUserRepo {
 
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>> {
         let row = sqlx::query!(
-            "SELECT id, name, token, phone_number, is_admin, can_create_league, league_id \
+            "SELECT id, name, token, phone_number, email, is_admin, can_create_league, league_id \
              FROM users WHERE id = $1",
             id
         )
@@ -142,6 +161,7 @@ impl UserRepo for PgUserRepo {
             name: r.name,
             token: r.token,
             phone_number: r.phone_number,
+            email: r.email,
             is_admin: r.is_admin,
             can_create_league: r.can_create_league,
             league_id: r.league_id,
@@ -166,7 +186,7 @@ impl UserRepo for PgUserRepo {
 
     async fn list_for_admin(&self, league_id: Uuid) -> RepoResult<Vec<AdminUserRow>> {
         let rows = sqlx::query!(
-            "SELECT id, name, token, phone_number, is_admin, can_create_league \
+            "SELECT id, name, token, phone_number, email, is_admin, can_create_league \
              FROM users WHERE league_id = $1 ORDER BY name",
             league_id
         )
@@ -181,6 +201,7 @@ impl UserRepo for PgUserRepo {
                 name: r.name,
                 token: r.token,
                 phone_number: r.phone_number,
+                email: r.email,
                 is_admin: r.is_admin,
                 can_create_league: r.can_create_league,
             })
@@ -227,13 +248,14 @@ impl UserRepo for PgUserRepo {
 
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()> {
         sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number, league_id, language) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7)",
+            "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
             new_user.id,
             new_user.name,
             new_user.token,
             new_user.is_admin,
             new_user.phone_number,
+            new_user.email,
             new_user.league_id,
             new_user.language
         )
@@ -306,6 +328,76 @@ impl UserRepo for PgUserRepo {
         .map_err(RepoError::from)?;
         Ok(())
     }
+
+    async fn set_email(&self, id: Uuid, email: Option<&str>) -> RepoResult<()> {
+        sqlx::query!(
+            "UPDATE users SET email = $1 WHERE id = $2",
+            email,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
+
+    async fn users_missing_prediction_with_email(
+        &self,
+        league_id: Uuid,
+        match_id: i32,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT u.id, u.name, u.email AS "email!", u.token
+            FROM users u
+            WHERE u.league_id = $1
+              AND u.email IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM predictions p
+                WHERE p.user_id = u.id AND p.match_id = $2
+              )
+            ORDER BY u.name
+            "#,
+            league_id,
+            match_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.name, r.email, r.token))
+            .collect())
+    }
+
+    async fn users_missing_champion_with_email(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT u.id, u.name, u.email AS "email!", u.token
+            FROM users u
+            WHERE u.league_id = $1
+              AND u.email IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM special_predictions sp
+                WHERE sp.user_id = u.id AND sp.champion_id IS NOT NULL
+              )
+            ORDER BY u.name
+            "#,
+            league_id
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| (r.id, r.name, r.email, r.token))
+            .collect())
+    }
 }
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
@@ -346,6 +438,7 @@ impl UserRepo for MemoryUserRepo {
             is_admin: u.is_admin,
             can_create_league: u.can_create_league,
             phone_number: u.phone_number.clone(),
+            email: u.email.clone(),
             jersey_preset: s
                 .jerseys
                 .get(&u.id)
@@ -387,6 +480,7 @@ impl UserRepo for MemoryUserRepo {
                 name: u.name.clone(),
                 token: u.token.clone(),
                 phone_number: u.phone_number.clone(),
+                email: u.email.clone(),
                 is_admin: u.is_admin,
                 can_create_league: u.can_create_league,
             })
@@ -443,6 +537,7 @@ impl UserRepo for MemoryUserRepo {
             name: new_user.name.to_string(),
             token: new_user.token.to_string(),
             phone_number: new_user.phone_number.map(|p| p.to_string()),
+            email: new_user.email.map(|e| e.to_string()),
             is_admin: new_user.is_admin,
             can_create_league: false,
             league_id: new_user.league_id,
@@ -490,6 +585,42 @@ impl UserRepo for MemoryUserRepo {
     async fn set_language(&self, _id: Uuid, _language: &str) -> RepoResult<()> {
         Ok(())
     }
+
+    async fn set_email(&self, id: Uuid, email: Option<&str>) -> RepoResult<()> {
+        let mut s = self.inner.lock().unwrap();
+        if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
+            u.email = email.map(|e| e.to_string());
+        }
+        Ok(())
+    }
+
+    async fn users_missing_prediction_with_email(
+        &self,
+        league_id: Uuid,
+        _match_id: i32,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>> {
+        // Simplified in-memory: returns users with email in the league.
+        // Real filtering by match_id is done via the prediction repo in tests.
+        let s = self.inner.lock().unwrap();
+        Ok(s.users
+            .iter()
+            .filter(|u| u.league_id == league_id && u.email.is_some())
+            .map(|u| (u.id, u.name.clone(), u.email.clone().unwrap(), u.token.clone()))
+            .collect())
+    }
+
+    async fn users_missing_champion_with_email(
+        &self,
+        league_id: Uuid,
+    ) -> RepoResult<Vec<(Uuid, String, String, String)>> {
+        // Simplified: returns all users with email — tests filter further.
+        let s = self.inner.lock().unwrap();
+        Ok(s.users
+            .iter()
+            .filter(|u| u.league_id == league_id && u.email.is_some())
+            .map(|u| (u.id, u.name.clone(), u.email.clone().unwrap(), u.token.clone()))
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -503,6 +634,7 @@ mod memory_tests {
             name: name.to_string(),
             token: token.to_string(),
             phone_number: None,
+            email: None,
             is_admin,
             can_create_league: false,
             league_id: DEFAULT_LEAGUE_ID,
@@ -519,6 +651,7 @@ mod memory_tests {
             token: "tkn-a",
             is_admin: true,
             phone_number: Some("+491"),
+            email: Some("alice@example.com"),
             league_id: DEFAULT_LEAGUE_ID,
             language: "de",
         })
@@ -530,6 +663,7 @@ mod memory_tests {
         assert_eq!(auth.name, "Alice");
         assert!(auth.is_admin);
         assert_eq!(auth.phone_number.as_deref(), Some("+491"));
+        assert_eq!(auth.email.as_deref(), Some("alice@example.com"));
         assert_eq!(auth.league_id, DEFAULT_LEAGUE_ID);
     }
 
@@ -584,6 +718,20 @@ mod memory_tests {
         repo.set_jersey(id, "brasilien").await.unwrap();
         let auth = repo.find_by_token("t").await.unwrap().unwrap();
         assert_eq!(auth.jersey_preset, "brasilien");
+    }
+
+    #[tokio::test]
+    async fn set_email_persists() {
+        let repo = MemoryUserRepo::new();
+        let u = user("X", "t", false);
+        let id = u.id;
+        repo.seed(u, "classic");
+        repo.set_email(id, Some("x@example.com")).await.unwrap();
+        let full = repo.find_full_by_id(id).await.unwrap().unwrap();
+        assert_eq!(full.email.as_deref(), Some("x@example.com"));
+        repo.set_email(id, None).await.unwrap();
+        let full = repo.find_full_by_id(id).await.unwrap().unwrap();
+        assert!(full.email.is_none());
     }
 
     #[tokio::test]

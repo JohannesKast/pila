@@ -51,6 +51,7 @@ fn user_full(id: Uuid, league_id: Uuid, name: &str, token: &str) -> UserFull {
         name: name.into(),
         token: token.into(),
         phone_number: None,
+        email: None,
         is_admin: false,
         can_create_league: false,
         league_id,
@@ -395,6 +396,7 @@ async fn notification_idempotency_is_per_league() {
             t.league_a,
             "match_closing_soon",
             5,
+            None,
             sample_event(),
         )
         .await
@@ -410,6 +412,7 @@ async fn notification_idempotency_is_per_league() {
             t.league_a,
             "match_closing_soon",
             5,
+            None,
             sample_event(),
         )
         .await
@@ -425,6 +428,7 @@ async fn notification_idempotency_is_per_league() {
             t.league_b,
             "match_closing_soon",
             5,
+            None,
             sample_event(),
         )
         .await
@@ -450,13 +454,13 @@ async fn silence_existing_matches_only_marks_one_league() {
     assert!(t
         .repos
         .notifications
-        .already_sent(t.league_a, "match_closing_soon", 1)
+        .already_sent(t.league_a, "match_closing_soon", 1, None)
         .await
         .unwrap());
     assert!(!t
         .repos
         .notifications
-        .already_sent(t.league_b, "match_closing_soon", 1)
+        .already_sent(t.league_b, "match_closing_soon", 1, None)
         .await
         .unwrap());
 }
@@ -633,6 +637,7 @@ async fn new_user_create_lands_in_specified_league() {
             phone_number: None,
             league_id: t.league_b,
             language: "de",
+        email: None,
         })
         .await
         .unwrap();
