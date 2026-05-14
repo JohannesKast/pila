@@ -40,7 +40,7 @@ pub struct MatchView {
     pub is_live: bool,
     pub is_finished: bool,
     pub own_points: Option<i32>,
-    pub multiplier: i32,
+    pub max_phase_points: i32,
     pub other_preds: Vec<UserPrediction>,
 }
 

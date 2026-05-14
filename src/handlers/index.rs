@@ -271,7 +271,7 @@ pub async fn index(
             is_live,
             is_finished: finished,
             own_points,
-            multiplier: r.stage.multiplier(),
+            max_phase_points: scoring::max_points_for_phase(r.stage.to_tournament_phase()),
             other_preds,
         };
 

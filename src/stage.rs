@@ -43,15 +43,12 @@ impl Stage {
         }
     }
 
-    pub fn multiplier(&self) -> i32 {
+    pub fn to_tournament_phase(&self) -> crate::scoring::TournamentPhase {
         match self {
-            Stage::Group => 1,
-            Stage::RoundOf32 => 2,
-            Stage::RoundOf16 => 3,
-            Stage::QuarterFinal => 4,
-            Stage::ThirdPlace => 4,
-            Stage::SemiFinal => 5,
-            Stage::Final => 6,
+            Stage::Group => crate::scoring::TournamentPhase::Group,
+            Stage::RoundOf32 | Stage::RoundOf16 => crate::scoring::TournamentPhase::R32R16,
+            Stage::QuarterFinal | Stage::SemiFinal => crate::scoring::TournamentPhase::QFSF,
+            Stage::ThirdPlace | Stage::Final => crate::scoring::TournamentPhase::Finals,
         }
     }
 

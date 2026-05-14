@@ -1002,13 +1002,13 @@ mod tests {
         let me = uid(1);
         let rows = vec![
             pred(me, 1, ko(10, 18), (1, 0), (1, 0), Stage::Group), // 4 (group, ignored)
-            pred(me, 2, ko(20, 18), (2, 1), (2, 1), Stage::RoundOf32), // 4 * 2 = 8
-            pred(me, 3, ko(25, 18), (1, 0), (1, 0), Stage::QuarterFinal), // 4 * 4 = 16
+            pred(me, 2, ko(20, 18), (2, 1), (2, 1), Stage::RoundOf32), // R32R16 exact = 6
+            pred(me, 3, ko(25, 18), (1, 0), (1, 0), Stage::QuarterFinal), // QFSF exact = 8
         ];
         let owned = base_owned(me, rows, vec![me]);
         assert_eq!(
             run(KnockoutPointsBadge, &owned),
-            BadgeDisplay::Metric(BadgeValue::Count(24))
+            BadgeDisplay::Metric(BadgeValue::Count(14))
         );
     }
 
