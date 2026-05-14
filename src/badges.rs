@@ -533,7 +533,7 @@ impl Badge for CurrentStreakBadge {
             .iter()
             .filter(|r| r.user_id == ctx.user_id)
             .collect();
-        user_rows.sort_by(|a, b| b.kickoff.cmp(&a.kickoff)); // neueste zuerst
+        user_rows.sort_by_key(|b| std::cmp::Reverse(b.kickoff)); // neueste zuerst
         let mut streak = 0;
         for r in user_rows {
             if r.base_points() > 0 {
@@ -566,7 +566,7 @@ impl Badge for LongestStreakBadge {
             .iter()
             .filter(|r| r.user_id == ctx.user_id)
             .collect();
-        user_rows.sort_by(|a, b| a.kickoff.cmp(&b.kickoff)); // chronologisch
+        user_rows.sort_by_key(|b| b.kickoff); // chronologisch
         let mut best = 0;
         let mut current = 0;
         for r in user_rows {

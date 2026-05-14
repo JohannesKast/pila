@@ -72,6 +72,9 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         signal_api_url: None,
         signal_from_number: None,
         signal_group_id: None,
+        http_client: reqwest::Client::new(),
+        mock_now: pila::time::new_mock_time(),
+        dev_mode: false,
     };
 
     let new_jersey = "brasilien";

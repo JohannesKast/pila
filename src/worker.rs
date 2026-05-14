@@ -67,7 +67,7 @@ pub async fn bootstrap_notifications(
 
 // ─── Sync loop ───────────────────────────────────────────────────────────────
 
-pub(crate) async fn update_data(
+pub async fn update_data(
     scoreboard: &dyn ScoreboardClient,
     repos: &Repos,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -227,6 +227,8 @@ pub(crate) async fn dispatch_pending_for_league(
     notifier: &dyn Notifier,
     now: DateTime<Utc>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let cfg = repos.leagues.get_config(league.id).await?;
+
     // 1) Match closing in <24h with at least one league member missing a tip.
     let closing = repos
         .notifications
@@ -234,6 +236,9 @@ pub(crate) async fn dispatch_pending_for_league(
         .await?;
 
     for r in closing {
+        if cfg.predict_knockout_only && r.stage == crate::stage::Stage::Group {
+            continue;
+        }
         let names = repos
             .notifications
             .users_missing_prediction_for(league.id, r.match_id)
@@ -258,8 +263,13 @@ pub(crate) async fn dispatch_pending_for_league(
             .await?;
     }
 
-    // 2) Champion-tip lock approaching — anchored on the very first match.
-    if let Some(lock_at) = repos.matches.first_kickoff().await? {
+    // 2) Champion-tip lock approaching — anchored on the first match (or first KO match for KO-only leagues).
+    let first_match_lock = if cfg.predict_knockout_only {
+        repos.matches.first_knockout_kickoff().await?
+    } else {
+        repos.matches.first_kickoff().await?
+    };
+    if let Some(lock_at) = first_match_lock {
         if lock_at > now && lock_at <= now + chrono::Duration::hours(24) {
             let already = repos
                 .notifications
@@ -632,5 +642,39 @@ mod tests {
             .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0)
             .await
             .unwrap());
+    }
+
+    #[tokio::test]
+    async fn process_notifications_skips_group_stage_for_ko_only_league() {
+        use crate::repo::league::{LeagueConfig, LeagueRepo, MemoryLeagueRepo};
+
+        let notifications = Arc::new(MemoryNotificationRepo::new());
+        notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
+        notifications.seed_closing_soon(ClosingSoonMatch {
+            match_id: 7,
+            stage: Stage::Group,
+            group_letter: Some("A".into()),
+            kickoff_time: Utc::now() + chrono::Duration::hours(2),
+            home: "X".into(),
+            away: "Y".into(),
+        });
+
+        let mut repos = build_repos(notifications.clone());
+        let leagues = Arc::new(MemoryLeagueRepo::new());
+        leagues.seed(default_league());
+        leagues
+            .set_setting(DEFAULT_LEAGUE_ID, LeagueConfig::KEY_KO_ONLY, Some("true"))
+            .await
+            .unwrap();
+        repos.leagues = leagues;
+
+        let notifier = RecordingNotifier::default();
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now())
+            .await
+            .unwrap();
+        assert!(
+            notifier.sent.lock().unwrap().is_empty(),
+            "group-stage match should be skipped for KO-only league"
+        );
     }
 }

@@ -53,6 +53,7 @@ struct IndexTemplate {
     badges: Vec<badges::BadgeView>,
     t: T,
     lang_code: String,
+    dev_mode: bool,
 }
 
 pub async fn index(
@@ -77,7 +78,7 @@ pub async fn index(
             ));
         }
     };
-    let now = chrono::Utc::now();
+    let now = crate::time::now(&state.mock_now);
 
     let rows = state
         .repos
@@ -102,12 +103,28 @@ pub async fn index(
             .push((p.user_name, p.predicted_home, p.predicted_away));
     }
 
-    let first_kickoff = state
+    let league_config = state
         .repos
-        .matches
-        .first_kickoff()
+        .leagues
+        .get_config(user.league_id)
         .await
         .unwrap_or_default();
+
+    let first_kickoff = if league_config.predict_knockout_only {
+        state
+            .repos
+            .matches
+            .first_knockout_kickoff()
+            .await
+            .unwrap_or_default()
+    } else {
+        state
+            .repos
+            .matches
+            .first_kickoff()
+            .await
+            .unwrap_or_default()
+    };
     let tournament_locked = first_kickoff.is_some_and(|dt| dt < now);
 
     let special_preds = SpecialPredictionsView {
@@ -170,7 +187,12 @@ pub async fn index(
         }
 
         let kickoff = r.kickoff_time;
-        let locked = kickoff.is_some_and(|dt| dt < now);
+        let mut locked = kickoff.is_some_and(|dt| dt < now);
+
+        // In KO-only leagues group-stage matches are always locked (not tipable).
+        if league_config.predict_knockout_only && r.stage == crate::stage::Stage::Group {
+            locked = true;
+        }
         let finished = r.status == "finished";
 
         if !locked {
@@ -227,7 +249,7 @@ pub async fn index(
             Vec::new()
         };
         if finished {
-            other_preds.sort_by(|a, b| b.points.cmp(&a.points));
+            other_preds.sort_by_key(|b| std::cmp::Reverse(b.points));
         }
 
         let is_live = r.status == "in_progress";
@@ -348,6 +370,7 @@ pub async fn index(
         badges: badges_list,
         t,
         lang_code,
+        dev_mode: state.dev_mode,
     };
     Ok(render_template(&template)?.into_response())
 }

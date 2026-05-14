@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE matches\n            SET score_home = $1, score_away = $2, status = $3\n            WHERE id = $4\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "87d207c8e86b0afde4f1773dc3e25d6875ae3a700aa3294a6182c9d1c15b11ea"
+}

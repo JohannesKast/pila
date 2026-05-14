@@ -8,6 +8,7 @@ pub mod repo;
 pub mod scoreboard;
 pub mod scoring;
 pub mod stage;
+pub mod time;
 pub mod translations;
 pub mod views;
 pub mod worker;
@@ -45,4 +46,9 @@ pub struct AppState {
     /// at startup so `notifier` and `news` don't create a fresh client on
     /// every request / notification tick.
     pub http_client: reqwest::Client,
+    /// Mock time for dev/testing. When `Some(t)`, `time::now()` returns `t`
+    /// instead of `Utc::now()`. Always `None` in production.
+    pub mock_now: time::MockTime,
+    /// Whether dev mode is enabled (`PILA_DEV_MODE=true`).
+    pub dev_mode: bool,
 }

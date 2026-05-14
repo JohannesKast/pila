@@ -37,6 +37,7 @@ pub struct MatchLockInfo {
     pub kickoff_time: Option<DateTime<Utc>>,
     pub team_home_id: Option<i32>,
     pub team_away_id: Option<i32>,
+    pub stage: Stage,
 }
 
 /// One scored row of a finished group-stage match, joined with team display
@@ -76,6 +77,7 @@ pub trait MatchRepo: Send + Sync {
     async fn list_for_index(&self, user_id: Uuid) -> RepoResult<Vec<IndexMatchRow>>;
     async fn find_lock_info(&self, match_id: i32) -> RepoResult<Option<MatchLockInfo>>;
     async fn first_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>>;
+    async fn first_knockout_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>>;
     async fn actual_champion(&self) -> RepoResult<Option<i32>>;
     async fn finished_group_rows(&self) -> RepoResult<Vec<FinishedGroupMatch>>;
     /// Count of matches with both teams known whose kickoff has already
@@ -87,6 +89,16 @@ pub trait MatchRepo: Send + Sync {
 
     /// Upsert one match from the ESPN sync. Idempotent on `espn_event_id`.
     async fn upsert_from_espn(&self, upsert: EspnMatchUpsert<'_>) -> RepoResult<()>;
+
+    /// Update match result and status (dev mode only).
+    /// Used for simulating tournament progression.
+    async fn update_result(
+        &self,
+        match_id: i32,
+        score_home: Option<i32>,
+        score_away: Option<i32>,
+        status: &str,
+    ) -> RepoResult<()>;
 }
 
 // ─── Postgres implementation ─────────────────────────────────────────────────
@@ -169,7 +181,7 @@ impl MatchRepo for PgMatchRepo {
 
     async fn find_lock_info(&self, match_id: i32) -> RepoResult<Option<MatchLockInfo>> {
         let row = sqlx::query!(
-            "SELECT kickoff_time, team_home_id, team_away_id FROM matches WHERE id = $1",
+            "SELECT kickoff_time, team_home_id, team_away_id, stage as \"stage: Stage\" FROM matches WHERE id = $1",
             match_id
         )
         .fetch_optional(&self.pool)
@@ -180,6 +192,7 @@ impl MatchRepo for PgMatchRepo {
             kickoff_time: r.kickoff_time,
             team_home_id: r.team_home_id,
             team_away_id: r.team_away_id,
+            stage: r.stage,
         }))
     }
 
@@ -188,6 +201,16 @@ impl MatchRepo for PgMatchRepo {
             .fetch_one(&self.pool)
             .await
             .map_err(RepoError::from)?;
+        Ok(v)
+    }
+
+    async fn first_knockout_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>> {
+        let v = sqlx::query_scalar!(
+            "SELECT MIN(kickoff_time) FROM matches WHERE stage != 'group'::match_stage"
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
         Ok(v)
     }
 
@@ -318,6 +341,30 @@ impl MatchRepo for PgMatchRepo {
         .map_err(RepoError::from)?;
         Ok(())
     }
+
+    async fn update_result(
+        &self,
+        match_id: i32,
+        score_home: Option<i32>,
+        score_away: Option<i32>,
+        status: &str,
+    ) -> RepoResult<()> {
+        sqlx::query!(
+            r#"
+            UPDATE matches
+            SET score_home = $1, score_away = $2, status = $3
+            WHERE id = $4
+            "#,
+            score_home,
+            score_away,
+            status,
+            match_id,
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(())
+    }
 }
 
 // ─── In-memory fake ──────────────────────────────────────────────────────────
@@ -428,6 +475,7 @@ impl MatchRepo for MemoryMatchRepo {
                 kickoff_time: m.kickoff_time,
                 team_home_id: m.team_home_id,
                 team_away_id: m.team_away_id,
+                stage: m.stage,
             }))
     }
 
@@ -437,6 +485,17 @@ impl MatchRepo for MemoryMatchRepo {
             .lock()
             .unwrap()
             .iter()
+            .filter_map(|m| m.kickoff_time)
+            .min())
+    }
+
+    async fn first_knockout_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>> {
+        Ok(self
+            .matches
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|m| m.stage != Stage::Group)
             .filter_map(|m| m.kickoff_time)
             .min())
     }
@@ -538,6 +597,22 @@ impl MatchRepo for MemoryMatchRepo {
                 home_flag: None,
                 away_flag: None,
             });
+        }
+        Ok(())
+    }
+
+    async fn update_result(
+        &self,
+        match_id: i32,
+        score_home: Option<i32>,
+        score_away: Option<i32>,
+        status: &str,
+    ) -> RepoResult<()> {
+        let mut matches = self.matches.lock().unwrap();
+        if let Some(m) = matches.iter_mut().find(|m| m.id == match_id) {
+            m.score_home = score_home;
+            m.score_away = score_away;
+            m.status = status.to_string();
         }
         Ok(())
     }

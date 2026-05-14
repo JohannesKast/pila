@@ -1,0 +1,139 @@
+{# Dev testing panel - only visible when PILA_DEV_MODE=true.
+   All forms target #dev-panel-container so submitting keeps the panel open
+   and reflects fresh state (mock time, match counts) in the response. #}
+<div class="fixed right-0 top-0 h-full w-80 bg-pl-bg-2 border-l border-pl-line overflow-y-auto z-50 shadow-xl" id="dev-panel">
+    <div class="p-4">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="font-display text-xl text-pl-fg">Dev Panel</h2>
+            <button onclick="document.getElementById('dev-panel-container').innerHTML = ''"
+                    class="text-pl-mute hover:text-pl-fg text-2xl leading-none">&times;</button>
+        </div>
+
+        {# Current Time Section #}
+        <div class="mb-6 p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">Zeit simulieren</h3>
+            <div class="text-mono text-lg text-pl-green mb-3" id="dev-current-time">
+                {% if let Some(t) = current_time %}
+                    {{ t }}
+                {% else %}
+                    Echte Zeit
+                {% endif %}
+            </div>
+            <form hx-post="/dev/time" hx-target="#dev-panel-container" hx-swap="innerHTML" class="mb-2">
+                <input type="datetime-local" name="time"
+                       class="w-full bg-pl-bg-3 border border-pl-line rounded px-3 py-2 text-pl-fg text-sm mb-2"
+                       value="2026-06-12T18:00">
+                <button type="submit" class="w-full bg-pl-green text-pl-bg font-semibold py-2 rounded text-sm hover:brightness-110 transition">
+                    Zeit setzen
+                </button>
+            </form>
+            <form hx-post="/dev/time/reset" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                <button type="submit" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg-2 py-2 rounded text-sm hover:border-pl-line-2 transition">
+                    Zurücksetzen
+                </button>
+            </form>
+        </div>
+
+        {# Quick Time Jumps #}
+        <div class="mb-6 p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">Schnellsprünge</h3>
+            <div class="grid grid-cols-2 gap-2">
+                <form hx-post="/dev/time" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                    <input type="hidden" name="time" value="2026-06-11T18:00">
+                    <button type="submit" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg py-2 rounded text-xs hover:border-pl-line-2">
+                        Eröffnungsspiel
+                    </button>
+                </form>
+                <form hx-post="/dev/time" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                    <input type="hidden" name="time" value="2026-06-25T18:00">
+                    <button type="submit" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg py-2 rounded text-xs hover:border-pl-line-2">
+                        Ende Gruppenphase
+                    </button>
+                </form>
+                <form hx-post="/dev/time" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                    <input type="hidden" name="time" value="2026-07-03T18:00">
+                    <button type="submit" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg py-2 rounded text-xs hover:border-pl-line-2">
+                        Achtelfinale
+                    </button>
+                </form>
+                <form hx-post="/dev/time" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                    <input type="hidden" name="time" value="2026-07-19T18:00">
+                    <button type="submit" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg py-2 rounded text-xs hover:border-pl-line-2">
+                        Finale
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        {# Tips Section #}
+        <div class="mb-6 p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">Tipps generieren</h3>
+            <form hx-post="/dev/tips/random" hx-target="#dev-panel-container" hx-swap="innerHTML" class="mb-2">
+                <button type="submit" class="w-full bg-pl-blue text-pl-bg font-semibold py-2 rounded text-sm hover:brightness-110 transition">
+                    Random Tipps (eigener User)
+                </button>
+            </form>
+            <form hx-post="/dev/tips/all-users" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                <button type="submit" class="w-full bg-pl-bg-3 border border-pl-blue text-pl-blue py-2 rounded text-sm hover:bg-pl-blue hover:text-pl-bg transition">
+                    Random Tipps (alle User)
+                </button>
+            </form>
+        </div>
+
+        {# Results Section #}
+        <div class="mb-6 p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">Ergebnisse</h3>
+            <p class="text-xs text-pl-mute mb-2">
+                {{ unstarted_count }} Spiele noch nicht gestartet
+            </p>
+            <form hx-post="/dev/results/random" hx-target="#dev-panel-container" hx-swap="innerHTML" class="mb-2">
+                <button type="submit" class="w-full bg-pl-yellow text-pl-bg font-semibold py-2 rounded text-sm hover:brightness-110 transition">
+                    Random Ergebnisse (gestartete Spiele)
+                </button>
+            </form>
+            <form hx-post="/dev/simulate/next-matchday" hx-target="#dev-panel-container" hx-swap="innerHTML">
+                <button type="submit" class="w-full bg-pl-red text-pl-fg font-semibold py-2 rounded text-sm hover:brightness-110 transition">
+                    Nächsten Spieltag simulieren
+                </button>
+            </form>
+        </div>
+
+        {# User Switch Section. Switching changes the auth cookie + reloads, so
+           this one stays a plain browser POST (no HTMX). #}
+        <div class="mb-6 p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">User wechseln</h3>
+            <select id="dev-user-select" class="w-full bg-pl-bg-3 border border-pl-line rounded px-3 py-2 text-pl-fg text-sm mb-2">
+                {% for u in users %}
+                    <option value="{{ u.id }}" {% if u.id == current_user_id %}selected{% endif %}>
+                        {{ u.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            <button onclick="switchUser()" class="w-full bg-pl-bg-3 border border-pl-line text-pl-fg py-2 rounded text-sm hover:border-pl-line-2 transition">
+                Als dieser User einloggen
+            </button>
+        </div>
+
+        {# Stats #}
+        <div class="p-4 bg-pl-bg rounded-lg border border-pl-line">
+            <h3 class="text-sm font-semibold text-pl-fg-2 mb-2">Status</h3>
+            <div class="text-xs text-pl-mute space-y-1">
+                <div>{{ match_count }} Spiele insgesamt</div>
+                <div>{{ users.len() }} User in dieser Liga</div>
+                <div class="text-pl-yellow">⚠️ Dev Mode aktiv</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchUser() {
+    const select = document.getElementById('dev-user-select');
+    const userId = select.value;
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/dev/switch-user/' + userId;
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>

@@ -46,6 +46,8 @@ pub struct LeagueConfig {
     pub default_language: String,
     /// Optional RSS feed URL configured per league.
     pub rss_feed_url: Option<String>,
+    /// When true, group-stage matches are hidden and cannot be tipped.
+    pub predict_knockout_only: bool,
 }
 
 impl Default for LeagueConfig {
@@ -55,6 +57,7 @@ impl Default for LeagueConfig {
             signal_from_number: None,
             default_language: "de".to_string(),
             rss_feed_url: None,
+            predict_knockout_only: false,
         }
     }
 }
@@ -64,6 +67,7 @@ impl LeagueConfig {
     pub const KEY_SIGNAL_FROM_NUMBER: &'static str = "signal_from_number";
     pub const KEY_DEFAULT_LANGUAGE: &'static str = "default_language";
     pub const KEY_RSS_FEED_URL: &'static str = "rss_feed_url";
+    pub const KEY_KO_ONLY: &'static str = "predict_knockout_only";
 
     fn from_kv(kv: HashMap<String, String>) -> Self {
         Self {
@@ -74,6 +78,10 @@ impl LeagueConfig {
                 .cloned()
                 .unwrap_or_else(|| "de".to_string()),
             rss_feed_url: kv.get(Self::KEY_RSS_FEED_URL).cloned(),
+            predict_knockout_only: kv
+                .get(Self::KEY_KO_ONLY)
+                .map(|s| s == "true")
+                .unwrap_or(false),
         }
     }
 }
@@ -378,6 +386,7 @@ mod memory_tests {
         assert!(cfg.signal_group_id.is_none());
         assert!(cfg.signal_from_number.is_none());
         assert!(cfg.rss_feed_url.is_none());
+        assert!(!cfg.predict_knockout_only);
     }
 
     #[tokio::test]
@@ -393,10 +402,14 @@ mod memory_tests {
         repo.set_setting(id, LeagueConfig::KEY_RSS_FEED_URL, Some("https://x/rss"))
             .await
             .unwrap();
+        repo.set_setting(id, LeagueConfig::KEY_KO_ONLY, Some("true"))
+            .await
+            .unwrap();
         let cfg = repo.get_config(id).await.unwrap();
         assert_eq!(cfg.signal_group_id.as_deref(), Some("group.123"));
         assert_eq!(cfg.default_language, "en");
         assert_eq!(cfg.rss_feed_url.as_deref(), Some("https://x/rss"));
+        assert!(cfg.predict_knockout_only);
     }
 
     #[tokio::test]

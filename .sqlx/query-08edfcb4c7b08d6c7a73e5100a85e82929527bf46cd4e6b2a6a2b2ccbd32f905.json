@@ -1,0 +1,20 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MIN(kickoff_time) FROM matches WHERE stage != 'group'::match_stage",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "08edfcb4c7b08d6c7a73e5100a85e82929527bf46cd4e6b2a6a2b2ccbd32f905"
+}

@@ -10,6 +10,7 @@ use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::util::render_template;
+use crate::stage::Stage;
 use crate::AppState;
 
 #[derive(Template)]
@@ -47,12 +48,26 @@ pub async fn predict_match(
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
         .ok_or((StatusCode::NOT_FOUND, "Match not found"))?;
 
-    let now = chrono::Utc::now();
+    let config = state
+        .repos
+        .leagues
+        .get_config(user.league_id)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+
+    let now = crate::time::now(&state.mock_now);
 
     if m.team_home_id.is_none() || m.team_away_id.is_none() {
         return Err((
             StatusCode::BAD_REQUEST,
             "Begegnung steht noch nicht fest. Tipp nicht möglich.",
+        ));
+    }
+
+    if config.predict_knockout_only && m.stage == Stage::Group {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "In dieser Liga werden Gruppenspiele nicht getippt.",
         ));
     }
 
@@ -77,7 +92,7 @@ pub async fn predict_match(
         score_home: form.score_home,
         score_away: form.score_away,
     };
-    Ok(render_template(&template)?)
+    render_template(&template)
 }
 
 fn deserialize_optional_int<'de, D>(de: D) -> Result<Option<i32>, D::Error>
@@ -102,14 +117,30 @@ pub async fn predict_special(
     user: AuthenticatedUser,
     Form(form): Form<SpecialPredictionForm>,
 ) -> Result<Redirect, (StatusCode, &'static str)> {
-    let now = chrono::Utc::now();
+    let now = crate::time::now(&state.mock_now);
 
-    let first_kickoff = state
+    let config = state
         .repos
-        .matches
-        .first_kickoff()
+        .leagues
+        .get_config(user.league_id)
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+
+    let first_kickoff = if config.predict_knockout_only {
+        state
+            .repos
+            .matches
+            .first_knockout_kickoff()
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+    } else {
+        state
+            .repos
+            .matches
+            .first_kickoff()
+            .await
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+    };
 
     if first_kickoff.is_some_and(|dt| dt < now) {
         return Err((

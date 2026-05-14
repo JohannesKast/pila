@@ -115,10 +115,17 @@
   </div>
   {% endif %}
 
-  {# sub-line for finished: user's tip #}
+  {# sub-line for finished: kickoff date + user's tip #}
   {% if m.is_finished %}
   <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
-    {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}
+    {{ m.kickoff_display }} · {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}
+  </div>
+  {% endif %}
+
+  {# sub-line for locked-but-not-yet-finished: kickoff date #}
+  {% if m.locked && !m.is_finished && !m.is_live %}
+  <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
+    {{ m.kickoff_display }}
   </div>
   {% endif %}
 
@@ -559,5 +566,7 @@
         }, 6000);
     })();
 </script>
+
+{% include "partials/dev_button.html" %}
 
 {% endblock %}

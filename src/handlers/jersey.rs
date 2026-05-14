@@ -95,8 +95,13 @@ pub async fn jersey_post(
         .await
         .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
 
-    let leaderboard =
-        fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, chrono::Utc::now()).await;
+    let leaderboard = fetch_leaderboard(
+        &state.repos,
+        &state.jerseys,
+        user.league_id,
+        crate::time::now(&state.mock_now),
+    )
+    .await;
     let user_rank = leaderboard
         .iter()
         .position(|e| e.name == user.name)

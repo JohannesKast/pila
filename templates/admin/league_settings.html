@@ -38,6 +38,13 @@
                    style="margin-top:6px; width:100%; background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:10px 12px; outline:none;">
         </div>
 
+        <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+            <input type="checkbox" id="ko_only" name="ko_only" value="true" {% if config.predict_knockout_only %}checked{% endif %}
+                   style="accent-color:var(--pl-green); width:16px; height:16px;">
+            <label for="ko_only" class="pl-mono" style="font-size:11px; color:var(--pl-mute); letter-spacing:.08em; text-transform:uppercase;">{{ t.get("league-settings-ko-only") }}</label>
+        </div>
+        <p class="pl-mono" style="font-size:10px; color:var(--pl-mute); margin-top:2px;">{{ t.get("league-settings-ko-only-help") }}</p>
+
         <button type="submit" class="pl-btn pl-btn--primary" style="padding:10px; margin-top:6px;">{{ t.get("league-settings-save") }}</button>
     </form>
 </div>

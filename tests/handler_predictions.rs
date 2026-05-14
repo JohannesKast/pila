@@ -71,6 +71,9 @@ fn build_harness() -> Harness {
         signal_api_url: None,
         signal_from_number: None,
         signal_group_id: None,
+        http_client: reqwest::Client::new(),
+        mock_now: pila::time::new_mock_time(),
+        dev_mode: false,
     };
 
     Harness {
@@ -153,6 +156,37 @@ async fn predict_match_rejects_when_kickoff_already_passed() {
 }
 
 #[tokio::test]
+async fn predict_match_lock_follows_mock_time() {
+    // Regression: mock_now must replace real-time for the lock check.
+    // If a future Utc::now() leaks back into the handler, this test fails.
+    let h = build_harness();
+    let kickoff = Utc::now() + Duration::days(30);
+    h.matches.seed(FakeMatch::locked_unfinished(1, kickoff));
+    let form = || PredictionForm {
+        score_home: 2,
+        score_away: 1,
+    };
+
+    // Mock time AFTER kickoff → must be locked (400)
+    pila::time::set_mock_time(&h.state.mock_now, kickoff + Duration::hours(1));
+    let res = predict_match(State(h.state.clone()), fake_user(), Path(1), Form(form())).await;
+    assert_eq!(
+        res.unwrap_err().0,
+        StatusCode::BAD_REQUEST,
+        "mock time past kickoff must lock the tip"
+    );
+
+    // Mock time BEFORE kickoff → must succeed
+    pila::time::set_mock_time(&h.state.mock_now, kickoff - Duration::hours(1));
+    let res = predict_match(State(h.state.clone()), fake_user(), Path(1), Form(form())).await;
+    assert!(
+        res.is_ok(),
+        "mock time before kickoff must allow the tip, got {:?}",
+        res.err().map(|e| e.0)
+    );
+}
+
+#[tokio::test]
 async fn predict_match_rejects_when_team_is_tbd() {
     let h = build_harness();
     let mut m = FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2));
@@ -188,6 +222,30 @@ async fn predict_match_persists_valid_tip() {
 
     let stored = h.predictions.all();
     assert_eq!(stored, vec![(user_id, 7, 3, 1)]);
+}
+
+#[tokio::test]
+async fn predict_match_rejects_group_stage_for_ko_only_league() {
+    let h = build_harness();
+    let mut m = FakeMatch::locked_unfinished(1, Utc::now() + Duration::hours(2));
+    m.stage = Stage::Group;
+    h.matches.seed(m);
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(DEFAULT_LEAGUE_ID, LeagueConfig::KEY_KO_ONLY, Some("true"))
+        .await
+        .unwrap();
+
+    let user = fake_user();
+    let form = PredictionForm {
+        score_home: 2,
+        score_away: 1,
+    };
+    let res = predict_match(State(h.state.clone()), user, Path(1), Form(form)).await;
+    assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
@@ -230,6 +288,41 @@ async fn predict_match_overwrites_existing_tip() {
 }
 
 // ─── predict_special ──────────────────────────────────────────────────────────
+
+#[tokio::test]
+async fn predict_special_allows_champion_pick_until_first_ko_for_ko_only_league() {
+    let h = build_harness();
+    // Group match already kicked off
+    let mut group = FakeMatch::locked_unfinished(1, Utc::now() - Duration::hours(1));
+    group.stage = Stage::Group;
+    h.matches.seed(group);
+    // First KO match is still in the future
+    let mut ko = FakeMatch::locked_unfinished(2, Utc::now() + Duration::hours(2));
+    ko.stage = Stage::RoundOf16;
+    h.matches.seed(ko);
+
+    use pila::repo::league::LeagueConfig;
+    h.state
+        .repos
+        .leagues
+        .set_setting(DEFAULT_LEAGUE_ID, LeagueConfig::KEY_KO_ONLY, Some("true"))
+        .await
+        .unwrap();
+
+    h.teams.seed(TeamOption {
+        id: 11,
+        name: "Germany".into(),
+        flag_code: Some("de".into()),
+    });
+
+    let res = predict_special(
+        State(h.state.clone()),
+        fake_user(),
+        Form(SpecialPredictionForm { champion_id: Some(11) }),
+    )
+    .await;
+    assert!(res.is_ok(), "champion pick should be allowed until first KO match");
+}
 
 #[tokio::test]
 async fn predict_special_rejects_after_tournament_kickoff() {

@@ -219,8 +219,14 @@ league-settings-signal-group-id = Signal group ID
 league-settings-signal-from-number = Signal sender (phone number)
 # Label for the RSS feed URL input
 league-settings-rss-url = RSS feed URL
+# Label for the "predict knockout only" checkbox
+league-settings-ko-only = Predict knockout only
+# Help text under the KO-only checkbox: group-stage matches are hidden and cannot be tipped
+league-settings-ko-only-help = Group-stage matches are hidden and cannot be tipped.
 # Submit button on the per-league settings form
 league-settings-save = Save
+# Column header for the knockout-only flag in the leagues table (short)
+league-ko-only = KO
 # Action button on the leagues table that opens the user list of one league
 league-manage-users = Users
 # Heading of the per-league user-management page (followed by the league name)

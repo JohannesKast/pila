@@ -1,0 +1,9 @@
+{# Dev mode button - only shown when PILA_DEV_MODE=true #}
+{% if dev_mode %}
+<button onclick="htmx.ajax('GET', '/dev', '#dev-panel-container')"
+        class="fixed right-4 bottom-4 z-[60] w-12 h-12 bg-pl-yellow text-pl-bg rounded-full shadow-lg hover:scale-110 transition-transform flex items-center justify-center font-bold animate-pulse"
+        title="Dev Panel (Testing Mode)">
+    ⚙️
+</button>
+<div id="dev-panel-container"></div>
+{% endif %}

@@ -1,0 +1,55 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT kickoff_time, team_home_id, team_away_id, stage as \"stage: Stage\" FROM matches WHERE id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "kickoff_time",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 1,
+        "name": "team_home_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 2,
+        "name": "team_away_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 3,
+        "name": "stage: Stage",
+        "type_info": {
+          "Custom": {
+            "name": "match_stage",
+            "kind": {
+              "Enum": [
+                "group",
+                "round_of_32",
+                "round_of_16",
+                "quarter_final",
+                "semi_final",
+                "third_place",
+                "final"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      true,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "f1a02af3bdcfdffe2a7948d8b5591d1b293ae5b44a535c868903bcf6b51a639a"
+}

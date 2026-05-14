@@ -188,7 +188,7 @@ pub async fn fetch_leaderboard(
             }
         })
         .collect();
-    leaderboard.sort_by(|a, b| b.total_points.cmp(&a.total_points));
+    leaderboard.sort_by_key(|b| std::cmp::Reverse(b.total_points));
     leaderboard
 }
 

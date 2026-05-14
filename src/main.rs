@@ -11,9 +11,10 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::sync::Arc;
 
 use pila::handlers;
+use pila::news;
 use pila::repo::Repos;
 use pila::scoreboard::EspnClient;
-use pila::{news, worker, AppState};
+use pila::{time, worker, AppState};
 
 #[tokio::main]
 async fn main() {
@@ -56,6 +57,19 @@ async fn main() {
 
     let http_client = reqwest::Client::new();
 
+    // Dev mode enables the /dev/* routes for testing. Must be explicitly enabled.
+    let dev_mode = std::env::var("PILA_DEV_MODE")
+        .map(|v| v == "true" || v == "1")
+        .unwrap_or(false);
+    if dev_mode {
+        tracing::warn!(
+            "⚠️  PILA_DEV_MODE enabled — dev testing routes are active. Do not use in production!"
+        );
+    }
+
+    // Mock time storage. None = use real time. Only set in dev mode.
+    let mock_now = time::new_mock_time();
+
     let state = AppState {
         db: Some(pool.clone()),
         jerseys: pila::jersey::load(),
@@ -70,6 +84,8 @@ async fn main() {
         signal_from_number: signal_from_number.clone(),
         signal_group_id: signal_group_id.clone(),
         http_client: http_client.clone(),
+        mock_now,
+        dev_mode,
     };
 
     if let Err(e) = worker::bootstrap_notifications(&repos).await {
@@ -77,9 +93,38 @@ async fn main() {
     }
 
     let scoreboard: Arc<dyn pila::scoreboard::ScoreboardClient> = Arc::new(EspnClient::new());
-    worker::start_background_worker(repos, scoreboard, base_url, signal_api_url).await;
+    if dev_mode {
+        // One-shot sync — and only when the matches table is empty. The
+        // upsert does `status = EXCLUDED.status` (not COALESCE), so a sync
+        // would revert any manually-set "finished" status back to ESPN's
+        // "scheduled" for future matches. Skipping the sync when data
+        // exists preserves dev state across server restarts.
+        let already_seeded = repos
+            .matches
+            .first_kickoff()
+            .await
+            .ok()
+            .flatten()
+            .is_some();
+        if already_seeded {
+            tracing::info!("Dev mode: matches already seeded, skipping ESPN sync to preserve state");
+        } else {
+            match worker::update_data(&*scoreboard, &repos).await {
+                Ok(_) => tracing::info!("Dev one-shot scoreboard sync complete"),
+                Err(e) => tracing::warn!("Dev one-shot scoreboard sync failed: {:?}", e),
+            }
+        }
+    } else {
+        worker::start_background_worker(repos, scoreboard, base_url, signal_api_url).await;
+    }
 
-    let app = build_router()
+    let app = build_router();
+    let app = if dev_mode {
+        app.merge(build_dev_router())
+    } else {
+        app
+    };
+    let app = app
         .with_state(state.clone())
         .layer(middleware::from_fn_with_state(
             state,
@@ -125,7 +170,7 @@ async fn csrf_middleware(
     }
 
     let path = request.uri().path();
-    if path == "/setup" || path.starts_with("/play/me/") {
+    if path == "/setup" || path.starts_with("/play/me/") || path.starts_with("/dev") {
         return Ok(next.run(request).await);
     }
 
@@ -252,4 +297,21 @@ fn build_router() -> Router<AppState> {
             get(handlers::league_users_page).post(handlers::admin_create_user),
         )
         .nest_service("/static", ServeDir::new("static"))
+}
+
+/// Dev/testing routes. Only mounted when `PILA_DEV_MODE=true`.
+/// These routes allow simulating tournament progression without real API data.
+fn build_dev_router() -> Router<AppState> {
+    Router::new()
+        // Exempt dev routes from CSRF checks (they're for testing only)
+        .layer(middleware::from_fn(security_headers_middleware))
+        .route("/dev", get(handlers::dev_panel))
+        .route("/dev/time", axum::routing::post(handlers::dev_set_time))
+        .route("/dev/time/reset", axum::routing::post(handlers::dev_reset_time))
+        .route("/dev/tips/random", axum::routing::post(handlers::dev_random_tips))
+        .route("/dev/tips/all-users", axum::routing::post(handlers::dev_random_tips_all_users))
+        .route("/dev/results/random", axum::routing::post(handlers::dev_random_results))
+        .route("/dev/simulate/next-matchday", axum::routing::post(handlers::dev_simulate_next_matchday))
+        .route("/dev/users", get(handlers::dev_list_users))
+        .route("/dev/switch-user/:id", axum::routing::post(handlers::dev_switch_user))
 }

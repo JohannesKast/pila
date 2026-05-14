@@ -7,6 +7,7 @@
 
 pub mod admin;
 pub mod auth;
+pub mod dev;
 pub mod index;
 pub mod jersey;
 pub mod leaderboard;
@@ -23,6 +24,10 @@ pub use admin::{
     admin_toggle_admin, admin_users_redirect, league_users_page,
 };
 pub use auth::login_magic_link;
+pub use dev::{
+    dev_list_users, dev_panel, dev_random_results, dev_random_tips, dev_random_tips_all_users,
+    dev_reset_time, dev_set_time, dev_simulate_next_matchday, dev_switch_user,
+};
 pub use index::index;
 pub use jersey::{jersey_picker_close, jersey_picker_get, jersey_post, set_language_post};
 pub use leaderboard::leaderboard;

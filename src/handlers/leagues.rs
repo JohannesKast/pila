@@ -165,6 +165,8 @@ pub struct LeagueSettingsForm {
     pub default_language: String,
     #[serde(default)]
     pub rss_feed_url: String,
+    #[serde(default)]
+    pub ko_only: bool,
 }
 
 const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
@@ -182,6 +184,7 @@ pub async fn league_settings_save(
         return Err((StatusCode::BAD_REQUEST, "Unbekannte Sprache."));
     }
 
+    set_or_clear_bool(&state, league_id, LeagueConfig::KEY_KO_ONLY, form.ko_only).await?;
     set_or_clear(&state, league_id, LeagueConfig::KEY_SIGNAL_GROUP_ID, &form.signal_group_id).await?;
     set_or_clear(&state, league_id, LeagueConfig::KEY_SIGNAL_FROM_NUMBER, &form.signal_from_number).await?;
     set_or_clear(&state, league_id, LeagueConfig::KEY_DEFAULT_LANGUAGE, lang).await?;
@@ -198,6 +201,21 @@ async fn set_or_clear(
 ) -> Result<(), (StatusCode, &'static str)> {
     let trimmed = value.trim();
     let v: Option<&str> = if trimmed.is_empty() { None } else { Some(trimmed) };
+    state
+        .repos
+        .leagues
+        .set_setting(league_id, key, v)
+        .await
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))
+}
+
+async fn set_or_clear_bool(
+    state: &AppState,
+    league_id: Uuid,
+    key: &str,
+    value: bool,
+) -> Result<(), (StatusCode, &'static str)> {
+    let v: Option<&str> = if value { Some("true") } else { None };
     state
         .repos
         .leagues
