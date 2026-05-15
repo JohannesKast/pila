@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-**Pila** is a FIFA World Cup 2026 prediction game (Tippspiel) in Rust. Users tip exact scores for every match (group + knockout) plus a single Weltmeister pick, scored Kicktipp-style with stage multipliers. Magic-link cookie auth, Askama HTML templates, Postgres via sqlx, optional Signal-group push. ESPN's `soccer/fifa.world` scoreboard endpoint feeds the background sync worker.
+**Pila** is a FIFA World Cup 2026 prediction game (Tippspiel) in Rust. Users tip exact scores for every match (group + knockout) plus a single Weltmeister pick, scored by a fixed per-phase points table (not a multiplier — see `scoring.rs`). Magic-link cookie auth, Askama HTML templates, Postgres via sqlx, optional Signal-group push. ESPN's `soccer/fifa.world` scoreboard endpoint feeds the background sync worker.
 
 **Multi-Tenancy (Tipp-Liga):** the app supports multiple isolated leagues. Every user belongs to exactly one league via `users.league_id`. Aggregate reads (leaderboard, badges, "other tips" panel, admin user list, notifications) MUST filter by `league_id` — `users.list_for_admin/list_basic/list_ids`, `predictions.list_finished_join/list_leaderboard_join/list_other_users_locked`, `special_predictions.list_with_user_names/list_all_picks`, and the entire `notifications` repo all take `league_id` as a parameter. Matches and teams stay global (one tournament). Per-league config (Signal group, default language, RSS) lives in the `league_settings` k/v table — adding a new setting means a new field on `LeagueConfig` + a key constant, no migration. The Signal `SIGNAL_GROUP_ID`/`SIGNAL_FROM_NUMBER` env vars are now per-league config; `SIGNAL_API_URL` stays global. `tests/multi_league_isolation.rs` is the regression net — every PR that adds a new aggregate query MUST extend that file.
 The first user created via `/setup` is granted `can_create_league`, the super-admin permission required to create new leagues and edit any league's settings (regular `is_admin` only manages the admin's own league).
@@ -64,8 +64,8 @@ src/
 ├── main.rs          # Axum server + all HTTP handlers (handlers mod inline) + AppState wiring
 ├── lib.rs           # module declarations + AppState { db: PgPool }
 ├── auth.rs          # AuthenticatedUser FromRequestParts extractor (pila_token cookie)
-├── stage.rs         # Stage enum + multipliers + ftl_key() for i18n
-├── scoring.rs       # Pure-Rust Kicktipp scoring; no SQL; tested in-file
+├── stage.rs         # Stage enum + TournamentPhase mapping + ftl_key() for i18n
+├── scoring.rs       # Pure-Rust scoring (two modes: ExactScore / WinnerOnly); no SQL; tested in-file
 ├── translations.rs  # T wrapper (Arc<HashMap>) loaded from locales/*.ftl at startup
 ├── notifier.rs      # Notifier trait + SignalNotifier + NoopNotifier + quiet-hour gate
 └── worker.rs        # ESPN sync + idempotent notification dispatch (30-min loop)
@@ -90,7 +90,17 @@ Idempotency: `(kind, ref_id)` PK on `sent_notifications` inside a transaction wi
 
 **Bootstrap silence**: `bootstrap_notifications` runs on every startup but is gated by a `notifications_bootstrapped=true` row in `settings`; on the first run it inserts a `match_closing_soon` row for every currently-known match so deploying mid-tournament does not flood the group.
 
-**Scoring** (`scoring.rs`) is intentionally SQL-free, takes plain ints, returns ints. Per-match base points are 4 (exact) / 2 (correct goal-diff) / 1 (correct tendency) / 0, multiplied by `Stage::multiplier()` (Group=1, R32=2, R16=3, QF=4, ThirdPlace=4, SF=5, Final=6). Champion pick is flat 10 points. **Note**: K.O. matches store the result *before* penalty shootout (90 min + ET) — a draw at that point is a valid stored score and counts for exact-result points.
+**Scoring** (`scoring.rs`) is intentionally SQL-free, takes plain ints, returns ints. Each league selects a `MatchScoringSystem` (`ExactScore` default, or `WinnerOnly`). Points come from a fixed table keyed on `TournamentPhase` — there are no multipliers.
+
+`ExactScore` points (exact / goal-diff / tendency / wrong):
+- Group: 4 / 3 / 2 / 0
+- R32, R16: 6 / 4 / 3 / 0
+- QF, SF: 8 / 6 / 5 / 0
+- ThirdPlace + Final: 11 / 8 / 6 / 0
+
+`WinnerOnly` points (correct / wrong): Group 1/0 · R32 2/0 · R16 3/0 · QF 5/0 · SF+Finals 7/0.
+
+Champion pick is flat 10 points. **Note**: K.O. matches store the result *before* penalty shootout (90 min + ET) — a draw at that point is a valid stored score and counts for exact-result points.
 
 **Badges** (`badges.rs`) sind die Hero-Panel-Gamification und bewusst vom Scoring entkoppelt — Badges ändern keine Punkte, sie aggregieren nur über vorhandene Predictions. **Werte werden bei jedem Request on-the-fly berechnet, nichts wird persistiert** (keine `badges`-Tabelle, kein Cache). So bleibt jeder Badge konsistent zur Realität — auch wenn ein Admin Ergebnisse nachträglich korrigiert.
 

@@ -2,15 +2,19 @@
 
 A self-hostable FIFA World Cup 2026 prediction game (Tippspiel) written in Rust.
 Friends and family submit exact-score tips for every match plus a champion pick,
-get Kicktipp-style points, and watch the leaderboard move. Built to run on a
-homelab box with Docker Compose.
+collect points, and watch the leaderboard move. Built to run on a homelab box
+with Docker Compose.
 
 ## Features
 
 - **Per-match score tipping** for the entire tournament (group stage through
   final) plus a single Weltmeister/champion pick.
-- **Kicktipp-style scoring** with stage multipliers (group ×1 up to final ×6),
-  4 / 2 / 1 / 0 points for exact / goal-diff / tendency / wrong.
+- **Points-based scoring** with a fixed table per tournament phase. Default
+  (exact-score) mode: exact result / correct goal difference / correct tendency
+  / wrong → 4-3-2-0 (group), 6-4-3-0 (R32/R16), 8-6-5-0 (QF/SF),
+  11-8-6-0 (3rd place/final). Each league can optionally switch to a simpler
+  winner-only mode (tip home win, draw, or away win) worth 1–7 points depending
+  on the round.
 - **Multi-tenancy (Tipp-Ligen)**: run several isolated leagues on one instance,
   each with its own users, leaderboard, notification channel, and default language.
 - **No accounts, no passwords**: each user gets a personal link. Open it and
