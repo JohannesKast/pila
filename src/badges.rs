@@ -1239,7 +1239,7 @@ mod tests {
                 assert_eq!(team, "Deutschland");
                 assert!(flag_url.ends_with("de.png"));
             }
-            _ => panic!("expected Champion variant, got {:?}", r),
+            _ => panic!("expected Champion variant, got {r:?}"),
         }
     }
 
@@ -1283,17 +1283,15 @@ mod tests {
             if let BadgeDisplay::Achievement { times_earned } = run(ExactCountBadge, &owned) {
                 assert!(
                     times_earned <= user_finished,
-                    "exact_count {} > user_finished {}",
-                    times_earned,
-                    user_finished
+                    "exact_count {times_earned} > user_finished {user_finished}"
                 );
             }
 
             // TendencyPct ∈ [0,100] oder None.
-            if let BadgeDisplay::Metric(BadgeValue::Percent(p)) = run(TendencyPctBadge, &owned) {
-                if let Some(v) = p {
-                    assert!((0..=100).contains(&v), "pct out of range: {v}");
-                }
+            if let BadgeDisplay::Metric(BadgeValue::Percent(Some(v))) =
+                run(TendencyPctBadge, &owned)
+            {
+                assert!((0..=100).contains(&v), "pct out of range: {v}");
             }
 
             // CurrentStreak ≤ LongestStreak.

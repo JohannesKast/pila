@@ -3,18 +3,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Jersey variant — used for grouping in the picker UI.
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum JerseyVariant {
+    #[default]
     Home,
     Away,
     Fan,
-}
-
-impl Default for JerseyVariant {
-    fn default() -> Self {
-        Self::Home
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

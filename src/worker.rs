@@ -674,13 +674,15 @@ mod tests {
             .await
             .unwrap();
 
-        let sent = notifier.sent.lock().unwrap();
-        assert_eq!(sent.len(), 1);
-        match &sent[0] {
-            NotificationEvent::SpecialPredictionsLock { missing_names, .. } => {
-                assert_eq!(missing_names, &vec!["Anna".to_string()]);
+        {
+            let sent = notifier.sent.lock().unwrap();
+            assert_eq!(sent.len(), 1);
+            match &sent[0] {
+                NotificationEvent::SpecialPredictionsLock { missing_names, .. } => {
+                    assert_eq!(missing_names, &vec!["Anna".to_string()]);
+                }
+                other => panic!("unexpected event: {other:?}"),
             }
-            other => panic!("unexpected event: {other:?}"),
         }
         assert!(notifications
             .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0, None)

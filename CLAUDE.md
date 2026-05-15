@@ -35,7 +35,7 @@ cargo run                          # needs DATABASE_URL in .env
 cargo test                         # scoring/notifier/worker unit tests
 cargo test scoring                 # one module
 cargo check
-cargo clippy
+cargo clippy --all-targets -- -D warnings   # must be clean after every change
 ```
 
 DB live on `localhost:6433` per `docker-compose.override.yml` (host port 6433 → container 5432). Inside docker-compose, app talks to db on `5432`.
