@@ -20,7 +20,7 @@ use crate::AppState;
 #[derive(Template)]
 #[template(path = "jersey_picker.html")]
 struct JerseyPickerTemplate {
-    options: Vec<JerseyOption>,
+    grouped_options: Vec<(String, Vec<JerseyOption>)>,  // (variant_label, options)
     current: String,
     t: T,
 }
@@ -43,28 +43,48 @@ pub async fn jersey_picker_get(
         .expect("de locale always present")
         .clone();
 
-    let mut options: Vec<JerseyOption> = state
-        .jerseys
-        .iter()
-        .map(|(k, v)| {
-            let display_name = t.get(&format!("jersey-name-{k}"));
-            JerseyOption {
-                key: k.clone(),
-                preset: v.clone(),
-                display_name,
-            }
-        })
-        .collect();
-    options.sort_by(|a, b| {
-        let pila_a = a.preset.group == "Pila";
-        let pila_b = b.preset.group == "Pila";
-        pila_b
-            .cmp(&pila_a)
-            .then_with(|| a.preset.group.cmp(&b.preset.group))
-            .then_with(|| a.display_name.cmp(&b.display_name))
-    });
+    // Group jerseys by variant
+    let mut home: Vec<JerseyOption> = Vec::new();
+    let mut away: Vec<JerseyOption> = Vec::new();
+    let mut fan: Vec<JerseyOption> = Vec::new();
+
+    for (k, v) in state.jerseys.iter() {
+        let display_name = t.get(&format!("jersey-name-{k}"));
+        let option = JerseyOption {
+            key: k.clone(),
+            preset: v.clone(),
+            display_name,
+        };
+        match v.variant {
+            crate::jersey::JerseyVariant::Home => home.push(option),
+            crate::jersey::JerseyVariant::Away => away.push(option),
+            crate::jersey::JerseyVariant::Fan => fan.push(option),
+        }
+    }
+
+    // Sort each group: Pila first, then by group, then by display name
+    let sort_options = |opts: &mut Vec<JerseyOption>| {
+        opts.sort_by(|a, b| {
+            let pila_a = a.preset.group == "Pila";
+            let pila_b = b.preset.group == "Pila";
+            pila_b
+                .cmp(&pila_a)
+                .then_with(|| a.preset.group.cmp(&b.preset.group))
+                .then_with(|| a.display_name.cmp(&b.display_name))
+        });
+    };
+    sort_options(&mut home);
+    sort_options(&mut away);
+    sort_options(&mut fan);
+
+    let grouped_options = vec![
+        (t.get("jersey-variant-home"), home),
+        (t.get("jersey-variant-away"), away),
+        (t.get("jersey-variant-fan"), fan),
+    ];
+
     let template = JerseyPickerTemplate {
-        options,
+        grouped_options,
         current: user.jersey_preset,
         t,
     };

@@ -99,6 +99,11 @@ jersey-title = Ton Maillot
 jersey-subtitle = AFFICHÉ DANS LE TABLEAU ET LES COMMENTAIRES
 jersey-done = TERMINÉ ✓
 
+# Variant group labels in the jersey picker
+jersey-variant-home = Maillots Domicile
+jersey-variant-away = Extérieur
+jersey-variant-fan = Fan
+
 ## Sélecteur de langue
 
 lang-de = Deutsch
@@ -190,6 +195,91 @@ jersey-name-nigeria = Nigeria
 jersey-name-ghana = Ghana
 jersey-name-elfenbein = Côte d'Ivoire
 jersey-name-suedafrika = Afrique du Sud
+
+# CONMEBOL Extérieur
+jersey-name-argentinien-away = Argentine Extérieur
+jersey-name-brasilien-away = Brésil Extérieur
+jersey-name-uruguay-away = Uruguay Extérieur
+jersey-name-kolumbien-away = Colombie Extérieur
+jersey-name-ecuador-away = Équateur Extérieur
+jersey-name-peru-away = Pérou Extérieur
+jersey-name-paraguay-away = Paraguay Extérieur
+jersey-name-chile-away = Chili Extérieur
+jersey-name-bolivien-away = Bolivie Extérieur
+jersey-name-venezuela-away = Venezuela Extérieur
+
+# CONCACAF Extérieur
+jersey-name-usa-away = États-Unis Extérieur
+jersey-name-mexiko-away = Mexique Extérieur
+jersey-name-kanada-away = Canada Extérieur
+jersey-name-costarica-away = Costa Rica Extérieur
+jersey-name-panama-away = Panama Extérieur
+jersey-name-honduras-away = Honduras Extérieur
+jersey-name-jamaika-away = Jamaïque Extérieur
+
+# UEFA Extérieur
+jersey-name-deutschland-away = Allemagne Extérieur
+jersey-name-frankreich-away = France Extérieur
+jersey-name-england-away = Angleterre Extérieur
+jersey-name-spanien-away = Espagne Extérieur
+jersey-name-portugal-away = Portugal Extérieur
+jersey-name-niederlande-away = Pays-Bas Extérieur
+jersey-name-belgien-away = Belgique Extérieur
+jersey-name-italien-away = Italie Extérieur
+jersey-name-kroatien-away = Croatie Extérieur
+jersey-name-schweiz-away = Suisse Extérieur
+jersey-name-daenemark-away = Danemark Extérieur
+jersey-name-polen-away = Pologne Extérieur
+jersey-name-oesterreich-away = Autriche Extérieur
+jersey-name-ungarn-away = Hongrie Extérieur
+jersey-name-tuerkei-away = Turquie Extérieur
+jersey-name-serbien-away = Serbie Extérieur
+jersey-name-ukraine-away = Ukraine Extérieur
+jersey-name-wales-away = Pays de Galles Extérieur
+jersey-name-schottland-away = Écosse Extérieur
+jersey-name-norwegen-away = Norvège Extérieur
+jersey-name-schweden-away = Suède Extérieur
+
+# AFC Extérieur
+jersey-name-japan-away = Japon Extérieur
+jersey-name-suedkorea-away = Corée du Sud Extérieur
+jersey-name-australien-away = Australie Extérieur
+jersey-name-iran-away = Iran Extérieur
+jersey-name-saudi-away = Arabie Saoudite Extérieur
+jersey-name-katar-away = Qatar Extérieur
+jersey-name-irak-away = Irak Extérieur
+jersey-name-usbekistan-away = Ouzbékistan Extérieur
+
+# CAF Extérieur
+jersey-name-marokko-away = Maroc Extérieur
+jersey-name-tunesien-away = Tunisie Extérieur
+jersey-name-algerien-away = Algérie Extérieur
+jersey-name-aegypten-away = Égypte Extérieur
+jersey-name-senegal-away = Sénégal Extérieur
+jersey-name-kamerun-away = Cameroun Extérieur
+jersey-name-nigeria-away = Nigeria Extérieur
+jersey-name-ghana-away = Ghana Extérieur
+jersey-name-elfenbein-away = Côte d'Ivoire Extérieur
+jersey-name-suedafrika-away = Afrique du Sud Extérieur
+
+# Fan Maillots
+jersey-name-fan-rainbow = Rainbow
+jersey-name-fan-retro-70s = Rétro 70s
+jersey-name-fan-retro-86 = Rétro '86
+jersey-name-fan-retro-90s = Rétro 90s
+jersey-name-fan-neon = Fièvre Néon
+jersey-name-fan-carnival = Carnaval
+jersey-name-fan-military = Militaire
+jersey-name-fan-gold = Édition Or
+jersey-name-fan-midnight = Minuit
+jersey-name-fan-sunset = Coucher de soleil
+jersey-name-fan-arctic = Arctique
+jersey-name-fan-flame = Flamme
+jersey-name-fan-forest = Forêt
+jersey-name-fan-royal = Royal
+jersey-name-fan-pirate = Pirate
+jersey-name-fan-galaxy = Galaxie
+jersey-name-fan-camo = Camouflage
 
 # ─── Multi-league / Gestion des ligues ────────────────────────────────────────
 

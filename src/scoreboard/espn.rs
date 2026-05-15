@@ -375,20 +375,59 @@ fn parse_espn_datetime(s: &str) -> Option<DateTime<Utc>> {
 
 /// Best-effort 3-letter (ESPN/FIFA) → ISO-3166 alpha-2 flag lookup.
 /// Returns None for unknown codes — UI should fall back to short_name text.
+/// Comprehensive list covering FIFA World Cup 2026 participants and beyond.
 fn flag_code_for_abbr(abbr: &str) -> Option<&'static str> {
     let map: &[(&str, &str)] = &[
-        ("ARG", "ar"), ("AUS", "au"), ("AUT", "at"), ("BEL", "be"), ("BRA", "br"),
-        ("CAN", "ca"), ("CHI", "cl"), ("CHN", "cn"), ("COL", "co"), ("CRC", "cr"),
-        ("CRO", "hr"), ("CZE", "cz"), ("DEN", "dk"), ("ECU", "ec"), ("EGY", "eg"),
-        ("ENG", "gb-eng"), ("ESP", "es"), ("FRA", "fr"), ("GER", "de"), ("GHA", "gh"),
-        ("GRE", "gr"), ("HON", "hn"), ("IRN", "ir"), ("IRQ", "iq"), ("ISL", "is"),
-        ("ISR", "il"), ("ITA", "it"), ("JAM", "jm"), ("JPN", "jp"), ("KOR", "kr"),
-        ("KSA", "sa"), ("MAR", "ma"), ("MEX", "mx"), ("NED", "nl"), ("NGA", "ng"),
-        ("NOR", "no"), ("NZL", "nz"), ("PAN", "pa"), ("PAR", "py"), ("PER", "pe"),
-        ("POL", "pl"), ("POR", "pt"), ("QAT", "qa"), ("ROU", "ro"), ("RSA", "za"),
-        ("SCO", "gb-sct"), ("SEN", "sn"), ("SRB", "rs"), ("SUI", "ch"), ("SVK", "sk"),
-        ("SVN", "si"), ("SWE", "se"), ("TUN", "tn"), ("TUR", "tr"), ("UKR", "ua"),
-        ("URU", "uy"), ("USA", "us"), ("WAL", "gb-wls"),
+        // Africa
+        ("ALG", "dz"), ("ANG", "ao"), ("BEN", "bj"), ("BOT", "bw"), ("BFA", "bf"),
+        ("BDI", "bi"), ("CMR", "cm"), ("CPV", "cv"), ("CAF", "cf"), ("CHA", "td"),
+        ("COM", "km"), ("CGO", "cg"), ("COD", "cd"), ("CIV", "ci"), ("DJI", "dj"),
+        ("EGY", "eg"), ("EQG", "gq"), ("ERI", "er"), ("SWZ", "sz"), ("ETH", "et"),
+        ("GAB", "ga"), ("GAM", "gm"), ("GHA", "gh"), ("GUI", "gn"), ("GNB", "gw"),
+        ("KEN", "ke"), ("LES", "ls"), ("LBR", "lr"), ("LBY", "ly"), ("MAD", "mg"),
+        ("MWI", "mw"), ("MLI", "ml"), ("MTN", "mr"), ("MRI", "mu"), ("MAR", "ma"),
+        ("MOZ", "mz"), ("NAM", "na"), ("NIG", "ne"), ("NGA", "ng"), ("RWA", "rw"),
+        ("STP", "st"), ("SEN", "sn"), ("SEY", "sc"), ("SLE", "sl"), ("SOM", "so"),
+        ("RSA", "za"), ("SSD", "ss"), ("SUD", "sd"), ("TAN", "tz"), ("TOG", "tg"),
+        ("TUN", "tn"), ("UGA", "ug"), ("ZAM", "zm"), ("ZIM", "zw"),
+        // Asia
+        ("AFG", "af"), ("BHR", "bh"), ("BAN", "bd"), ("BTN", "bt"), ("BRU", "bn"),
+        ("CAM", "kh"), ("CHN", "cn"), ("HKG", "hk"), ("IND", "in"), ("IDN", "id"),
+        ("IRN", "ir"), ("IRQ", "iq"), ("ISR", "il"), ("JPN", "jp"), ("JOR", "jo"),
+        ("KAZ", "kz"), ("KUW", "kw"), ("KGZ", "kg"), ("LAO", "la"), ("LBN", "lb"),
+        ("MAC", "mo"), ("MYS", "my"), ("MDV", "mv"), ("MNG", "mn"), ("MYA", "mm"),
+        ("NEP", "np"), ("PRK", "kp"), ("OMA", "om"), ("PAK", "pk"), ("PLE", "ps"),
+        ("PHI", "ph"), ("QAT", "qa"), ("KSA", "sa"), ("SGP", "sg"), ("KOR", "kr"),
+        ("LKA", "lk"), ("SYR", "sy"), ("TWN", "tw"), ("TJK", "tj"), ("THA", "th"),
+        ("TLS", "tl"), ("TKM", "tm"), ("UAE", "ae"), ("UZB", "uz"), ("VIE", "vn"),
+        ("YEM", "ye"),
+        // Europe
+        ("ALB", "al"), ("AND", "ad"), ("ARM", "am"), ("AUT", "at"), ("AZE", "az"),
+        ("BLR", "by"), ("BEL", "be"), ("BIH", "ba"), ("BUL", "bg"), ("CRO", "hr"),
+        ("CYP", "cy"), ("CZE", "cz"), ("DEN", "dk"), ("ENG", "gb-eng"), ("EST", "ee"),
+        ("FRO", "fo"), ("FIN", "fi"), ("FRA", "fr"), ("GEO", "ge"), ("GER", "de"),
+        ("GIB", "gi"), ("GRE", "gr"), ("HUN", "hu"), ("ISL", "is"), ("ITA", "it"),
+        ("KVX", "xk"), ("LVA", "lv"), ("LIE", "li"), ("LTU", "lt"), ("LUX", "lu"),
+        ("MLT", "mt"), ("MDA", "md"), ("MNE", "me"), ("NED", "nl"), ("MKD", "mk"),
+        ("NIR", "gb-nir"), ("NOR", "no"), ("POL", "pl"), ("POR", "pt"), ("IRL", "ie"),
+        ("ROU", "ro"), ("RUS", "ru"), ("SMR", "sm"), ("SCO", "gb-sct"), ("SRB", "rs"),
+        ("SVK", "sk"), ("SVN", "si"), ("ESP", "es"), ("SWE", "se"), ("SUI", "ch"),
+        ("TUR", "tr"), ("UKR", "ua"), ("WAL", "gb-wls"),
+        // North & Central America
+        ("AIA", "ai"), ("ATG", "ag"), ("ARU", "aw"), ("BHS", "bs"), ("BRB", "bb"),
+        ("BLZ", "bz"), ("BMU", "bm"), ("VIR", "vi"), ("CAN", "ca"), ("CAY", "ky"),
+        ("CRC", "cr"), ("CUB", "cu"), ("CUW", "cw"), ("DMA", "dm"), ("DOM", "do"),
+        ("SLV", "sv"), ("GUF", "gf"), ("GRN", "gd"), ("GLP", "gp"), ("GUA", "gt"),
+        ("GUY", "gy"), ("HAI", "ht"), ("HON", "hn"), ("JAM", "jm"), ("MTQ", "mq"),
+        ("MEX", "mx"), ("MSR", "ms"), ("NCA", "ni"), ("PAN", "pa"), ("PUR", "pr"),
+        ("SKN", "kn"), ("LCA", "lc"), ("VCT", "vc"), ("SUR", "sr"), ("TTO", "tt"),
+        ("USA", "us"),
+        // South America
+        ("ARG", "ar"), ("BOL", "bo"), ("BRA", "br"), ("CHI", "cl"), ("COL", "co"),
+        ("ECU", "ec"), ("PAR", "py"), ("PER", "pe"), ("URU", "uy"), ("VEN", "ve"),
+        // Oceania
+        ("AUS", "au"), ("FIJ", "fj"), ("NZL", "nz"), ("PNG", "pg"), ("SAM", "ws"),
+        ("SOL", "sb"), ("TAH", "pf"), ("VAN", "vu"),
     ];
     let upper = abbr.to_ascii_uppercase();
     map.iter()
@@ -475,6 +514,26 @@ mod tests {
         assert_eq!(flag_code_for_abbr("ger"), Some("de"));
         assert_eq!(flag_code_for_abbr("USA"), Some("us"));
         assert_eq!(flag_code_for_abbr("ENG"), Some("gb-eng"));
+    }
+
+    #[test]
+    fn flag_lookup_wm2026_participants() {
+        // Previously missing teams that now have correct mappings
+        assert_eq!(flag_code_for_abbr("ALG"), Some("dz")); // Algeria
+        assert_eq!(flag_code_for_abbr("BIH"), Some("ba")); // Bosnia-Herzegovina
+        assert_eq!(flag_code_for_abbr("CPV"), Some("cv")); // Cape Verde
+        assert_eq!(flag_code_for_abbr("COD"), Some("cd")); // Congo DR
+        assert_eq!(flag_code_for_abbr("CUW"), Some("cw")); // Curacao
+        assert_eq!(flag_code_for_abbr("HAI"), Some("ht")); // Haiti
+        assert_eq!(flag_code_for_abbr("CIV"), Some("ci")); // Ivory Coast
+        assert_eq!(flag_code_for_abbr("JOR"), Some("jo")); // Jordan
+        assert_eq!(flag_code_for_abbr("UZB"), Some("uz")); // Uzbekistan
+        // Additional teams
+        assert_eq!(flag_code_for_abbr("CMR"), Some("cm")); // Cameroon
+        assert_eq!(flag_code_for_abbr("MLI"), Some("ml")); // Mali
+        assert_eq!(flag_code_for_abbr("UAE"), Some("ae")); // United Arab Emirates
+        assert_eq!(flag_code_for_abbr("HUN"), Some("hu")); // Hungary
+        assert_eq!(flag_code_for_abbr("IRL"), Some("ie")); // Ireland
     }
 
     #[test]

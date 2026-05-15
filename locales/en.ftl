@@ -99,6 +99,11 @@ jersey-title = Your Jersey
 jersey-subtitle = SHOWN IN TABLE & COMMENTS
 jersey-done = DONE ✓
 
+# Variant group labels in the jersey picker
+jersey-variant-home = Home Jerseys
+jersey-variant-away = Away
+jersey-variant-fan = Fan
+
 ## Language picker
 
 lang-de = Deutsch
@@ -190,6 +195,91 @@ jersey-name-nigeria = Nigeria
 jersey-name-ghana = Ghana
 jersey-name-elfenbein = Ivory Coast
 jersey-name-suedafrika = South Africa
+
+# CONMEBOL Away
+jersey-name-argentinien-away = Argentina Away
+jersey-name-brasilien-away = Brazil Away
+jersey-name-uruguay-away = Uruguay Away
+jersey-name-kolumbien-away = Colombia Away
+jersey-name-ecuador-away = Ecuador Away
+jersey-name-peru-away = Peru Away
+jersey-name-paraguay-away = Paraguay Away
+jersey-name-chile-away = Chile Away
+jersey-name-bolivien-away = Bolivia Away
+jersey-name-venezuela-away = Venezuela Away
+
+# CONCACAF Away
+jersey-name-usa-away = USA Away
+jersey-name-mexiko-away = Mexico Away
+jersey-name-kanada-away = Canada Away
+jersey-name-costarica-away = Costa Rica Away
+jersey-name-panama-away = Panama Away
+jersey-name-honduras-away = Honduras Away
+jersey-name-jamaika-away = Jamaica Away
+
+# UEFA Away
+jersey-name-deutschland-away = Germany Away
+jersey-name-frankreich-away = France Away
+jersey-name-england-away = England Away
+jersey-name-spanien-away = Spain Away
+jersey-name-portugal-away = Portugal Away
+jersey-name-niederlande-away = Netherlands Away
+jersey-name-belgien-away = Belgium Away
+jersey-name-italien-away = Italy Away
+jersey-name-kroatien-away = Croatia Away
+jersey-name-schweiz-away = Switzerland Away
+jersey-name-daenemark-away = Denmark Away
+jersey-name-polen-away = Poland Away
+jersey-name-oesterreich-away = Austria Away
+jersey-name-ungarn-away = Hungary Away
+jersey-name-tuerkei-away = Turkey Away
+jersey-name-serbien-away = Serbia Away
+jersey-name-ukraine-away = Ukraine Away
+jersey-name-wales-away = Wales Away
+jersey-name-schottland-away = Scotland Away
+jersey-name-norwegen-away = Norway Away
+jersey-name-schweden-away = Sweden Away
+
+# AFC Away
+jersey-name-japan-away = Japan Away
+jersey-name-suedkorea-away = South Korea Away
+jersey-name-australien-away = Australia Away
+jersey-name-iran-away = Iran Away
+jersey-name-saudi-away = Saudi Arabia Away
+jersey-name-katar-away = Qatar Away
+jersey-name-irak-away = Iraq Away
+jersey-name-usbekistan-away = Uzbekistan Away
+
+# CAF Away
+jersey-name-marokko-away = Morocco Away
+jersey-name-tunesien-away = Tunisia Away
+jersey-name-algerien-away = Algeria Away
+jersey-name-aegypten-away = Egypt Away
+jersey-name-senegal-away = Senegal Away
+jersey-name-kamerun-away = Cameroon Away
+jersey-name-nigeria-away = Nigeria Away
+jersey-name-ghana-away = Ghana Away
+jersey-name-elfenbein-away = Ivory Coast Away
+jersey-name-suedafrika-away = South Africa Away
+
+# Fan Jerseys
+jersey-name-fan-rainbow = Rainbow
+jersey-name-fan-retro-70s = Retro 70s
+jersey-name-fan-retro-86 = Retro '86
+jersey-name-fan-retro-90s = Retro 90s
+jersey-name-fan-neon = Neon Fever
+jersey-name-fan-carnival = Carnival
+jersey-name-fan-military = Military
+jersey-name-fan-gold = Gold Edition
+jersey-name-fan-midnight = Midnight
+jersey-name-fan-sunset = Sunset
+jersey-name-fan-arctic = Arctic
+jersey-name-fan-flame = Flame
+jersey-name-fan-forest = Forest
+jersey-name-fan-royal = Royal
+jersey-name-fan-pirate = Pirate
+jersey-name-fan-galaxy = Galaxy
+jersey-name-fan-camo = Camo
 
 # ─── Multi-league / League management ─────────────────────────────────────────
 

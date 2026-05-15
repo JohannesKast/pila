@@ -175,6 +175,11 @@ jersey-subtitle = WIRD IN TABELLE & KOMMENTAREN ANGEZEIGT
 # Done button to close the jersey picker
 jersey-done = FERTIG ✓
 
+# Variant group labels in the jersey picker
+jersey-variant-home = Heimtrikots
+jersey-variant-away = Auswärts
+jersey-variant-fan = Fan
+
 ## Language picker
 
 lang-de = Deutsch
@@ -277,6 +282,91 @@ jersey-name-nigeria = Nigeria
 jersey-name-ghana = Ghana
 jersey-name-elfenbein = Elfenbeinküste
 jersey-name-suedafrika = Südafrika
+
+# CONMEBOL Away
+jersey-name-argentinien-away = Argentinien Auswärts
+jersey-name-brasilien-away = Brasilien Auswärts
+jersey-name-uruguay-away = Uruguay Auswärts
+jersey-name-kolumbien-away = Kolumbien Auswärts
+jersey-name-ecuador-away = Ecuador Auswärts
+jersey-name-peru-away = Peru Auswärts
+jersey-name-paraguay-away = Paraguay Auswärts
+jersey-name-chile-away = Chile Auswärts
+jersey-name-bolivien-away = Bolivien Auswärts
+jersey-name-venezuela-away = Venezuela Auswärts
+
+# CONCACAF Away
+jersey-name-usa-away = USA Auswärts
+jersey-name-mexiko-away = Mexiko Auswärts
+jersey-name-kanada-away = Kanada Auswärts
+jersey-name-costarica-away = Costa Rica Auswärts
+jersey-name-panama-away = Panama Auswärts
+jersey-name-honduras-away = Honduras Auswärts
+jersey-name-jamaika-away = Jamaika Auswärts
+
+# UEFA Away
+jersey-name-deutschland-away = Deutschland Auswärts
+jersey-name-frankreich-away = Frankreich Auswärts
+jersey-name-england-away = England Auswärts
+jersey-name-spanien-away = Spanien Auswärts
+jersey-name-portugal-away = Portugal Auswärts
+jersey-name-niederlande-away = Niederlande Auswärts
+jersey-name-belgien-away = Belgien Auswärts
+jersey-name-italien-away = Italien Auswärts
+jersey-name-kroatien-away = Kroatien Auswärts
+jersey-name-schweiz-away = Schweiz Auswärts
+jersey-name-daenemark-away = Dänemark Auswärts
+jersey-name-polen-away = Polen Auswärts
+jersey-name-oesterreich-away = Österreich Auswärts
+jersey-name-ungarn-away = Ungarn Auswärts
+jersey-name-tuerkei-away = Türkei Auswärts
+jersey-name-serbien-away = Serbien Auswärts
+jersey-name-ukraine-away = Ukraine Auswärts
+jersey-name-wales-away = Wales Auswärts
+jersey-name-schottland-away = Schottland Auswärts
+jersey-name-norwegen-away = Norwegen Auswärts
+jersey-name-schweden-away = Schweden Auswärts
+
+# AFC Away
+jersey-name-japan-away = Japan Auswärts
+jersey-name-suedkorea-away = Südkorea Auswärts
+jersey-name-australien-away = Australien Auswärts
+jersey-name-iran-away = Iran Auswärts
+jersey-name-saudi-away = Saudi-Arabien Auswärts
+jersey-name-katar-away = Katar Auswärts
+jersey-name-irak-away = Irak Auswärts
+jersey-name-usbekistan-away = Usbekistan Auswärts
+
+# CAF Away
+jersey-name-marokko-away = Marokko Auswärts
+jersey-name-tunesien-away = Tunesien Auswärts
+jersey-name-algerien-away = Algerien Auswärts
+jersey-name-aegypten-away = Ägypten Auswärts
+jersey-name-senegal-away = Senegal Auswärts
+jersey-name-kamerun-away = Kamerun Auswärts
+jersey-name-nigeria-away = Nigeria Auswärts
+jersey-name-ghana-away = Ghana Auswärts
+jersey-name-elfenbein-away = Elfenbeinküste Auswärts
+jersey-name-suedafrika-away = Südafrika Auswärts
+
+# Fan Trikots
+jersey-name-fan-rainbow = Rainbow
+jersey-name-fan-retro-70s = Retro 70er
+jersey-name-fan-retro-86 = Retro '86
+jersey-name-fan-retro-90s = Retro 90er
+jersey-name-fan-neon = Neon Fever
+jersey-name-fan-carnival = Karneval
+jersey-name-fan-military = Military
+jersey-name-fan-gold = Gold Edition
+jersey-name-fan-midnight = Mitternacht
+jersey-name-fan-sunset = Sonnenuntergang
+jersey-name-fan-arctic = Arktis
+jersey-name-fan-flame = Flamme
+jersey-name-fan-forest = Wald
+jersey-name-fan-royal = Royal
+jersey-name-fan-pirate = Pirat
+jersey-name-fan-galaxy = Galaxie
+jersey-name-fan-camo = Camo
 
 # ─── Multi-League / Liga-Verwaltung ────────────────────────────────────────────
 

@@ -99,6 +99,11 @@ jersey-title = Tu Camiseta
 jersey-subtitle = SE MUESTRA EN TABLA Y COMENTARIOS
 jersey-done = LISTO ✓
 
+# Variant group labels in the jersey picker
+jersey-variant-home = Camisetas Local
+jersey-variant-away = Visitante
+jersey-variant-fan = Fan
+
 ## Selector de idioma
 
 lang-de = Deutsch
@@ -190,6 +195,91 @@ jersey-name-nigeria = Nigeria
 jersey-name-ghana = Ghana
 jersey-name-elfenbein = Costa de Marfil
 jersey-name-suedafrika = Sudáfrica
+
+# CONMEBOL Away
+jersey-name-argentinien-away = Argentina Visitante
+jersey-name-brasilien-away = Brasil Visitante
+jersey-name-uruguay-away = Uruguay Visitante
+jersey-name-kolumbien-away = Colombia Visitante
+jersey-name-ecuador-away = Ecuador Visitante
+jersey-name-peru-away = Perú Visitante
+jersey-name-paraguay-away = Paraguay Visitante
+jersey-name-chile-away = Chile Visitante
+jersey-name-bolivien-away = Bolivia Visitante
+jersey-name-venezuela-away = Venezuela Visitante
+
+# CONCACAF Away
+jersey-name-usa-away = EE.UU. Visitante
+jersey-name-mexiko-away = México Visitante
+jersey-name-kanada-away = Canadá Visitante
+jersey-name-costarica-away = Costa Rica Visitante
+jersey-name-panama-away = Panamá Visitante
+jersey-name-honduras-away = Honduras Visitante
+jersey-name-jamaika-away = Jamaica Visitante
+
+# UEFA Away
+jersey-name-deutschland-away = Alemania Visitante
+jersey-name-frankreich-away = Francia Visitante
+jersey-name-england-away = Inglaterra Visitante
+jersey-name-spanien-away = España Visitante
+jersey-name-portugal-away = Portugal Visitante
+jersey-name-niederlande-away = Países Bajos Visitante
+jersey-name-belgien-away = Bélgica Visitante
+jersey-name-italien-away = Italia Visitante
+jersey-name-kroatien-away = Croacia Visitante
+jersey-name-schweiz-away = Suiza Visitante
+jersey-name-daenemark-away = Dinamarca Visitante
+jersey-name-polen-away = Polonia Visitante
+jersey-name-oesterreich-away = Austria Visitante
+jersey-name-ungarn-away = Hungría Visitante
+jersey-name-tuerkei-away = Turquía Visitante
+jersey-name-serbien-away = Serbia Visitante
+jersey-name-ukraine-away = Ucrania Visitante
+jersey-name-wales-away = Gales Visitante
+jersey-name-schottland-away = Escocia Visitante
+jersey-name-norwegen-away = Noruega Visitante
+jersey-name-schweden-away = Suecia Visitante
+
+# AFC Away
+jersey-name-japan-away = Japón Visitante
+jersey-name-suedkorea-away = Corea del Sur Visitante
+jersey-name-australien-away = Australia Visitante
+jersey-name-iran-away = Irán Visitante
+jersey-name-saudi-away = Arabia Saudita Visitante
+jersey-name-katar-away = Catar Visitante
+jersey-name-irak-away = Irak Visitante
+jersey-name-usbekistan-away = Uzbekistán Visitante
+
+# CAF Away
+jersey-name-marokko-away = Marruecos Visitante
+jersey-name-tunesien-away = Túnez Visitante
+jersey-name-algerien-away = Argelia Visitante
+jersey-name-aegypten-away = Egipto Visitante
+jersey-name-senegal-away = Senegal Visitante
+jersey-name-kamerun-away = Camerún Visitante
+jersey-name-nigeria-away = Nigeria Visitante
+jersey-name-ghana-away = Ghana Visitante
+jersey-name-elfenbein-away = Costa de Marfil Visitante
+jersey-name-suedafrika-away = Sudáfrica Visitante
+
+# Fan Trikots
+jersey-name-fan-rainbow = Rainbow
+jersey-name-fan-retro-70s = Retro 70s
+jersey-name-fan-retro-86 = Retro '86
+jersey-name-fan-retro-90s = Retro 90s
+jersey-name-fan-neon = Fiebre Neón
+jersey-name-fan-carnival = Carnaval
+jersey-name-fan-military = Militar
+jersey-name-fan-gold = Edición Oro
+jersey-name-fan-midnight = Medianoche
+jersey-name-fan-sunset = Atardecer
+jersey-name-fan-arctic = Ártico
+jersey-name-fan-flame = Llama
+jersey-name-fan-forest = Bosque
+jersey-name-fan-royal = Real
+jersey-name-fan-pirate = Pirata
+jersey-name-fan-galaxy = Galaxia
+jersey-name-fan-camo = Camuflaje
 
 # ─── Multi-league / Gestión de ligas ──────────────────────────────────────────
 
