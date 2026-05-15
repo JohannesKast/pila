@@ -179,5 +179,9 @@ See [`CLAUDE.md`](CLAUDE.md) for the full architecture overview.
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE) — free for personal and noncommercial
-use. Commercial use requires a separate agreement.
+[GNU Affero General Public License v3.0 or later](LICENSE).
+
+Pila is free software: you can redistribute it and/or modify it under the
+terms of the AGPL-3.0-or-later. In short: if you run a modified version on a
+network server, you must offer its source code to the users interacting with
+it. See the LICENSE file for the full text.
