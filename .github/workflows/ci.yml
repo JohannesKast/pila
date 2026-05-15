@@ -1,12 +1,13 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 env:
   CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: "true"
 
 jobs:
   clippy:
@@ -16,12 +17,33 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo clippy -- -D warnings
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets -- -D warnings
 
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: pila
+          POSTGRES_PASSWORD: pila
+          POSTGRES_DB: pila_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://pila:pila@localhost:5432/pila_db
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo test --no-run
-      - run: cargo test --lib
+      - uses: Swatinem/rust-cache@v2
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --version 0.8 --no-default-features --features native-tls,postgres --locked
+      - name: Run migrations
+        run: sqlx migrate run
+      - run: cargo test --all-targets

@@ -1,5 +1,7 @@
 # Pila
 
+[![CI](https://github.com/JohannesKast/pila/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/JohannesKast/pila/actions/workflows/ci.yml)
+
 A self-hostable FIFA World Cup 2026 prediction game (Tippspiel) written in Rust.
 Friends and family submit exact-score tips for every match plus a champion pick,
 collect points, and watch the leaderboard move. Built to run on a homelab box
