@@ -65,6 +65,10 @@ fn load_one(code: &str) -> T {
         .unwrap_or_else(|e| panic!("Invalid locale code '{code}': {e}"));
 
     let mut bundle = FluentBundle::new(vec![lang_id]);
+    // Disable Unicode bidi isolation markers around placeables — they only
+    // matter in mixed-script contexts and would force every call site to
+    // strip them again. Pila's strings are mono-script per locale.
+    bundle.set_use_isolating(false);
     let resource = FluentResource::try_new(content).unwrap_or_else(|(r, _)| r);
     let _ = bundle.add_resource(resource);
 
@@ -89,4 +93,15 @@ pub fn load_all() -> HashMap<String, T> {
         .iter()
         .map(|&code| (code.to_string(), load_one(code)))
         .collect()
+}
+
+/// Resolve a locale bundle from a `load_all()`-style map. Falls back to `de`
+/// and, if even that is missing (test fixtures), returns an empty bundle.
+/// Never panics.
+pub fn resolve(translations: &HashMap<String, T>, lang: &str) -> T {
+    translations
+        .get(lang)
+        .or_else(|| translations.get("de"))
+        .cloned()
+        .unwrap_or_default()
 }

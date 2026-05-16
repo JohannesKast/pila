@@ -6,6 +6,7 @@ use reqwest::Client;
 use serde::Serialize;
 
 use crate::stage::Stage;
+use crate::translations::T;
 
 pub type NotifierError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -40,7 +41,7 @@ pub fn in_quiet_hours_now() -> bool {
     !(8..22).contains(&h)
 }
 
-pub fn from_env() -> Arc<dyn Notifier> {
+pub fn from_env(t: T) -> Arc<dyn Notifier> {
     let api = std::env::var("SIGNAL_API_URL").ok();
     let from = std::env::var("SIGNAL_FROM_NUMBER").ok();
     let group = std::env::var("SIGNAL_GROUP_ID").ok();
@@ -58,6 +59,7 @@ pub fn from_env() -> Arc<dyn Notifier> {
                 from_number: from,
                 group_id: group,
                 base_url,
+                t,
             })
         }
         _ => {
@@ -83,16 +85,21 @@ pub struct SignalNotifier {
     from_number: String,
     group_id: String,
     base_url: String,
+    /// Localised bundle used to render notification messages. One notifier
+    /// instance always uses one language — the worker builds a fresh
+    /// instance per league using `cfg.default_language`.
+    t: T,
 }
 
 impl SignalNotifier {
-    pub fn new(api_url: &str, from_number: &str, group_id: &str, base_url: &str) -> Self {
+    pub fn new(api_url: &str, from_number: &str, group_id: &str, base_url: &str, t: T) -> Self {
         Self {
             client: Client::new(),
             api_url: api_url.to_string(),
             from_number: from_number.to_string(),
             group_id: group_id.to_string(),
             base_url: base_url.to_string(),
+            t,
         }
     }
 }
@@ -107,7 +114,7 @@ struct SignalSendBody<'a> {
 #[async_trait::async_trait]
 impl Notifier for SignalNotifier {
     async fn notify(&self, event: NotificationEvent) -> Result<(), NotifierError> {
-        let message = render_message(&event, &self.base_url);
+        let message = render_message(&event, &self.base_url, &self.t);
         send_signal_message(
             &self.client,
             &self.api_url,
@@ -154,6 +161,7 @@ pub async fn send_invite_via_signal(
     magic_link: &str,
     api_url: &Option<String>,
     from_number: &Option<String>,
+    t: &T,
 ) -> Result<(), NotifierError> {
     let api = api_url
         .as_deref()
@@ -164,22 +172,23 @@ pub async fn send_invite_via_signal(
         .filter(|s| !s.is_empty())
         .ok_or("SIGNAL_FROM_NUMBER not set")?;
 
-    let message = format!(
-        "Hallo {name}! Du bist beim Pila WM-Tippspiel dabei. Dein Login-Link: {magic_link}"
+    let message = t.format(
+        "notify-invite-signal",
+        &[("name", name), ("magic_link", magic_link)],
     );
     let client = Client::new();
     send_signal_message(&client, api, from, phone, &message).await
 }
 
-fn names_or_count(names: &[String]) -> String {
+fn names_or_count(names: &[String], t: &T) -> String {
     if names.len() > 5 {
-        format!("{} Mitspieler", names.len())
+        t.format("notify-many-players", &[("count", &names.len().to_string())])
     } else {
         names.join(", ")
     }
 }
 
-fn render_message(event: &NotificationEvent, base_url: &str) -> String {
+fn render_message(event: &NotificationEvent, base_url: &str, t: &T) -> String {
     match event {
         NotificationEvent::MatchClosingSoon {
             home,
@@ -190,24 +199,40 @@ fn render_message(event: &NotificationEvent, base_url: &str) -> String {
             ..
         } => {
             let where_label = match (stage, group_letter) {
-                (Stage::Group, Some(letter)) => format!("Gruppe {letter}"),
-                (s, _) => s.label_de().to_string(),
+                (Stage::Group, Some(letter)) => {
+                    t.format("stage-group-prefix", &[("letter", letter)])
+                }
+                (s, _) => t.get(s.ftl_key()),
             };
-            format!(
-                "⚽ Tipp-Erinnerung: {home} – {away} ({where_label}) wird in <24h angepfiffen. Es fehlen noch: {who}. Jetzt tippen: {base_url}",
-                who = names_or_count(missing_names)
+            let who = names_or_count(missing_names, t);
+            t.format(
+                "notify-match-closing-soon",
+                &[
+                    ("home", home),
+                    ("away", away),
+                    ("where", &where_label),
+                    ("who", &who),
+                    ("base_url", base_url),
+                ],
             )
         }
-        NotificationEvent::SpecialPredictionsLock { missing_names, .. } => format!(
-            "⏰ Weltmeister-Tipp wird in <24h gesperrt (Anpfiff Eröffnungsspiel). Es fehlen: {}. {base_url}",
-            names_or_count(missing_names)
-        ),
+        NotificationEvent::SpecialPredictionsLock { missing_names, .. } => {
+            let who = names_or_count(missing_names, t);
+            t.format(
+                "notify-special-lock",
+                &[("who", &who), ("base_url", base_url)],
+            )
+        }
         NotificationEvent::KnockoutBracketReady {
             stage,
             match_count,
-        } => format!(
-            "🏆 {stage_label}: {match_count} Paarungen stehen fest, Tipps jetzt möglich. {base_url}",
-            stage_label = stage.label_de()
+        } => t.format(
+            "notify-knockout-ready",
+            &[
+                ("stage", &t.get(stage.ftl_key())),
+                ("match_count", &match_count.to_string()),
+                ("base_url", base_url),
+            ],
         ),
     }
 }
@@ -216,16 +241,22 @@ fn render_message(event: &NotificationEvent, base_url: &str) -> String {
 mod tests {
     use super::*;
 
+    fn t_de() -> T {
+        crate::translations::load_all()
+            .remove("de")
+            .expect("de locale must be loadable from locales/de.ftl")
+    }
+
     #[test]
     fn names_or_count_short_list_joins() {
         let names = vec!["Anna".into(), "Ben".into()];
-        assert_eq!(names_or_count(&names), "Anna, Ben");
+        assert_eq!(names_or_count(&names, &t_de()), "Anna, Ben");
     }
 
     #[test]
     fn names_or_count_long_list_falls_back_to_count() {
         let names: Vec<String> = (0..6).map(|i| format!("U{i}")).collect();
-        assert_eq!(names_or_count(&names), "6 Mitspieler");
+        assert_eq!(names_or_count(&names, &t_de()), "6 Mitspieler");
     }
 
     #[test]
@@ -239,7 +270,7 @@ mod tests {
             lock_at: Utc::now(),
             missing_names: vec!["Anna".into(), "Ben".into()],
         };
-        let msg = render_message(&ev, "https://x.example");
+        let msg = render_message(&ev, "https://x.example", &t_de());
         assert!(msg.contains("Deutschland"));
         assert!(msg.contains("Schottland"));
         assert!(msg.contains("Gruppe A"));
@@ -258,7 +289,7 @@ mod tests {
             lock_at: Utc::now(),
             missing_names: vec![],
         };
-        let msg = render_message(&ev, "u");
+        let msg = render_message(&ev, "u", &t_de());
         assert!(msg.contains("Viertelfinale"));
     }
 
@@ -268,7 +299,7 @@ mod tests {
             lock_at: Utc::now(),
             missing_names: vec!["Anna".into()],
         };
-        let msg = render_message(&ev, "u");
+        let msg = render_message(&ev, "u", &t_de());
         assert!(msg.contains("Weltmeister"));
         assert!(msg.contains("Anna"));
     }
@@ -279,7 +310,7 @@ mod tests {
             stage: Stage::RoundOf16,
             match_count: 8,
         };
-        let msg = render_message(&ev, "u");
+        let msg = render_message(&ev, "u", &t_de());
         assert!(msg.contains("Achtelfinale"));
         assert!(msg.contains("8"));
     }

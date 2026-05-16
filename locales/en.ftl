@@ -417,3 +417,53 @@ admin-resend-email-ok = ✓ Email sent
 admin-resend-email-error = ✗ Email error:
 # Inline status when neither phone nor email is configured for resend.
 admin-resend-no-channel = No contact details or delivery channel configured
+
+# ─── Stage labels (short) ────────────────────────────────────────────────────
+# Used inside notification messages where the long heading would be too verbose.
+stage-group-prefix = Group { $letter }
+
+# ─── Signal-group notification messages ──────────────────────────────────────
+# Match-closing reminder posted to the Signal group <24h before kickoff.
+notify-match-closing-soon = ⚽ Tip reminder: { $home } – { $away } ({ $where }) kicks off in <24h. Still missing: { $who }. Tip now: { $base_url }
+# Champion-pick lock reminder, posted ~24h before the opening kickoff.
+notify-special-lock = ⏰ Champion pick locks in <24h (opening kickoff). Missing: { $who }. { $base_url }
+# Announcement that a new knockout bracket is now tippable.
+notify-knockout-ready = 🏆 { $stage }: { $match_count } fixtures are set, tips are open. { $base_url }
+# Fallback when too many users are missing to enumerate by name.
+notify-many-players = { $count } players
+# Body of the per-user Signal invite (direct DM, not the group channel).
+notify-invite-signal = Hi { $name }! You're in the Pila World Cup prediction game. Your login link: { $magic_link }
+
+# ─── Email subjects and bodies ───────────────────────────────────────────────
+# Subject of the magic-link invite email sent to new players.
+mail-invite-subject = Pila — your login link
+# Body of the magic-link invite email.
+mail-invite-body = Hi { $name }!
+
+You're in the Pila World Cup prediction game.
+Your login link: { $magic_link }
+
+Bookmark this link — it's your personal key. Anyone who has it is logged in as { $name }.
+
+Good luck!
+— Pila
+# Subject of the match-closing reminder email.
+mail-reminder-subject = ⚽ Tip reminder: { $home } – { $away }
+# Body of the match-closing reminder email.
+mail-reminder-body = Hi { $name }!
+
+{ $home } – { $away } ({ $stage }) kicks off in less than 24 hours and you have not tipped yet.
+
+Tip now: { $magic_link }
+
+— Pila
+# Subject of the champion-pick reminder email (singleton per tournament).
+mail-champion-subject = ⏰ Champion pick locks soon
+# Body of the champion-pick reminder email.
+mail-champion-body = Hi { $name }!
+
+The champion pick locks in less than 24 hours (opening kickoff). Get your tip in now!
+
+{ $magic_link }
+
+— Pila

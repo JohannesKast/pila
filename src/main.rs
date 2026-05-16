@@ -123,7 +123,15 @@ async fn main() {
             }
         }
     } else {
-        worker::start_background_worker(repos, scoreboard, base_url, signal_api_url, smtp_config).await;
+        worker::start_background_worker(
+            repos,
+            scoreboard,
+            base_url,
+            signal_api_url,
+            smtp_config,
+            state.translations.clone(),
+        )
+        .await;
     }
 
     let app = build_router();

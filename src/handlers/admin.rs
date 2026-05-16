@@ -179,17 +179,29 @@ pub async fn admin_create_user(
 
     let signal_enabled = signal_configured(&state.signal_api_url, &state.signal_from_number);
     let link = build_magic_link(&token, &state.base_url);
+    let recipient_t = t_for(&state, &cfg.default_language);
     if let Some(p) = phone_opt {
         if signal_enabled {
-            if let Err(e) = notifier::send_invite_via_signal(p, name, &link, &state.signal_api_url, &state.signal_from_number).await {
-                tracing::warn!("Admin: Signal-Einladung an {p} fehlgeschlagen: {e}");
+            if let Err(e) = notifier::send_invite_via_signal(
+                p,
+                name,
+                &link,
+                &state.signal_api_url,
+                &state.signal_from_number,
+                &recipient_t,
+            )
+            .await
+            {
+                tracing::warn!("admin: Signal invite to {p} failed: {e}");
             }
         }
     }
     if let Some(e) = email_opt {
         if let Some(ref smtp) = state.smtp_config {
-            if let Err(err) = crate::mail::send_invite_email(smtp, name, e, &link).await {
-                tracing::warn!("Admin: E-Mail-Einladung an {e} fehlgeschlagen: {err}");
+            if let Err(err) =
+                crate::mail::send_invite_email(smtp, name, e, &link, &recipient_t).await
+            {
+                tracing::warn!("admin: email invite to {e} failed: {err}");
             }
         }
     }
@@ -401,10 +413,21 @@ pub async fn admin_resend_invite(
     };
     let link = build_magic_link(&row.token, &state.base_url);
 
+    let recipient_t = t_for(&state, &row.language);
+
     // Try Signal first if phone number exists
     if let Some(phone) = row.phone_number.as_deref() {
         if signal_configured(&state.signal_api_url, &state.signal_from_number) {
-            match notifier::send_invite_via_signal(phone, &row.name, &link, &state.signal_api_url, &state.signal_from_number).await {
+            match notifier::send_invite_via_signal(
+                phone,
+                &row.name,
+                &link,
+                &state.signal_api_url,
+                &state.signal_from_number,
+                &recipient_t,
+            )
+            .await
+            {
                 Ok(_) => return Html(format!(
                     r#"<span class="text-emerald-400 text-xs">{}</span>"#,
                     html_escape(&t.get("admin-resend-signal-ok"))
@@ -421,7 +444,8 @@ pub async fn admin_resend_invite(
     // Try email if address exists
     if let Some(email) = row.email.as_deref() {
         if let Some(ref smtp) = state.smtp_config {
-            match crate::mail::send_invite_email(smtp, &row.name, email, &link).await {
+            match crate::mail::send_invite_email(smtp, &row.name, email, &link, &recipient_t).await
+            {
                 Ok(_) => return Html(format!(
                     r#"<span class="text-emerald-400 text-xs">{}</span>"#,
                     html_escape(&t.get("admin-resend-email-ok"))

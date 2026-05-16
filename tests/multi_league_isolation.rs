@@ -55,6 +55,7 @@ fn user_full(id: Uuid, league_id: Uuid, name: &str, token: &str) -> UserFull {
         is_admin: false,
         can_create_league: false,
         league_id,
+        language: "de".into(),
     }
 }
 

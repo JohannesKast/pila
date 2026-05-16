@@ -417,3 +417,53 @@ admin-resend-email-ok = ✓ Correo enviado
 admin-resend-email-error = ✗ Error de correo:
 # Inline status when neither phone nor email is configured for resend.
 admin-resend-no-channel = Sin datos de contacto ni canal de envío configurado
+
+# ─── Stage labels (short) ────────────────────────────────────────────────────
+# Used inside notification messages where the long heading would be too verbose.
+stage-group-prefix = Grupo { $letter }
+
+# ─── Signal-group notification messages ──────────────────────────────────────
+# Match-closing reminder posted to the Signal group <24h before kickoff.
+notify-match-closing-soon = ⚽ Recordatorio: { $home } – { $away } ({ $where }) empieza en <24h. Faltan: { $who }. Pronostica ya: { $base_url }
+# Champion-pick lock reminder, posted ~24h before the opening kickoff.
+notify-special-lock = ⏰ El pronóstico del campeón se bloquea en <24h (partido inaugural). Faltan: { $who }. { $base_url }
+# Announcement that a new knockout bracket is now tippable.
+notify-knockout-ready = 🏆 { $stage }: { $match_count } emparejamientos fijados, ya puedes pronosticar. { $base_url }
+# Fallback when too many users are missing to enumerate by name.
+notify-many-players = { $count } jugadores
+# Body of the per-user Signal invite (direct DM, not the group channel).
+notify-invite-signal = ¡Hola { $name }! Te has unido al juego de pronósticos Pila. Tu enlace: { $magic_link }
+
+# ─── Email subjects and bodies ───────────────────────────────────────────────
+# Subject of the magic-link invite email sent to new players.
+mail-invite-subject = Pila — tu enlace de acceso
+# Body of the magic-link invite email.
+mail-invite-body = ¡Hola { $name }!
+
+Te has unido al juego de pronósticos Pila.
+Tu enlace de acceso: { $magic_link }
+
+Guarda este enlace en favoritos — es tu clave personal. Quien lo tenga, accede como { $name }.
+
+¡Suerte con los pronósticos!
+— Pila
+# Subject of the match-closing reminder email.
+mail-reminder-subject = ⚽ Recordatorio: { $home } – { $away }
+# Body of the match-closing reminder email.
+mail-reminder-body = ¡Hola { $name }!
+
+{ $home } – { $away } ({ $stage }) empieza en menos de 24 horas y aún no has pronosticado.
+
+Pronostica ya: { $magic_link }
+
+— Pila
+# Subject of the champion-pick reminder email (singleton per tournament).
+mail-champion-subject = ⏰ El pronóstico del campeón se bloquea pronto
+# Body of the champion-pick reminder email.
+mail-champion-body = ¡Hola { $name }!
+
+El pronóstico del campeón se bloquea en menos de 24 horas (partido inaugural). ¡Envía tu pronóstico ahora!
+
+{ $magic_link }
+
+— Pila

@@ -504,3 +504,53 @@ admin-resend-email-ok = ✓ E-Mail gesendet
 admin-resend-email-error = ✗ E-Mail-Fehler:
 # Inline status when neither phone nor email is configured for resend.
 admin-resend-no-channel = Keine Kontaktdaten oder Versandkanal konfiguriert
+
+# ─── Stage labels (short) ────────────────────────────────────────────────────
+# Used inside notification messages where the long heading would be too verbose.
+stage-group-prefix = Gruppe { $letter }
+
+# ─── Signal-group notification messages ──────────────────────────────────────
+# Match-closing reminder posted to the Signal group <24h before kickoff.
+notify-match-closing-soon = ⚽ Tipp-Erinnerung: { $home } – { $away } ({ $where }) wird in <24h angepfiffen. Es fehlen noch: { $who }. Jetzt tippen: { $base_url }
+# Champion-pick lock reminder, posted ~24h before the opening kickoff.
+notify-special-lock = ⏰ Weltmeister-Tipp wird in <24h gesperrt (Anpfiff Eröffnungsspiel). Es fehlen: { $who }. { $base_url }
+# Announcement that a new knockout bracket is now tippable.
+notify-knockout-ready = 🏆 { $stage }: { $match_count } Paarungen stehen fest, Tipps jetzt möglich. { $base_url }
+# Fallback when too many users are missing to enumerate by name.
+notify-many-players = { $count } Mitspieler
+# Body of the per-user Signal invite (direct DM, not the group channel).
+notify-invite-signal = Hallo { $name }! Du bist beim Pila WM-Tippspiel dabei. Dein Login-Link: { $magic_link }
+
+# ─── Email subjects and bodies ───────────────────────────────────────────────
+# Subject of the magic-link invite email sent to new players.
+mail-invite-subject = Pila — Dein Login-Link
+# Body of the magic-link invite email.
+mail-invite-body = Hallo { $name }!
+
+Du bist beim Pila WM-Tippspiel dabei.
+Dein Login-Link: { $magic_link }
+
+Bookmarke diesen Link — er ist dein persönlicher Schlüssel. Wer ihn kennt, ist als { $name } eingeloggt.
+
+Viel Erfolg beim Tippen!
+— Pila
+# Subject of the match-closing reminder email.
+mail-reminder-subject = ⚽ Tipp-Erinnerung: { $home } – { $away }
+# Body of the match-closing reminder email.
+mail-reminder-body = Hallo { $name }!
+
+{ $home } – { $away } ({ $stage }) wird in weniger als 24 Stunden angepfiffen und du hast noch keinen Tipp abgegeben.
+
+Jetzt tippen: { $magic_link }
+
+— Pila
+# Subject of the champion-pick reminder email (singleton per tournament).
+mail-champion-subject = ⏰ Weltmeister-Tipp wird bald gesperrt
+# Body of the champion-pick reminder email.
+mail-champion-body = Hallo { $name }!
+
+Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt (Anpfiff Eröffnungsspiel). Gib jetzt deinen Tipp ab!
+
+{ $magic_link }
+
+— Pila

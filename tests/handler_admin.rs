@@ -89,6 +89,7 @@ fn user_full(id: Uuid, name: &str, token: &str, is_admin: bool) -> UserFull {
         is_admin,
         can_create_league: false,
         league_id: DEFAULT_LEAGUE_ID,
+        language: "de".into(),
     }
 }
 

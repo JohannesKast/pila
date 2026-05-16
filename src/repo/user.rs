@@ -32,6 +32,7 @@ pub struct UserFull {
     pub is_admin: bool,
     pub can_create_league: bool,
     pub league_id: Uuid,
+    pub language: String,
 }
 
 /// Trimmed projection for admin listings.
@@ -148,7 +149,7 @@ impl UserRepo for PgUserRepo {
 
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>> {
         let row = sqlx::query!(
-            "SELECT id, name, token, phone_number, email, is_admin, can_create_league, league_id \
+            "SELECT id, name, token, phone_number, email, is_admin, can_create_league, league_id, language \
              FROM users WHERE id = $1",
             id
         )
@@ -165,6 +166,7 @@ impl UserRepo for PgUserRepo {
             is_admin: r.is_admin,
             can_create_league: r.can_create_league,
             league_id: r.league_id,
+            language: r.language,
         }))
     }
 
@@ -541,6 +543,7 @@ impl UserRepo for MemoryUserRepo {
             is_admin: new_user.is_admin,
             can_create_league: false,
             league_id: new_user.league_id,
+            language: new_user.language.to_string(),
         });
         Ok(())
     }
@@ -638,6 +641,7 @@ mod memory_tests {
             is_admin,
             can_create_league: false,
             league_id: DEFAULT_LEAGUE_ID,
+            language: "de".to_string(),
         }
     }
 

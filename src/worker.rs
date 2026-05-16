@@ -6,16 +6,18 @@
 //! against in-memory fakes.
 
 use chrono::{DateTime, NaiveDate, Utc};
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::notifier::{in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier};
 use crate::mail;
+use crate::notifier::{in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier};
 use crate::repo::league::League;
 use crate::repo::match_::EspnMatchUpsert;
 use crate::repo::team::EspnTeamUpsert;
 use crate::repo::Repos;
 use crate::scoreboard::{ScoreboardClient, SportsEvent};
+use crate::translations::{self, T};
 
 // ─── Public entry points ─────────────────────────────────────────────────────
 
@@ -29,6 +31,7 @@ pub async fn start_background_worker(
     base_url: String,
     signal_api_url: Option<String>,
     smtp_config: Option<crate::mail::SmtpConfig>,
+    translations: HashMap<String, T>,
 ) {
     tokio::spawn(async move {
         loop {
@@ -36,7 +39,15 @@ pub async fn start_background_worker(
             if let Err(e) = update_data(&*scoreboard, &repos).await {
                 tracing::error!("Scoreboard worker error: {:?}", e);
             }
-            if let Err(e) = process_notifications(&repos, &base_url, &signal_api_url, &smtp_config).await {
+            if let Err(e) = process_notifications(
+                &repos,
+                &base_url,
+                &signal_api_url,
+                &smtp_config,
+                &translations,
+            )
+            .await
+            {
                 tracing::error!("Notification processing error: {:?}", e);
             }
             tokio::time::sleep(Duration::from_secs(1800)).await;
@@ -182,12 +193,21 @@ pub(crate) async fn process_notifications(
     base_url: &str,
     signal_api_url: &Option<String>,
     smtp_config: &Option<mail::SmtpConfig>,
+    translations: &HashMap<String, T>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if in_quiet_hours_now() {
         tracing::debug!("Quiet hours: skipping notification dispatch");
         return Ok(());
     }
-    dispatch_pending_for_all_leagues(repos, Utc::now(), base_url, signal_api_url, smtp_config).await
+    dispatch_pending_for_all_leagues(
+        repos,
+        Utc::now(),
+        base_url,
+        signal_api_url,
+        smtp_config,
+        translations,
+    )
+    .await
 }
 
 /// Iterate every league, build a per-league notifier from its `LeagueConfig`,
@@ -199,19 +219,31 @@ pub(crate) async fn dispatch_pending_for_all_leagues(
     base_url: &str,
     signal_api_url: &Option<String>,
     smtp_config: &Option<mail::SmtpConfig>,
+    translations: &HashMap<String, T>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let leagues = repos.leagues.list().await?;
     for league in leagues {
         let cfg = repos.leagues.get_config(league.id).await?;
+        let t = translations::resolve(translations, &cfg.default_language);
         let notifier: Box<dyn Notifier> = match (signal_api_url, &cfg.signal_group_id, &cfg.signal_from_number) {
             (Some(api), Some(gid), Some(from))
                 if !api.is_empty() && !gid.is_empty() && !from.is_empty() =>
             {
-                Box::new(SignalNotifier::new(api, from, gid, base_url))
+                Box::new(SignalNotifier::new(api, from, gid, base_url, t.clone()))
             }
             _ => Box::new(NoopNotifier),
         };
-        if let Err(e) = dispatch_pending_for_league(repos, &league, notifier.as_ref(), now, base_url, smtp_config).await {
+        if let Err(e) = dispatch_pending_for_league(
+            repos,
+            &league,
+            notifier.as_ref(),
+            now,
+            base_url,
+            smtp_config,
+            &t,
+        )
+        .await
+        {
             tracing::error!(
                 "Notification dispatch failed for league {} ({}): {:?}",
                 league.name,
@@ -232,6 +264,7 @@ pub(crate) async fn dispatch_pending_for_league(
     now: DateTime<Utc>,
     base_url: &str,
     smtp_config: &Option<mail::SmtpConfig>,
+    t: &T,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cfg = repos.leagues.get_config(league.id).await?;
 
@@ -321,8 +354,8 @@ pub(crate) async fn dispatch_pending_for_league(
                     continue;
                 }
                 let link = format!("{}/play/me/{}", base_url.trim_end_matches('/'), token);
-                let stage_label = r.stage.label_de();
-                if let Err(e) = mail::send_reminder_email(smtp, &name, &email, &r.home, &r.away, stage_label, &link).await {
+                let stage_label = t.get(r.stage.ftl_key());
+                if let Err(e) = mail::send_reminder_email(smtp, &name, &email, &r.home, &r.away, &stage_label, &link, t).await {
                     tracing::warn!("Email reminder to {} failed: {:?}", email, e);
                     continue;
                 }
@@ -366,7 +399,7 @@ pub(crate) async fn dispatch_pending_for_league(
                         continue;
                     }
                     let link = format!("{}/play/me/{}", base_url.trim_end_matches('/'), token);
-                    if let Err(e) = mail::send_champion_reminder_email(smtp, &name, &email, &link).await {
+                    if let Err(e) = mail::send_champion_reminder_email(smtp, &name, &email, &link, t).await {
                         tracing::warn!("Champion email reminder to {} failed: {:?}", email, e);
                         continue;
                     }
@@ -580,7 +613,7 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
 
@@ -617,7 +650,7 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert!(
@@ -643,13 +676,13 @@ mod tests {
         let notifier = RecordingNotifier::default();
 
         // First tick: dispatches.
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
 
         // Second tick: must be a no-op for the same (league, match_id).
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
@@ -670,7 +703,7 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
 
@@ -704,7 +737,7 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
@@ -729,7 +762,7 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
@@ -764,7 +797,7 @@ mod tests {
         repos.leagues = leagues;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None)
+        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
             .await
             .unwrap();
         assert!(

@@ -8,6 +8,8 @@ use lettre::message::{header::ContentType, Mailbox};
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 
+use crate::translations::T;
+
 pub type MailError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Global SMTP configuration, read once at startup.
@@ -83,21 +85,18 @@ pub async fn send_invite_email(
     name: &str,
     email: &str,
     magic_link: &str,
+    t: &T,
 ) -> Result<(), MailError> {
-    let subject = "Pila — Dein Login-Link";
-    let body = format!(
-        "Hallo {name}!\n\n\
-         Du bist beim Pila WM-Tippspiel dabei.\n\
-         Dein Login-Link: {magic_link}\n\n\
-         Bookmarke diesen Link — er ist dein persönlicher Schlüssel. \
-         Wer ihn kennt, ist als {name} eingeloggt.\n\n\
-         Viel Erfolg beim Tippen!\n\
-         — Pila"
+    let subject = t.get("mail-invite-subject");
+    let body = t.format(
+        "mail-invite-body",
+        &[("name", name), ("magic_link", magic_link)],
     );
-    send_email(cfg, email, subject, &body).await
+    send_email(cfg, email, &subject, &body).await
 }
 
 /// Send a reminder email to a user who hasn't tipped a match yet.
+#[allow(clippy::too_many_arguments)]
 pub async fn send_reminder_email(
     cfg: &SmtpConfig,
     name: &str,
@@ -106,14 +105,18 @@ pub async fn send_reminder_email(
     away: &str,
     stage_label: &str,
     magic_link: &str,
+    t: &T,
 ) -> Result<(), MailError> {
-    let subject = format!("⚽ Tipp-Erinnerung: {home} – {away}");
-    let body = format!(
-        "Hallo {name}!\n\n\
-         {home} – {away} ({stage_label}) wird in weniger als 24 Stunden angepfiffen \
-         und du hast noch keinen Tipp abgegeben.\n\n\
-         Jetzt tippen: {magic_link}\n\n\
-         \u{2014} Pila"
+    let subject = t.format("mail-reminder-subject", &[("home", home), ("away", away)]);
+    let body = t.format(
+        "mail-reminder-body",
+        &[
+            ("name", name),
+            ("home", home),
+            ("away", away),
+            ("stage", stage_label),
+            ("magic_link", magic_link),
+        ],
     );
     send_email(cfg, email, &subject, &body).await
 }
@@ -124,14 +127,12 @@ pub async fn send_champion_reminder_email(
     name: &str,
     email: &str,
     magic_link: &str,
+    t: &T,
 ) -> Result<(), MailError> {
-    let subject = "⏰ Weltmeister-Tipp wird bald gesperrt";
-    let body = format!(
-        "Hallo {name}!\n\n\
-         Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt \
-         (Anpfiff Eröffnungsspiel). Gib jetzt deinen Tipp ab!\n\n\
-         {magic_link}\n\n\
-         — Pila"
+    let subject = t.get("mail-champion-subject");
+    let body = t.format(
+        "mail-champion-body",
+        &[("name", name), ("magic_link", magic_link)],
     );
-    send_email(cfg, email, subject, &body).await
+    send_email(cfg, email, &subject, &body).await
 }

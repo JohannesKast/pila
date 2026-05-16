@@ -90,10 +90,11 @@ async fn index_renders_with_valid_csp_and_without_document_body_in_head() {
             name: user.name.clone(),
             token: "test-token".into(),
             phone_number: None,
-        email: None,
+            email: None,
             is_admin: false,
             can_create_league: false,
             league_id: user.league_id,
+            language: "de".into(),
         },
         "classic",
     );

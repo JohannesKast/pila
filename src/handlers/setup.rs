@@ -211,18 +211,30 @@ pub async fn setup_post(
     }
 
     // Signal invite is outside the transaction — best-effort side effect.
+    let invite_t = crate::handlers::util::t_for(&state, lang);
     if let Some(p) = phone_opt {
         if signal_configured(&state.signal_api_url, &state.signal_from_number) {
-            if let Err(e) = notifier::send_invite_via_signal(p, &name, &magic_link, &state.signal_api_url, &state.signal_from_number).await {
-                tracing::warn!("Setup: Signal-Einladung an {p} fehlgeschlagen: {e}");
+            if let Err(e) = notifier::send_invite_via_signal(
+                p,
+                &name,
+                &magic_link,
+                &state.signal_api_url,
+                &state.signal_from_number,
+                &invite_t,
+            )
+            .await
+            {
+                tracing::warn!("setup: Signal invite to {p} failed: {e}");
             }
         }
     }
     // Email invite — also best-effort.
     if let Some(e) = email_opt {
         if let Some(ref smtp) = state.smtp_config {
-            if let Err(err) = crate::mail::send_invite_email(smtp, &name, e, &magic_link).await {
-                tracing::warn!("Setup: E-Mail-Einladung an {e} fehlgeschlagen: {err}");
+            if let Err(err) =
+                crate::mail::send_invite_email(smtp, &name, e, &magic_link, &invite_t).await
+            {
+                tracing::warn!("setup: email invite to {e} failed: {err}");
             }
         }
     }
