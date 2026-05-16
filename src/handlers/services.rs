@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::badges;
 use crate::handlers::util::flag_url;
-use crate::jersey::JerseyPreset;
+use crate::jersey::{self, JerseyPreset};
 use crate::repo::Repos;
 use crate::scoring;
 use crate::views::{GroupRow, GroupStandingsTable, LeaderboardEntry};
@@ -188,8 +188,8 @@ pub async fn fetch_leaderboard(
         .map(|(name, (total, potential))| {
             let jersey_preset = user_jerseys
                 .get(&name)
-                .and_then(|p| jerseys.get(p))
-                .unwrap_or_else(|| jerseys.get("classic").unwrap());
+                .map(|p| jersey::get(jerseys, p))
+                .unwrap_or_else(|| jersey::get(jerseys, "classic"));
             LeaderboardEntry {
                 name,
                 total_points: total,

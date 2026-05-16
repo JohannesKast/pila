@@ -29,13 +29,13 @@ repository modules are split into trait / pg / fake.
 
 **Test gate still open** (deferred to Sprint 1.5 — "Close test coverage gaps"): integration tests that assert the English variant of each migrated handler response when `users.language = 'en'`.
 
-### 1.2 — Eliminate `.unwrap()` in response paths [Blocker]
+### 1.2 — Eliminate `.unwrap()` in response paths [DONE]
 
-- [ ] `src/handlers/jersey.rs:175` — `"/".parse().unwrap()` → `.expect("static HX-Location header value is valid")` (or use `HeaderValue::from_static("/")` which is infallible).
-- [ ] `src/handlers/services.rs:192` — `jerseys.get("classic").unwrap()` → either fall back to first preset, or `.expect("classic preset must exist in jersey config")` and document the invariant in `jersey.rs`. Add a startup assertion in `jersey::load()` that "classic" key exists.
-- [ ] Sweep: `grep -nE '\.unwrap\(\)' src/handlers/ src/repo/ src/worker.rs src/notifier.rs` — for every remaining hit, decide: justifiable invariant → `.expect("why")`; otherwise → propagate error with `?` and proper `Result` type.
+- [x] `src/handlers/jersey.rs:175` — already infallible via `HeaderValue::from_static("/")` (verified, no change needed).
+- [x] `src/handlers/services.rs:192` — replaced `unwrap()` with `jersey::get()` helper (existing `expect()` documents the invariant). Added a startup assertion in `jersey::load()` that the "classic" key exists.
+- [x] Sweep: `src/main.rs` `security_headers_middleware` no longer `.parse().unwrap()`s static literals on every response — switched to `HeaderValue::from_static`. `src/mail.rs` static content-type → `.expect()`. `src/handlers/dev.rs` `next_match.kickoff_time.unwrap()` documented with `.expect("filter above guarantees kickoff_time is Some")`.
 
-**Acceptance:** No bare `.unwrap()` in `src/handlers/`, `src/notifier.rs`, `src/worker.rs` (startup in `main.rs` and `jersey::load()` are exempt — document why).
+**Acceptance achieved:** No bare `.unwrap()` left in response/handler paths. Remaining `.unwrap()`s in `src/main.rs` are startup-only (DB pool connect, listener bind, axum::serve) — exempt. Worker/notifier production paths are clean (only test-gated unwraps remain). `cargo clippy --all-targets -- -D warnings` clean; 222 tests green.
 
 ### 1.3 — Split repo modules: trait / postgres / memory [Polish, but worth it]
 

@@ -383,7 +383,7 @@ pub async fn dev_simulate_next_matchday(
     use chrono_tz::Europe::Berlin;
     let matchday = next_match
         .kickoff_time
-        .unwrap()
+        .expect("filter above guarantees kickoff_time is Some")
         .with_timezone(&Berlin)
         .date_naive();
 
@@ -431,7 +431,11 @@ pub async fn dev_simulate_next_matchday(
         .iter()
         .filter_map(|m| m.kickoff_time)
         .max()
-        .unwrap_or_else(|| next_match.kickoff_time.unwrap());
+        .unwrap_or_else(|| {
+            next_match
+                .kickoff_time
+                .expect("filter above guarantees kickoff_time is Some")
+        });
     let new_time = latest_kickoff + chrono::Duration::hours(2);
     time::set_mock_time(&state.mock_now, new_time);
 

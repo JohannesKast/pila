@@ -176,6 +176,10 @@ const JERSEYS_JSON: &str = r##"{
 pub fn load() -> Arc<HashMap<String, JerseyPreset>> {
     let parsed: JerseysFile =
         serde_json::from_str(JERSEYS_JSON).expect("jerseys JSON must be valid");
+    assert!(
+        parsed.presets.contains_key("classic"),
+        "'classic' jersey preset must exist — it is the universal fallback for unknown keys",
+    );
     Arc::new(parsed.presets)
 }
 

@@ -71,7 +71,7 @@ pub async fn send_email(
         .from(from_mailbox)
         .to(to_mailbox)
         .subject(subject)
-        .header(ContentType::parse("text/plain; charset=utf-8").unwrap())
+        .header(ContentType::parse("text/plain; charset=utf-8").expect("static content-type literal is valid"))
         .body(body.to_string())?;
 
     let mailer = build_transport(cfg)?;
