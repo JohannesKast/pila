@@ -6,6 +6,7 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use uuid::Uuid;
 
+use crate::handlers::util::{t_err_from_headers, HandlerError};
 use crate::AppState;
 
 pub struct AuthenticatedUser {
@@ -46,24 +47,31 @@ async fn lookup_user(
 
 #[async_trait]
 impl FromRequestParts<AppState> for AuthenticatedUser {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = HandlerError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let cookie_jar = CookieJar::from_headers(&parts.headers);
         let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
 
         if let Some(token) = token {
-            let user = lookup_user(state, &token)
-                .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+            let user = lookup_user(state, &token).await.map_err(|_| {
+                t_err_from_headers(
+                    state,
+                    &parts.headers,
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "error-database",
+                )
+            })?;
             if let Some(u) = user {
                 return Ok(u);
             }
         }
 
-        Err((
+        Err(t_err_from_headers(
+            state,
+            &parts.headers,
             StatusCode::UNAUTHORIZED,
-            "Nicht authentifiziert. Bitte nutze deinen Magic Link (z.B. /play/me/mein-token).",
+            "error-not-authenticated",
         ))
     }
 }
@@ -72,16 +80,21 @@ pub struct MaybeAuthenticatedUser(pub Option<AuthenticatedUser>);
 
 #[async_trait]
 impl FromRequestParts<AppState> for MaybeAuthenticatedUser {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = HandlerError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let cookie_jar = CookieJar::from_headers(&parts.headers);
         let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
 
         if let Some(token) = token {
-            let user = lookup_user(state, &token)
-                .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+            let user = lookup_user(state, &token).await.map_err(|_| {
+                t_err_from_headers(
+                    state,
+                    &parts.headers,
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "error-database",
+                )
+            })?;
             return Ok(MaybeAuthenticatedUser(user));
         }
         Ok(MaybeAuthenticatedUser(None))
@@ -92,12 +105,17 @@ pub struct AdminUser(pub AuthenticatedUser);
 
 #[async_trait]
 impl FromRequestParts<AppState> for AdminUser {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = HandlerError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
         if !user.is_admin {
-            return Err((StatusCode::FORBIDDEN, "Admin-Rechte erforderlich."));
+            return Err(crate::handlers::util::t_err(
+                state,
+                &user.language,
+                StatusCode::FORBIDDEN,
+                "error-admin-required",
+            ));
         }
         Ok(AdminUser(user))
     }
@@ -109,14 +127,16 @@ pub struct SuperAdminUser(pub AuthenticatedUser);
 
 #[async_trait]
 impl FromRequestParts<AppState> for SuperAdminUser {
-    type Rejection = (StatusCode, &'static str);
+    type Rejection = HandlerError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
         if !user.is_admin || !user.can_create_league {
-            return Err((
+            return Err(crate::handlers::util::t_err(
+                state,
+                &user.language,
                 StatusCode::FORBIDDEN,
-                "Liga-Verwaltung erfordert can_create_league.",
+                "error-super-admin-required",
             ));
         }
         Ok(SuperAdminUser(user))

@@ -60,22 +60,22 @@ struct IndexTemplate {
 pub async fn index(
     State(state): State<AppState>,
     MaybeAuthenticatedUser(maybe_user): MaybeAuthenticatedUser,
-) -> Result<Response, (StatusCode, &'static str)> {
+) -> Result<Response, crate::handlers::util::HandlerError> {
     let user = match maybe_user {
         Some(u) => u,
         None => {
-            let count = state
-                .repos
-                .users
-                .count()
-                .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            let count = state.repos.users.count().await.map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
+            })?;
             if count == 0 {
                 return Ok(Redirect::to("/setup").into_response());
             }
             return Err((
                 StatusCode::UNAUTHORIZED,
-                "Nicht authentifiziert. Bitte nutze deinen Magic Link (z.B. /play/me/mein-token).",
+                crate::handlers::util::t_for(&state, "de").get("error-not-authenticated"),
             ));
         }
     };
@@ -376,12 +376,7 @@ pub async fn index(
         .unwrap_or_else(|| "WM 2026".to_string());
 
     let lang_code = user.language.clone();
-    let t = state
-        .translations
-        .get(&user.language)
-        .or_else(|| state.translations.get("de"))
-        .expect("de locale always present")
-        .clone();
+    let t = crate::handlers::util::t_for(&state, &user.language);
 
     let template = IndexTemplate {
         user_name: user.name,

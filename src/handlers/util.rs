@@ -4,7 +4,10 @@
 use axum_extra::extract::cookie::{Cookie, SameSite};
 
 use askama::Template;
-use axum::{http::StatusCode, response::Html};
+use axum::{
+    http::{HeaderMap, StatusCode},
+    response::Html,
+};
 /// Construct the login cookie that pins a magic-link token to the browser.
 /// Centralised so cookie attributes stay consistent across login + setup.
 pub fn make_login_cookie(token: String) -> Cookie<'static> {
@@ -72,25 +75,76 @@ pub fn format_kickoff(dt: Option<chrono::DateTime<chrono::Utc>>) -> String {
     }
 }
 
-/// Centralised translation lookup. Falls back to `de` — the only locale
-/// guaranteed to be loaded at startup — so callers can safely `.clone()`
-/// without panicking.
+/// Centralised translation lookup. Falls back to `de` in production; tests
+/// that build an `AppState` without translations get an empty bundle so
+/// `.get(key)` returns the key itself — never panics.
 pub fn t_for(state: &crate::AppState, lang: &str) -> crate::translations::T {
     state
         .translations
         .get(lang)
         .or_else(|| state.translations.get("de"))
-        .expect("de locale always present")
-        .clone()
+        .cloned()
+        .unwrap_or_default()
 }
 
 /// Render an Askama template into an HTML response, mapping render errors
 /// to a 500 with a tracing log instead of panicking via `.unwrap()`.
-pub fn render_template<T: Template>(
-    template: &T,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+///
+/// The error body is intentionally English-only: template render failures
+/// are programmer bugs that the operator inspects via logs; the response
+/// body just signals the failure mode to the browser.
+pub fn render_template<T: Template>(template: &T) -> Result<Html<String>, HandlerError> {
     template.render().map(Html).map_err(|e| {
         tracing::error!(%e, "template error");
-        (StatusCode::INTERNAL_SERVER_ERROR, "Interner Fehler")
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Internal error".to_string(),
+        )
     })
+}
+
+/// Translated error response. Use [`HandlerError::new`] to build one and rely
+/// on the `IntoResponse` impl (via Axum's tuple-error conversion) to return
+/// it from handlers.
+pub type HandlerError = (StatusCode, String);
+
+/// Build a translated handler error: looks up `key` in the caller-specified
+/// language, falling back to `de`. The status is what the client sees; the
+/// body is the translated message.
+pub fn t_err(state: &crate::AppState, lang: &str, status: StatusCode, key: &str) -> HandlerError {
+    (status, t_for(state, lang).get(key))
+}
+
+/// Pre-auth flavour of [`t_err`]: extracts the preferred locale from the
+/// request's `Accept-Language` header. Falls back to `de` when the header is
+/// missing or matches no supported locale.
+pub fn t_err_from_headers(
+    state: &crate::AppState,
+    headers: &HeaderMap,
+    status: StatusCode,
+    key: &str,
+) -> HandlerError {
+    let lang = preferred_lang(headers);
+    t_err(state, &lang, status, key)
+}
+
+const SUPPORTED_LOCALES: &[&str] = &["de", "en", "es", "fr"];
+
+/// Parse `Accept-Language`, return the first supported locale or `de`.
+/// Token quality scores are ignored — the header is read left-to-right.
+pub fn preferred_lang(headers: &HeaderMap) -> String {
+    let Some(value) = headers.get(axum::http::header::ACCEPT_LANGUAGE) else {
+        return "de".into();
+    };
+    let Ok(s) = value.to_str() else {
+        return "de".into();
+    };
+    for raw in s.split(',') {
+        let tag = raw.split(';').next().unwrap_or("").trim();
+        let primary = tag.split('-').next().unwrap_or("").to_ascii_lowercase();
+        if SUPPORTED_LOCALES.contains(&primary.as_str()) {
+            return primary;
+        }
+    }
+    "de".into()
 }

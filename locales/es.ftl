@@ -345,3 +345,75 @@ admin-card-users-title = Usuarios de esta liga
 admin-card-users-sub = Invita jugadores, renómbralos y asigna roles
 # Action label on the per-league user-management card
 admin-card-users-cta = Abrir
+
+# ─── Handler error responses ─────────────────────────────────────────────────
+# Generic fallback for unexpected server / template errors.
+error-internal = Error interno
+# Database errors surface as a single message — the actual cause is logged.
+error-database = Error de base de datos
+# Returned when an unauthenticated request hits a protected page.
+error-not-authenticated = No autenticado. Usa tu enlace mágico (p. ej. /play/me/tu-token).
+# Magic-link login: the supplied token is unknown or has been revoked.
+error-invalid-or-expired-link = Enlace no válido o caducado.
+# Returned when a regular admin tries to act on a different league.
+error-cross-league-forbidden = Las acciones entre ligas requieren can_create_league.
+# Generic "league does not exist" response for admin routes.
+error-league-not-found = Liga no encontrada.
+# Generic "user does not exist" response for admin routes.
+error-user-not-found = Usuario no encontrado.
+# Form validation: the name field was empty.
+error-name-empty = El nombre no puede estar vacío.
+# Form validation: the league-name field was empty.
+error-league-name-empty = El nombre de la liga no puede estar vacío.
+# Form validation: league name exceeded 255 characters.
+error-league-name-too-long = Nombre de liga demasiado largo.
+# Admin tried to delete their own account.
+error-cannot-delete-self = No puedes eliminarte a ti mismo.
+# Admin tried to remove their own admin rights.
+error-cannot-revoke-own-admin = No puedes retirarte a ti mismo los permisos de admin.
+# Demotion would leave the system with zero admins.
+error-at-least-one-admin = Debe permanecer al menos un admin.
+# /setup posted after the first user already exists.
+error-setup-already-done = La configuración ya está completa.
+# Unknown locale code in a form (default-language picker etc.).
+error-unknown-language = Idioma desconocido.
+# Unknown scoring-system value in the league-settings form.
+error-unknown-scoring = Sistema de puntuación desconocido.
+# Jersey-picker POST with an unknown preset id.
+error-unknown-jersey = Camiseta desconocida.
+# Champion-pick POST with a team id that does not exist or is a placeholder.
+error-unknown-team = Equipo desconocido.
+# Predict POST for a match id that does not exist.
+error-match-not-found = Partido no encontrado.
+# Predict POST for a match whose home/away team is not yet determined.
+error-match-not-fixed = El emparejamiento aún no está definido. No se puede pronosticar.
+# Predict POST on a group-stage match while the league has KO-only mode enabled.
+error-group-stage-disabled = En esta liga no se pronostica la fase de grupos.
+# Predict POST after kickoff: tips are locked.
+error-match-locked = El partido ya ha empezado. Los pronósticos están bloqueados.
+# Winner-only predict POST: the outcome selection (1/X/2) was missing or invalid.
+error-prediction-outcome = Pronóstico no válido: selección de ganador no reconocida.
+# Exact-score predict POST: home-score field missing.
+error-prediction-home-missing = Pronóstico no válido: falta el resultado local.
+# Exact-score predict POST: away-score field missing.
+error-prediction-away-missing = Pronóstico no válido: falta el resultado visitante.
+# Exact-score predict POST: score outside the 0-20 acceptable range.
+error-prediction-out-of-range = Pronóstico no válido: los valores deben estar entre 0 y 20.
+# Champion-pick POST after the tournament has kicked off.
+error-champion-locked = El torneo ha comenzado. El pronóstico de campeón está bloqueado.
+# Generic 403 when a non-admin hits an admin-only route.
+error-admin-required = Se requieren permisos de admin.
+# Generic 403 when a non-super-admin hits a super-admin-only route.
+error-super-admin-required = La gestión de ligas requiere can_create_league.
+
+# ─── Admin resend-invite inline status messages ──────────────────────────────
+# Inline status shown on the user row after a successful Signal resend.
+admin-resend-signal-ok = ✓ Signal enviado
+# Inline status after a failed Signal resend (followed by the error detail).
+admin-resend-signal-error = ✗ Error de Signal:
+# Inline status shown on the user row after a successful email resend.
+admin-resend-email-ok = ✓ Correo enviado
+# Inline status after a failed email resend (followed by the error detail).
+admin-resend-email-error = ✗ Error de correo:
+# Inline status when neither phone nor email is configured for resend.
+admin-resend-no-channel = Sin datos de contacto ni canal de envío configurado

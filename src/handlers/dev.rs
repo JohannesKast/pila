@@ -81,9 +81,9 @@ pub struct UserSummary {
 pub async fn dev_panel(
     State(state): State<AppState>,
     user: AuthenticatedUser,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
     render_panel(&state, &user).await
 }
@@ -93,7 +93,7 @@ pub async fn dev_panel(
 async fn render_panel(
     state: &AppState,
     user: &AuthenticatedUser,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, (StatusCode, String)> {
     let current_time = state
         .mock_now
         .read()
@@ -105,7 +105,7 @@ async fn render_panel(
         .users
         .list_basic(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let users: Vec<UserSummary> = users_raw
         .into_iter()
@@ -121,7 +121,7 @@ async fn render_panel(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let now = time::now(&state.mock_now);
     let unstarted_count = matches
@@ -137,7 +137,7 @@ async fn render_panel(
         unstarted_count,
     };
 
-    render_template(&template).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Template error"))
+    render_template(&template).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Template error".to_string()))
 }
 
 // ─── Route: POST /dev/time ───────────────────────────────────────────────────
@@ -151,9 +151,9 @@ pub async fn dev_set_time(
     State(state): State<AppState>,
     _user: AuthenticatedUser,
     Form(form): Form<SetTimeForm>,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     // The HTML <input type="datetime-local"> field emits values like
@@ -164,7 +164,7 @@ pub async fn dev_set_time(
         .map_err(|_| {
             (
                 StatusCode::BAD_REQUEST,
-                "Invalid datetime format (use YYYY-MM-DDTHH:MM)",
+                "Invalid datetime format (use YYYY-MM-DDTHH:MM)".to_string(),
             )
         })?;
     let parsed = Utc.from_utc_datetime(&naive);
@@ -180,9 +180,9 @@ pub async fn dev_set_time(
 pub async fn dev_reset_time(
     State(state): State<AppState>,
     _user: AuthenticatedUser,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     time::clear_mock_time(&state.mock_now);
@@ -197,9 +197,9 @@ pub async fn dev_random_tips(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     _form: Form<EmptyForm>,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let matches = state
@@ -207,7 +207,7 @@ pub async fn dev_random_tips(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
@@ -235,7 +235,7 @@ pub async fn dev_random_tips(
             .predictions
             .upsert(user.id, m.id, home, away)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
     }
 
     Ok(htmx_refresh().into_response())
@@ -247,9 +247,9 @@ pub async fn dev_random_tips_all_users(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     _form: Form<EmptyForm>,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let user_ids = state
@@ -257,7 +257,7 @@ pub async fn dev_random_tips_all_users(
         .users
         .list_ids(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
@@ -268,7 +268,7 @@ pub async fn dev_random_tips_all_users(
             .matches
             .list_for_index(uid)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
         for m in matches {
             if m.kickoff_time.is_some_and(|k| k <= now) {
@@ -286,7 +286,7 @@ pub async fn dev_random_tips_all_users(
                 .predictions
                 .upsert(uid, m.id, home, away)
                 .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
         }
     }
 
@@ -299,9 +299,9 @@ pub async fn dev_random_results(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     _form: Form<EmptyForm>,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let matches = state
@@ -309,7 +309,7 @@ pub async fn dev_random_results(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
@@ -333,7 +333,7 @@ pub async fn dev_random_results(
             .matches
             .update_result(m.id, Some(home), Some(away), "finished")
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
     }
 
     Ok(htmx_refresh().into_response())
@@ -345,9 +345,9 @@ pub async fn dev_simulate_next_matchday(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     _form: Form<EmptyForm>,
-) -> Result<axum::response::Response, (StatusCode, &'static str)> {
+) -> Result<axum::response::Response, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let matches = state
@@ -355,7 +355,7 @@ pub async fn dev_simulate_next_matchday(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let now = time::now(&state.mock_now);
 
@@ -374,7 +374,7 @@ pub async fn dev_simulate_next_matchday(
         );
         return Err((
             StatusCode::BAD_REQUEST,
-            "Kein zukünftiges Spiel gefunden. Matches-Tabelle leer oder Mock-Zeit nach Finale?",
+            "No future match found. Matches table empty or mock time past the final?".to_string(),
         ));
     };
 
@@ -406,7 +406,7 @@ pub async fn dev_simulate_next_matchday(
         .users
         .list_ids(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     for m in &matchday_matches {
         for uid in &user_ids {
@@ -421,7 +421,7 @@ pub async fn dev_simulate_next_matchday(
                 .predictions
                 .upsert(*uid, m.id, home, away)
                 .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
         }
     }
 
@@ -452,7 +452,7 @@ pub async fn dev_simulate_next_matchday(
             .matches
             .update_result(m.id, Some(home), Some(away), "finished")
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
     }
 
     tracing::info!(
@@ -471,9 +471,9 @@ pub async fn dev_simulate_next_matchday(
 pub async fn dev_list_users(
     State(state): State<AppState>,
     user: AuthenticatedUser,
-) -> Result<Json<Vec<UserSummary>>, (StatusCode, &'static str)> {
+) -> Result<Json<Vec<UserSummary>>, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let users_raw = state
@@ -481,7 +481,7 @@ pub async fn dev_list_users(
         .users
         .list_basic(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
 
     let users: Vec<UserSummary> = users_raw
         .into_iter()
@@ -501,9 +501,9 @@ pub async fn dev_switch_user(
     State(state): State<AppState>,
     current: AuthenticatedUser,
     Path(target_id): Path<Uuid>,
-) -> Result<impl IntoResponse, (StatusCode, &'static str)> {
+) -> Result<impl IntoResponse, (StatusCode, String)> {
     if !state.dev_mode {
-        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled"));
+        return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
     let user = state
@@ -511,11 +511,11 @@ pub async fn dev_switch_user(
         .users
         .find_full_by_id(target_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User not found"))?;
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?
+        .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
 
     if user.league_id != current.league_id {
-        return Err((StatusCode::FORBIDDEN, "Cross-league user switch denied"));
+        return Err((StatusCode::FORBIDDEN, "Cross-league user switch denied".to_string()));
     }
 
     let cookie = format!(

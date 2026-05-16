@@ -9,9 +9,10 @@ use axum::{
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
-use crate::handlers::util::{flag_url, render_template};
+use crate::handlers::util::{flag_url, render_template, t_err, HandlerError};
 use crate::scoring::{self, MatchScoringSystem};
 use crate::stage::Stage;
+use crate::translations::T;
 use crate::AppState;
 
 #[derive(Template)]
@@ -41,56 +42,86 @@ pub async fn predict_match(
     user: AuthenticatedUser,
     Path(match_id): Path<i32>,
     Form(form): Form<PredictionForm>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, HandlerError> {
+    let lang = &user.language;
+    let t = crate::handlers::util::t_for(&state, lang);
+
     let m = state
         .repos
         .matches
         .find_lock_info(match_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
-        .ok_or((StatusCode::NOT_FOUND, "Match not found"))?;
+        .map_err(|_| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?
+        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-match-not-found"))?;
 
     let config = state
         .repos
         .leagues
         .get_config(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+        .map_err(|_| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?;
 
     let now = crate::time::now(&state.mock_now);
 
     if m.team_home_id.is_none() || m.team_away_id.is_none() {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::BAD_REQUEST,
-            "Begegnung steht noch nicht fest. Tipp nicht möglich.",
+            "error-match-not-fixed",
         ));
     }
 
     if config.predict_knockout_only && m.stage == Stage::Group {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::BAD_REQUEST,
-            "In dieser Liga werden Gruppenspiele nicht getippt.",
+            "error-group-stage-disabled",
         ));
     }
 
     if let Some(start_time) = m.kickoff_time {
         if start_time < now {
-            return Err((
+            return Err(t_err(
+                &state,
+                lang,
                 StatusCode::BAD_REQUEST,
-                "Das Spiel hat bereits begonnen. Tipps sind gesperrt.",
+                "error-match-locked",
             ));
         }
     }
 
     let allow_draw_prediction = m.stage == Stage::Group;
-    let (score_home, score_away) = normalize_prediction(&config, &form, allow_draw_prediction)?;
+    let (score_home, score_away) = normalize_prediction(&t, &config, &form, allow_draw_prediction)?;
 
     state
         .repos
         .predictions
         .upsert(user.id, match_id, score_home, score_away)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?;
+        .map_err(|_| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?;
 
     let template = PredictFormTemplate {
         match_id,
@@ -107,31 +138,28 @@ pub async fn predict_match(
 }
 
 fn normalize_prediction(
+    t: &T,
     config: &crate::repo::league::LeagueConfig,
     form: &PredictionForm,
     allow_draw_prediction: bool,
-) -> Result<(i32, i32), (StatusCode, &'static str)> {
+) -> Result<(i32, i32), HandlerError> {
     if config.match_scoring_system == MatchScoringSystem::WinnerOnly {
         let outcome = scoring::outcome_bet_from_form(form.outcome.trim(), allow_draw_prediction)
-            .ok_or((
-                StatusCode::BAD_REQUEST,
-                "Ungültiger Tipp: Sieger-Auswahl nicht erkannt.",
-            ))?;
+            .ok_or_else(|| (StatusCode::BAD_REQUEST, t.get("error-prediction-outcome")))?;
         return Ok(scoring::outcome_bet_to_stored_scores(outcome));
     }
 
     let score_home = form
         .score_home
-        .ok_or((StatusCode::BAD_REQUEST, "Ungültiger Tipp: Heimtore fehlen."))?;
-    let score_away = form.score_away.ok_or((
-        StatusCode::BAD_REQUEST,
-        "Ungültiger Tipp: Auswärtstore fehlen.",
-    ))?;
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, t.get("error-prediction-home-missing")))?;
+    let score_away = form
+        .score_away
+        .ok_or_else(|| (StatusCode::BAD_REQUEST, t.get("error-prediction-away-missing")))?;
 
     if !(0..=20).contains(&score_home) || !(0..=20).contains(&score_away) {
         return Err((
             StatusCode::BAD_REQUEST,
-            "Ungültiger Tipp: Werte müssen zwischen 0 und 20 liegen.",
+            t.get("error-prediction-out-of-range"),
         ));
     }
 
@@ -159,15 +187,25 @@ pub async fn predict_special(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Form(form): Form<SpecialPredictionForm>,
-) -> Result<Redirect, (StatusCode, &'static str)> {
+) -> Result<Redirect, HandlerError> {
+    let lang = &user.language;
     let now = crate::time::now(&state.mock_now);
+
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let config = state
         .repos
         .leagues
         .get_config(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     let first_kickoff = if config.predict_knockout_only {
         state
@@ -175,20 +213,22 @@ pub async fn predict_special(
             .matches
             .first_knockout_kickoff()
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+            .map_err(|_| db_err())?
     } else {
         state
             .repos
             .matches
             .first_kickoff()
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
+            .map_err(|_| db_err())?
     };
 
     if first_kickoff.is_some_and(|dt| dt < now) {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::BAD_REQUEST,
-            "Turnier hat begonnen. Weltmeister-Tipp ist gesperrt.",
+            "error-champion-locked",
         ));
     }
 
@@ -198,9 +238,14 @@ pub async fn predict_special(
             .teams
             .exists_real(cid)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| db_err())?;
         if !exists {
-            return Err((StatusCode::BAD_REQUEST, "Unbekanntes Team."));
+            return Err(t_err(
+                &state,
+                lang,
+                StatusCode::BAD_REQUEST,
+                "error-unknown-team",
+            ));
         }
     }
 
@@ -209,7 +254,7 @@ pub async fn predict_special(
         .special_predictions
         .upsert(user.id, form.champion_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     Ok(Redirect::to("/"))
 }

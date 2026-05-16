@@ -9,17 +9,19 @@
 use askama::Template;
 use axum::{
     extract::{Form, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Redirect, Response},
 };
 use axum_extra::extract::CookieJar;
 use serde::Deserialize;
 use uuid::Uuid;
 
-use crate::handlers::util::{build_magic_link, make_login_cookie, render_template};
+use crate::handlers::util::{
+    build_magic_link, make_login_cookie, render_template, t_err_from_headers, HandlerError,
+};
 use crate::notifier::{self, signal_configured};
 use crate::repo::league::LeagueConfig;
-use crate::repo::{Repos};
+use crate::repo::Repos;
 use crate::AppState;
 
 #[derive(Template)]
@@ -36,18 +38,26 @@ struct SetupDoneTemplate {
     magic_link: String,
 }
 
-async fn user_count(repos: &Repos) -> Result<i64, (StatusCode, &'static str)> {
-    repos
-        .users
-        .count()
-        .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))
+async fn user_count(
+    state: &AppState,
+    headers: &HeaderMap,
+    repos: &Repos,
+) -> Result<i64, HandlerError> {
+    repos.users.count().await.map_err(|_| {
+        t_err_from_headers(
+            state,
+            headers,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    })
 }
 
 pub async fn setup_get(
     State(state): State<AppState>,
-) -> Result<Response, (StatusCode, &'static str)> {
-    if user_count(&state.repos).await? > 0 {
+    headers: HeaderMap,
+) -> Result<Response, HandlerError> {
+    if user_count(&state, &headers, &state.repos).await? > 0 {
         return Ok(Redirect::to("/").into_response());
     }
     let template = SetupTemplate { lang_code: "de" };
@@ -76,27 +86,31 @@ pub struct SetupForm {
 
 pub async fn setup_post(
     State(state): State<AppState>,
+    headers: HeaderMap,
     jar: CookieJar,
     Form(form): Form<SetupForm>,
-) -> Result<(CookieJar, Response), (StatusCode, &'static str)> {
-    if user_count(&state.repos).await? > 0 {
-        return Err((StatusCode::FORBIDDEN, "Setup bereits abgeschlossen."));
+) -> Result<(CookieJar, Response), HandlerError> {
+    let err = |status: StatusCode, key: &str| t_err_from_headers(&state, &headers, status, key);
+    let db_err = || err(StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+
+    if user_count(&state, &headers, &state.repos).await? > 0 {
+        return Err(err(StatusCode::FORBIDDEN, "error-setup-already-done"));
     }
     let name = form.name.trim().to_string();
     if name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
     }
     let league_name = form.league_name.trim().to_string();
     if league_name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "Liga-Name darf nicht leer sein."));
+        return Err(err(StatusCode::BAD_REQUEST, "error-league-name-empty"));
     }
     if league_name.len() > 255 {
-        return Err((StatusCode::BAD_REQUEST, "Liga-Name zu lang."));
+        return Err(err(StatusCode::BAD_REQUEST, "error-league-name-too-long"));
     }
     let lang = form.default_language.trim();
     let lang = if lang.is_empty() { "de" } else { lang };
     if !VALID_LOCALES.contains(&lang) {
-        return Err((StatusCode::BAD_REQUEST, "Unbekannte Sprache."));
+        return Err(err(StatusCode::BAD_REQUEST, "error-unknown-language"));
     }
 
     let phone = form.phone_number.trim().to_string();
@@ -115,12 +129,12 @@ pub async fn setup_post(
         let mut tx = state
             .db
             .as_ref()
-            .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "DB not available"))?
+            .ok_or_else(db_err)?
             .begin()
             .await
             .map_err(|e| {
                 tracing::error!(%e, "setup: begin transaction failed");
-                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+                db_err()
             })?;
 
         // 1. Create league
@@ -132,7 +146,7 @@ pub async fn setup_post(
         .await
         .map_err(|e| {
             tracing::error!(%e, "setup: create league failed");
-            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            db_err()
         })?;
 
         // 2. Persist settings (only non-empty values)
@@ -157,7 +171,7 @@ pub async fn setup_post(
             .await
             .map_err(|e| {
                 tracing::error!(%e, key, "setup: insert setting failed");
-                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+                db_err()
             })?;
         }
 
@@ -178,7 +192,7 @@ pub async fn setup_post(
         .await
         .map_err(|e| {
             tracing::error!(%e, "setup: create user failed");
-            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            db_err()
         })?;
 
         // 4. Grant super-admin
@@ -187,12 +201,12 @@ pub async fn setup_post(
             .await
             .map_err(|e| {
                 tracing::error!(%e, "setup: grant can_create_league failed");
-                (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+                db_err()
             })?;
 
         tx.commit().await.map_err(|e| {
             tracing::error!(%e, "setup: commit failed");
-            (StatusCode::INTERNAL_SERVER_ERROR, "DB error")
+            db_err()
         })?;
     }
 

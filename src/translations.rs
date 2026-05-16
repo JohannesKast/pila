@@ -8,12 +8,27 @@ use unic_langid::LanguageIdentifier;
 /// FTL files live in `locales/`. All messages are extracted at startup;
 /// `T::get` returns the translated string or the key itself as fallback so
 /// a missing translation is visible but never panics at runtime.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct T(Arc<HashMap<String, String>>);
 
 impl T {
     pub fn get(&self, key: &str) -> String {
         self.0.get(key).cloned().unwrap_or_else(|| key.to_string())
+    }
+
+    /// Look up `key` and substitute Fluent-style `{$name}` placeables with
+    /// the provided arguments. Missing keys fall back to the key itself;
+    /// missing args leave the placeable in place — both make the failure
+    /// visible without panicking.
+    pub fn format(&self, key: &str, args: &[(&str, &str)]) -> String {
+        let mut out = self.get(key);
+        for (name, value) in args {
+            let needle = format!("{{${name}}}");
+            if out.contains(&needle) {
+                out = out.replace(&needle, value);
+            }
+        }
+        out
     }
 }
 

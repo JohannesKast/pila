@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::{html_escape, render_template};
+use crate::handlers::util::{html_escape, render_template, t_err, HandlerError};
 use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;
@@ -36,12 +36,7 @@ pub async fn jersey_picker_get(
     State(state): State<AppState>,
     user: AuthenticatedUser,
 ) -> Html<String> {
-    let t = state
-        .translations
-        .get(&user.language)
-        .or_else(|| state.translations.get("de"))
-        .expect("de locale always present")
-        .clone();
+    let t = crate::handlers::util::t_for(&state, &user.language);
 
     // Group jerseys by variant
     let mut home: Vec<JerseyOption> = Vec::new();
@@ -88,7 +83,7 @@ pub async fn jersey_picker_get(
         current: user.jersey_preset,
         t,
     };
-    render_template(&template).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
+    render_template(&template).unwrap_or_else(|_| Html("Internal error".to_string()))
 }
 
 pub async fn jersey_picker_close() -> Html<&'static str> {
@@ -104,16 +99,29 @@ pub async fn jersey_post(
     State(state): State<AppState>,
     user: AuthenticatedUser,
     Query(q): Query<JerseyPostQuery>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, HandlerError> {
+    let lang = &user.language;
     if !state.jerseys.contains_key(&q.preset) {
-        return Err((StatusCode::BAD_REQUEST, "Unbekanntes Trikot."));
+        return Err(t_err(
+            &state,
+            lang,
+            StatusCode::BAD_REQUEST,
+            "error-unknown-jersey",
+        ));
     }
     state
         .repos
         .users
         .set_jersey(user.id, &q.preset)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?;
 
     let leaderboard = fetch_leaderboard(
         &state.repos,
@@ -126,16 +134,22 @@ pub async fn jersey_post(
         .iter()
         .position(|e| e.name == user.name)
         .map(|p| p + 1)
-        .ok_or((StatusCode::INTERNAL_SERVER_ERROR, "User not in leaderboard"))?;
+        .ok_or((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "User not in leaderboard".to_string(),
+        ))?;
     let user_entry = leaderboard[user_rank - 1].clone();
 
     let entry_template = LeaderboardEntryTemplate {
         entry: user_entry,
         rank: user_rank,
     };
-    let entry_html = entry_template
-        .render()
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Template render error"))?;
+    let entry_html = entry_template.render().map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Template render error".to_string(),
+        )
+    })?;
 
     let oob_html = format!(
         r#"<div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-line); background:rgba(255,230,0,.04)" hx-swap-oob="innerHTML" id="leaderboard-entry-{}">{}</div>"#,
@@ -172,6 +186,9 @@ pub async fn set_language_post(
         .ok();
 
     let mut headers = HeaderMap::new();
-    headers.insert("HX-Location", "/".parse().unwrap());
+    headers.insert(
+        "HX-Location",
+        axum::http::HeaderValue::from_static("/"),
+    );
     (StatusCode::OK, headers).into_response()
 }

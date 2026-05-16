@@ -345,3 +345,75 @@ admin-card-users-title = Users in this league
 admin-card-users-sub = Invite players, rename them, grant roles
 # Action label on the per-league user-management card
 admin-card-users-cta = Open
+
+# ─── Handler error responses ─────────────────────────────────────────────────
+# Generic fallback for unexpected server / template errors.
+error-internal = Internal error
+# Database errors surface as a single message — the actual cause is logged.
+error-database = Database error
+# Returned when an unauthenticated request hits a protected page.
+error-not-authenticated = Not authenticated. Please use your magic link (e.g. /play/me/your-token).
+# Magic-link login: the supplied token is unknown or has been revoked.
+error-invalid-or-expired-link = Invalid or expired link.
+# Returned when a regular admin tries to act on a different league.
+error-cross-league-forbidden = Cross-league actions require can_create_league.
+# Generic "league does not exist" response for admin routes.
+error-league-not-found = League not found.
+# Generic "user does not exist" response for admin routes.
+error-user-not-found = User not found.
+# Form validation: the name field was empty.
+error-name-empty = Name must not be empty.
+# Form validation: the league-name field was empty.
+error-league-name-empty = League name must not be empty.
+# Form validation: league name exceeded 255 characters.
+error-league-name-too-long = League name too long.
+# Admin tried to delete their own account.
+error-cannot-delete-self = You cannot delete yourself.
+# Admin tried to remove their own admin rights.
+error-cannot-revoke-own-admin = You cannot revoke your own admin rights.
+# Demotion would leave the system with zero admins.
+error-at-least-one-admin = At least one admin must remain.
+# /setup posted after the first user already exists.
+error-setup-already-done = Setup is already complete.
+# Unknown locale code in a form (default-language picker etc.).
+error-unknown-language = Unknown language.
+# Unknown scoring-system value in the league-settings form.
+error-unknown-scoring = Unknown scoring system.
+# Jersey-picker POST with an unknown preset id.
+error-unknown-jersey = Unknown jersey.
+# Champion-pick POST with a team id that does not exist or is a placeholder.
+error-unknown-team = Unknown team.
+# Predict POST for a match id that does not exist.
+error-match-not-found = Match not found.
+# Predict POST for a match whose home/away team is not yet determined.
+error-match-not-fixed = Fixture is not finalised yet. Cannot tip.
+# Predict POST on a group-stage match while the league has KO-only mode enabled.
+error-group-stage-disabled = Group-stage matches are not tipped in this league.
+# Predict POST after kickoff: tips are locked.
+error-match-locked = The match has already kicked off. Tips are locked.
+# Winner-only predict POST: the outcome selection (1/X/2) was missing or invalid.
+error-prediction-outcome = Invalid tip: outcome selection not recognised.
+# Exact-score predict POST: home-score field missing.
+error-prediction-home-missing = Invalid tip: home score missing.
+# Exact-score predict POST: away-score field missing.
+error-prediction-away-missing = Invalid tip: away score missing.
+# Exact-score predict POST: score outside the 0-20 acceptable range.
+error-prediction-out-of-range = Invalid tip: values must be between 0 and 20.
+# Champion-pick POST after the tournament has kicked off.
+error-champion-locked = Tournament has begun. Champion pick is locked.
+# Generic 403 when a non-admin hits an admin-only route.
+error-admin-required = Admin rights required.
+# Generic 403 when a non-super-admin hits a super-admin-only route.
+error-super-admin-required = League management requires can_create_league.
+
+# ─── Admin resend-invite inline status messages ──────────────────────────────
+# Inline status shown on the user row after a successful Signal resend.
+admin-resend-signal-ok = ✓ Signal sent
+# Inline status after a failed Signal resend (followed by the error detail).
+admin-resend-signal-error = ✗ Signal error:
+# Inline status shown on the user row after a successful email resend.
+admin-resend-email-ok = ✓ Email sent
+# Inline status after a failed email resend (followed by the error detail).
+admin-resend-email-error = ✗ Email error:
+# Inline status when neither phone nor email is configured for resend.
+admin-resend-no-channel = No contact details or delivery channel configured

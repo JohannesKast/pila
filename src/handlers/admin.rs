@@ -15,7 +15,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::AdminUser;
-use crate::handlers::util::{build_magic_link, html_escape, render_template, t_for};
+use crate::handlers::util::{build_magic_link, html_escape, render_template, t_err, t_for, HandlerError};
 use crate::notifier::{self, signal_configured};
 use crate::repo;
 use crate::translations::T;
@@ -32,21 +32,24 @@ struct AdminRowTemplate {
 
 fn render_admin_row(u: AdminUserView, signal_enabled: bool, smtp_enabled: bool) -> Html<String> {
     let tpl = AdminRowTemplate { u, signal_enabled, smtp_enabled };
-    render_template(&tpl).unwrap_or_else(|_| Html("Interner Fehler".to_string()))
+    render_template(&tpl).unwrap_or_else(|_| Html("Internal error".to_string()))
 }
 
 /// Permission check used by every per-league admin route below: a regular
 /// admin may only touch their own league, a super-admin may touch any.
 fn ensure_league_access(
+    state: &AppState,
     admin: &crate::auth::AuthenticatedUser,
     league_id: Uuid,
-) -> Result<(), (StatusCode, &'static str)> {
+) -> Result<(), HandlerError> {
     if admin.league_id == league_id || admin.can_create_league {
         Ok(())
     } else {
-        Err((
+        Err(t_err(
+            state,
+            &admin.language,
             StatusCode::FORBIDDEN,
-            "Cross-League-Aktionen erfordern can_create_league.",
+            "error-cross-league-forbidden",
         ))
     }
 }
@@ -69,23 +72,25 @@ pub async fn league_users_page(
     State(state): State<AppState>,
     AdminUser(admin): AdminUser,
     Path(league_id): Path<Uuid>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
-    ensure_league_access(&admin, league_id)?;
+) -> Result<Html<String>, HandlerError> {
+    ensure_league_access(&state, &admin, league_id)?;
+    let lang = &admin.language;
+    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
 
     let league = state
         .repos
         .leagues
         .find_by_id(league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "Liga nicht gefunden."))?;
+        .map_err(|_| db_err())?
+        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-league-not-found"))?;
 
     let rows = state
         .repos
         .users
         .list_for_admin(league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     let base_url = &state.base_url;
     let sig_cfg = (&state.signal_api_url, &state.signal_from_number);
@@ -132,12 +137,14 @@ pub async fn admin_create_user(
     AdminUser(admin): AdminUser,
     Path(league_id): Path<Uuid>,
     Form(form): Form<AdminCreateForm>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
-    ensure_league_access(&admin, league_id)?;
+) -> Result<Html<String>, HandlerError> {
+    ensure_league_access(&state, &admin, league_id)?;
+    let lang = &admin.language;
+    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
 
     let name = form.name.trim();
     if name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        return Err(t_err(&state, lang, StatusCode::BAD_REQUEST, "error-name-empty"));
     }
     let phone = form.phone_number.trim();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
@@ -152,7 +159,7 @@ pub async fn admin_create_user(
         .leagues
         .get_config(league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     state
         .repos
@@ -168,7 +175,7 @@ pub async fn admin_create_user(
             language: &cfg.default_language,
         })
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     let signal_enabled = signal_configured(&state.signal_api_url, &state.signal_from_number);
     let link = build_magic_link(&token, &state.base_url);
@@ -211,11 +218,16 @@ pub async fn admin_delete_user(
     State(state): State<AppState>,
     AdminUser(admin): AdminUser,
     Path(id): Path<Uuid>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, HandlerError> {
+    let lang = &admin.language;
+    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+
     if id == admin.id {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::BAD_REQUEST,
-            "Du kannst dich nicht selbst löschen.",
+            "error-cannot-delete-self",
         ));
     }
     let target = state
@@ -223,12 +235,14 @@ pub async fn admin_delete_user(
         .users
         .find_full_by_id(id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+        .map_err(|_| db_err())?
+        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-user-not-found"))?;
     if target.league_id != admin.league_id && !admin.can_create_league {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::FORBIDDEN,
-            "Cross-League-Aktionen erfordern can_create_league.",
+            "error-cross-league-forbidden",
         ));
     }
     state
@@ -236,7 +250,7 @@ pub async fn admin_delete_user(
         .users
         .delete(id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
     Ok(Html(String::new()))
 }
 
@@ -244,18 +258,23 @@ pub async fn admin_toggle_admin(
     State(state): State<AppState>,
     AdminUser(admin): AdminUser,
     Path(id): Path<Uuid>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, HandlerError> {
+    let lang = &admin.language;
+    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+
     let target = state
         .repos
         .users
         .find_full_by_id(id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+        .map_err(|_| db_err())?
+        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-user-not-found"))?;
     if target.league_id != admin.league_id && !admin.can_create_league {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::FORBIDDEN,
-            "Cross-League-Aktionen erfordern can_create_league.",
+            "error-cross-league-forbidden",
         ));
     }
 
@@ -266,17 +285,21 @@ pub async fn admin_toggle_admin(
             .users
             .count_admins()
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+            .map_err(|_| db_err())?;
         if admin_count <= 1 {
-            return Err((
+            return Err(t_err(
+                &state,
+                lang,
                 StatusCode::BAD_REQUEST,
-                "Mindestens ein Admin muss bestehen bleiben.",
+                "error-at-least-one-admin",
             ));
         }
         if id == admin.id {
-            return Err((
+            return Err(t_err(
+                &state,
+                lang,
                 StatusCode::BAD_REQUEST,
-                "Du kannst dir nicht selbst die Adminrechte entziehen.",
+                "error-cannot-revoke-own-admin",
             ));
         }
     }
@@ -286,7 +309,7 @@ pub async fn admin_toggle_admin(
         .users
         .set_admin(id, new_admin)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     let view = AdminUserView {
         magic_link: build_magic_link(&target.token, &state.base_url),
@@ -311,22 +334,28 @@ pub async fn admin_rename_user(
     AdminUser(admin): AdminUser,
     Path(id): Path<Uuid>,
     Form(form): Form<AdminRenameForm>,
-) -> Result<Html<String>, (StatusCode, &'static str)> {
+) -> Result<Html<String>, HandlerError> {
+    let lang = &admin.language;
+    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let not_found = || t_err(&state, lang, StatusCode::NOT_FOUND, "error-user-not-found");
+
     let name = form.name.trim();
     if name.is_empty() {
-        return Err((StatusCode::BAD_REQUEST, "Name darf nicht leer sein."));
+        return Err(t_err(&state, lang, StatusCode::BAD_REQUEST, "error-name-empty"));
     }
     let target_pre = state
         .repos
         .users
         .find_full_by_id(id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+        .map_err(|_| db_err())?
+        .ok_or_else(not_found)?;
     if target_pre.league_id != admin.league_id && !admin.can_create_league {
-        return Err((
+        return Err(t_err(
+            &state,
+            lang,
             StatusCode::FORBIDDEN,
-            "Cross-League-Aktionen erfordern can_create_league.",
+            "error-cross-league-forbidden",
         ));
     }
     state
@@ -334,15 +363,15 @@ pub async fn admin_rename_user(
         .users
         .rename(id, name)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?;
+        .map_err(|_| db_err())?;
 
     let target = state
         .repos
         .users
         .find_full_by_id(id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "DB error"))?
-        .ok_or((StatusCode::NOT_FOUND, "User nicht gefunden."))?;
+        .map_err(|_| db_err())?
+        .ok_or_else(not_found)?;
 
     let view = AdminUserView {
         magic_link: build_magic_link(&target.token, &state.base_url),
@@ -359,14 +388,16 @@ pub async fn admin_rename_user(
 
 pub async fn admin_resend_invite(
     State(state): State<AppState>,
-    AdminUser(_admin): AdminUser,
+    AdminUser(admin): AdminUser,
     Path(id): Path<Uuid>,
 ) -> Html<String> {
+    let t = t_for(&state, &admin.language);
     let row = state.repos.users.find_full_by_id(id).await.ok().flatten();
     let Some(row) = row else {
-        return Html(
-            r#"<span class="text-red-400 text-xs">User nicht gefunden</span>"#.to_string(),
-        );
+        return Html(format!(
+            r#"<span class="text-red-400 text-xs">{}</span>"#,
+            html_escape(&t.get("error-user-not-found"))
+        ));
     };
     let link = build_magic_link(&row.token, &state.base_url);
 
@@ -374,11 +405,13 @@ pub async fn admin_resend_invite(
     if let Some(phone) = row.phone_number.as_deref() {
         if signal_configured(&state.signal_api_url, &state.signal_from_number) {
             match notifier::send_invite_via_signal(phone, &row.name, &link, &state.signal_api_url, &state.signal_from_number).await {
-                Ok(_) => return Html(
-                    r#"<span class="text-emerald-400 text-xs">✓ Signal gesendet</span>"#.to_string(),
-                ),
+                Ok(_) => return Html(format!(
+                    r#"<span class="text-emerald-400 text-xs">{}</span>"#,
+                    html_escape(&t.get("admin-resend-signal-ok"))
+                )),
                 Err(e) => return Html(format!(
-                    r#"<span class="text-red-400 text-xs">✗ Signal-Fehler: {}</span>"#,
+                    r#"<span class="text-red-400 text-xs">{} {}</span>"#,
+                    html_escape(&t.get("admin-resend-signal-error")),
                     html_escape(&e.to_string())
                 )),
             }
@@ -389,18 +422,21 @@ pub async fn admin_resend_invite(
     if let Some(email) = row.email.as_deref() {
         if let Some(ref smtp) = state.smtp_config {
             match crate::mail::send_invite_email(smtp, &row.name, email, &link).await {
-                Ok(_) => return Html(
-                    r#"<span class="text-emerald-400 text-xs">✓ E-Mail gesendet</span>"#.to_string(),
-                ),
+                Ok(_) => return Html(format!(
+                    r#"<span class="text-emerald-400 text-xs">{}</span>"#,
+                    html_escape(&t.get("admin-resend-email-ok"))
+                )),
                 Err(e) => return Html(format!(
-                    r#"<span class="text-red-400 text-xs">✗ E-Mail-Fehler: {}</span>"#,
+                    r#"<span class="text-red-400 text-xs">{} {}</span>"#,
+                    html_escape(&t.get("admin-resend-email-error")),
                     html_escape(&e.to_string())
                 )),
             }
         }
     }
 
-    Html(
-        r#"<span class="text-amber-400 text-xs">Keine Kontaktdaten oder Versandkanal konfiguriert</span>"#.to_string(),
-    )
+    Html(format!(
+        r#"<span class="text-amber-400 text-xs">{}</span>"#,
+        html_escape(&t.get("admin-resend-no-channel"))
+    ))
 }

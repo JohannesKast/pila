@@ -3,25 +3,33 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::Redirect,
 };
 use axum_extra::extract::CookieJar;
 
-use crate::handlers::util::{make_csrf_cookie, make_login_cookie};
+use crate::handlers::util::{make_csrf_cookie, make_login_cookie, t_err_from_headers, HandlerError};
 use crate::AppState;
 
 pub async fn login_magic_link(
     State(state): State<AppState>,
     Path(token): Path<String>,
+    headers: HeaderMap,
     jar: CookieJar,
-) -> Result<(CookieJar, Redirect), (StatusCode, &'static str)> {
+) -> Result<(CookieJar, Redirect), HandlerError> {
     let exists = state
         .repos
         .users
         .find_by_token(&token)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error"))?
+        .map_err(|_| {
+            t_err_from_headers(
+                &state,
+                &headers,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?
         .is_some();
 
     if exists {
@@ -30,6 +38,11 @@ pub async fn login_magic_link(
             .add(make_csrf_cookie(token));
         Ok((updated_jar, Redirect::to("/")))
     } else {
-        Err((StatusCode::UNAUTHORIZED, "Ungültiger oder abgelaufener Link."))
+        Err(t_err_from_headers(
+            &state,
+            &headers,
+            StatusCode::UNAUTHORIZED,
+            "error-invalid-or-expired-link",
+        ))
     }
 }
