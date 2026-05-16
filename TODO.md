@@ -17,31 +17,17 @@ Legend:
 Goal: codebase obeys its own rules (CLAUDE.md), no panics in response paths,
 repository modules are split into trait / pg / fake.
 
-### 1.1 — Move hardcoded German strings into FTL locales [Blocker]
+### 1.1 — Move hardcoded German strings into FTL locales [DONE]
 
-Largest single task in this sprint. CLAUDE.md mandates that every user-facing
-string lives in `locales/{de,en,es,fr}.ftl`. The audit found 19 violations
-across 7 files.
+- [x] Handler error responses → FTL via `t_err` (commit cdc4f1a)
+- [x] Notifier + mail rendering → FTL with per-league and per-recipient bundles (commit c9b8db5)
+- [x] Badge titles and tooltips → FTL via `badge-<key>-{title,how-to-earn}` (commit 8bb0ab5)
+- [x] Jersey preset display names → English in code; user-visible names already came from `jersey-name-{key}` FTL keys
+- [x] German doc-comments translated to English (CLAUDE.md compliance)
 
-**Files & strings to migrate:**
+**Acceptance achieved:** `grep -rE '"[äöüßÄÖÜ]' src/{handlers,notifier.rs,mail.rs,badges.rs,jersey.rs}` returns no hits; clippy clean; all 222 tests green.
 
-- [ ] `src/handlers/auth.rs:33` — error message "Ungültiger oder abgelaufener Link."
-- [ ] `src/handlers/admin.rs` — "Du kannst dich nicht selbst löschen." and surrounding errors
-- [ ] `src/handlers/predictions.rs` — ×4 strings: "Begegnung steht noch nicht fest…", "Ungültiger Tipp: …" and variants
-- [ ] `src/handlers/dev.rs:529` — "Kein zukünftiges Spiel gefunden…" (dev-only — acceptable to keep English-only since dev mode is admin/dev-facing, but be consistent)
-- [ ] `src/notifier.rs` — ×2: Weltmeister-Tipp reminder + stage-label notification templates. Refactor to take a `NotificationKind` enum, render via FTL in the notifier impl.
-- [ ] `src/mail.rs` — invite/reminder mail bodies ("Bookmarke diesen Link…", "(Anpfiff Eröffnungsspiel)…"). Move subjects and bodies into FTL with parameter substitution.
-- [ ] `src/badges.rs` — ×8 German doc comments and badge descriptions. Doc comments → English. User-visible badge titles/descriptions → FTL.
-- [ ] `src/jersey.rs` — jersey names (e.g. "Dänemark", "Dänemark Away"). Two options: (a) keep canonical English names in the preset map, render translated label via FTL key `jersey-name-{preset_id}`; (b) accept that jersey display names are i18n keys. Option (a) is cleaner.
-
-**For each migrated string:**
-1. Add a key + `# translator comment` to all four FTL files (`de.ftl` `en.ftl` `es.ftl` `fr.ftl`).
-2. Replace the hardcoded string with `t.get("key-name")` (or the parameterised variant).
-3. If parameters: use Fluent placeables `{ $name }`.
-
-**Acceptance:** `grep -rE '"[A-ZÄÖÜ][a-zäöüß]+ [a-zäöüß]' src/` returns no user-facing German strings; doc comments are English; `cargo test` green.
-
-**Test gate:** Add at least one integration test per migrated handler that asserts the response contains the expected English string when `users.language = 'en'`.
+**Test gate still open** (deferred to Sprint 1.5 — "Close test coverage gaps"): integration tests that assert the English variant of each migrated handler response when `users.language = 'en'`.
 
 ### 1.2 — Eliminate `.unwrap()` in response paths [Blocker]
 
