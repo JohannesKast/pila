@@ -467,3 +467,28 @@ The champion pick locks in less than 24 hours (opening kickoff). Get your tip in
 { $magic_link }
 
 — Pila
+
+# ─── Hero-panel badges ───────────────────────────────────────────────────────
+# Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
+badge-matchday-wins-title = Matchday Win
+badge-matchday-wins-how-to-earn = Highest daily points total on a matchday (Berlin time). On ties the winners share the day.
+badge-exact-count-title = Exact Score
+badge-exact-count-how-to-earn = 100% correct tip: same home and away score as the final result.
+badge-underdog-title = Underdog
+badge-underdog-how-to-earn = An exact tip on a match where fewer than 30% of all players tipped exactly.
+badge-solo-hit-title = Solo Hit
+badge-solo-hit-how-to-earn = You were the only player to tip exactly — awarded once per match.
+badge-tendency-pct-title = Tendency Rate
+badge-tendency-pct-how-to-earn = Share of your finished tipped matches with at least one point.
+badge-knockout-points-title = KO Points
+badge-knockout-points-how-to-earn = Sum of your knockout-stage points (from Round of 32 onwards).
+badge-discipline-pct-title = Discipline
+badge-discipline-pct-how-to-earn = Share of already-started matches for which you submitted a tip.
+badge-current-streak-title = Current Streak
+badge-current-streak-how-to-earn = Run of finished matches with ≥1 point — breaks on the first 0-point match.
+badge-longest-streak-title = Longest Streak
+badge-longest-streak-how-to-earn = Longest streak of finished matches with ≥1 point you've ever reached.
+badge-rank-delta-title = Rank Movement
+badge-rank-delta-how-to-earn = Change in your rank since the previous matchday (positive = climbed).
+badge-champion-pick-title = Champion Pick
+badge-champion-pick-how-to-earn = Your champion pick. 10 points if your team wins the tournament.

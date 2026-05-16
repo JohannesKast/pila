@@ -364,8 +364,11 @@ pub async fn index(
 
     let news_items = state.news.get().await;
 
+    let t = crate::handlers::util::t_for(&state, &user.language);
+    let lang_code = user.language.clone();
+
     let badge_ctx_owned = build_badge_context(&state.repos, user.id, user.league_id, now).await;
-    let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx());
+    let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx(), &t);
 
     let tipprunden_name = state
         .repos
@@ -374,9 +377,6 @@ pub async fn index(
         .await
         .unwrap_or_default()
         .unwrap_or_else(|| "WM 2026".to_string());
-
-    let lang_code = user.language.clone();
-    let t = crate::handlers::util::t_for(&state, &user.language);
 
     let template = IndexTemplate {
         user_name: user.name,

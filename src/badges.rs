@@ -1,10 +1,11 @@
-//! Hero-Panel Badge-System.
+//! Hero-panel badge system.
 //!
-//! Badges aggregieren on-the-fly über vorhandene Predictions — sie ändern keine Punkte
-//! und werden niemals persistiert. Ein einmal pro Request gebauter `BadgeContext` wird
-//! an jeden registrierten Badge durchgereicht, der daraus pure einen `BadgeView` ableitet.
+//! Badges aggregate on-the-fly over existing predictions — they do not
+//! change any points and are never persisted. A single `BadgeContext` is
+//! built once per request and passed to every registered badge, which
+//! derives a `BadgeView` from it purely.
 //!
-//! Architekturüberblick: siehe CLAUDE.md, Abschnitt „Badges".
+//! Architecture overview: see CLAUDE.md, section "Badges".
 
 use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Europe::Berlin;
@@ -13,6 +14,7 @@ use uuid::Uuid;
 
 use crate::scoring::{self, MatchScoringSystem};
 use crate::stage::Stage;
+use crate::translations::T;
 
 const UNDERDOG_THRESHOLD: f32 = 0.30;
 
@@ -28,7 +30,7 @@ pub enum BadgeAccent {
 }
 
 impl BadgeAccent {
-    /// CSS-Variable für die Card-Akzentfarbe. `Default` mappt auf `--pl-fg`.
+    /// CSS variable for the card accent color. `Default` maps to `--pl-fg`.
     pub fn css_var(&self) -> &'static str {
         match self {
             BadgeAccent::Default => "var(--pl-fg)",
@@ -58,7 +60,7 @@ pub enum BadgeDisplay {
 }
 
 impl BadgeDisplay {
-    // Askama-Helfer (Pattern-Matching in Templates ist umständlich, deswegen Booleans).
+    // Askama helpers (pattern matching in templates is awkward — booleans are simpler).
     pub fn is_achievement(&self) -> bool {
         matches!(self, BadgeDisplay::Achievement { .. })
     }
@@ -137,14 +139,16 @@ impl BadgeDisplay {
 pub struct BadgeView {
     pub key: &'static str,
     pub icon: &'static str,
-    pub title: &'static str,
-    pub how_to_earn: &'static str,
+    /// Localised title shown on the badge card.
+    pub title: String,
+    /// Localised tooltip text explaining how the badge is earned.
+    pub how_to_earn: String,
     pub display: BadgeDisplay,
     pub accent: BadgeAccent,
 }
 
 impl BadgeView {
-    // Askama-Helper (Enum-Matching im Template ist umständlich).
+    // Askama helper (enum matching in templates is awkward).
     pub fn accent_css(&self) -> &'static str {
         self.accent.css_var()
     }
@@ -205,7 +209,7 @@ pub struct BadgeContext<'a> {
     pub user_champion: Option<&'a ChampionView>,
 }
 
-/// Owner-Variante mit eigenen Vecs — der HTTP-Handler hält dies, Badges nutzen `as_ctx()`.
+/// Owned variant with its own Vecs — the HTTP handler holds this, badges use `as_ctx()`.
 #[derive(Debug, Clone)]
 pub struct BadgeContextOwned {
     pub user_id: Uuid,
@@ -242,8 +246,15 @@ impl BadgeContextOwned {
 pub trait Badge: Send + Sync {
     fn key(&self) -> &'static str;
     fn icon(&self) -> &'static str;
-    fn title(&self) -> &'static str;
-    fn how_to_earn(&self) -> &'static str;
+    /// FTL key for the badge title. Default: `badge-<kebab-key>-title`.
+    fn title_key(&self) -> String {
+        format!("badge-{}-title", self.key().replace('_', "-"))
+    }
+    /// FTL key for the "how to earn" tooltip. Default:
+    /// `badge-<kebab-key>-how-to-earn`.
+    fn how_to_earn_key(&self) -> String {
+        format!("badge-{}-how-to-earn", self.key().replace('_', "-"))
+    }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Default
     }
@@ -266,14 +277,14 @@ pub fn registry() -> Vec<Box<dyn Badge>> {
     ]
 }
 
-pub fn compute_all(ctx: &BadgeContext<'_>) -> Vec<BadgeView> {
+pub fn compute_all(ctx: &BadgeContext<'_>, t: &T) -> Vec<BadgeView> {
     registry()
         .iter()
         .map(|b| BadgeView {
             key: b.key(),
             icon: b.icon(),
-            title: b.title(),
-            how_to_earn: b.how_to_earn(),
+            title: t.get(&b.title_key()),
+            how_to_earn: t.get(&b.how_to_earn_key()),
             display: b.compute(ctx),
             accent: b.accent(),
         })
@@ -290,12 +301,6 @@ impl Badge for MatchdayWinsBadge {
     fn icon(&self) -> &'static str {
         "🥇"
     }
-    fn title(&self) -> &'static str {
-        "Tagessieg"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Höchste Tagespunktzahl an einem Spieltag (Berlin-Zeit). Bei Gleichstand teilen sich die Sieger den Tag."
-    }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Yellow
     }
@@ -305,7 +310,7 @@ impl Badge for MatchdayWinsBadge {
         for r in ctx.finished_predictions {
             *by_day_user.entry((r.berlin_date(), r.user_id)).or_insert(0) += r.base_points();
         }
-        // Pro Tag Max bestimmen, dann zählen, wie oft `user_id` Max erreicht (>0).
+        // Determine the max per day, then count how often `user_id` reaches it (>0).
         let mut day_max: HashMap<NaiveDate, i32> = HashMap::new();
         for (&(day, _), &pts) in &by_day_user {
             day_max
@@ -331,12 +336,6 @@ impl Badge for ExactCountBadge {
     fn icon(&self) -> &'static str {
         "🎯"
     }
-    fn title(&self) -> &'static str {
-        "Exakter Tipp"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Tipp 100% korrekt: gleicher Heim- und Auswärtsscore wie das Endergebnis."
-    }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Yellow
     }
@@ -357,12 +356,6 @@ impl Badge for UnderdogBadge {
     }
     fn icon(&self) -> &'static str {
         "🐺"
-    }
-    fn title(&self) -> &'static str {
-        "Underdog"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Exakter Tipp auf ein Match, das weniger als 30% aller Tipper exakt trafen."
     }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Blue
@@ -402,12 +395,6 @@ impl Badge for SoloHitBadge {
     fn icon(&self) -> &'static str {
         "💎"
     }
-    fn title(&self) -> &'static str {
-        "Solo-Treffer"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Du warst als einziger Tipper exakt — pro Match einmal vergeben."
-    }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Green
     }
@@ -438,12 +425,6 @@ impl Badge for TendencyPctBadge {
     fn icon(&self) -> &'static str {
         "📈"
     }
-    fn title(&self) -> &'static str {
-        "Tendenz-Quote"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Anteil deiner getippten fertigen Matches mit mindestens einem Punkt."
-    }
     fn compute(&self, ctx: &BadgeContext<'_>) -> BadgeDisplay {
         let user_rows: Vec<_> = ctx
             .finished_predictions
@@ -466,12 +447,6 @@ impl Badge for KnockoutPointsBadge {
     }
     fn icon(&self) -> &'static str {
         "🏆"
-    }
-    fn title(&self) -> &'static str {
-        "K.O.-Punkte"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Summe deiner Punkte aus der K.O.-Phase (ab Sechzehntelfinale)."
     }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Yellow
@@ -502,12 +477,6 @@ impl Badge for DisciplinePctBadge {
     fn icon(&self) -> &'static str {
         "📋"
     }
-    fn title(&self) -> &'static str {
-        "Tippmoral"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Anteil bereits gestarteter Matches, für die du einen Tipp abgegeben hast."
-    }
     fn compute(&self, ctx: &BadgeContext<'_>) -> BadgeDisplay {
         if ctx.started_matches_total <= 0 {
             return BadgeDisplay::Metric(BadgeValue::Percent(None));
@@ -524,12 +493,6 @@ impl Badge for CurrentStreakBadge {
     }
     fn icon(&self) -> &'static str {
         "🔥"
-    }
-    fn title(&self) -> &'static str {
-        "Aktuelle Serie"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Folge fertiger Matches mit ≥1 Punkt — bricht beim ersten 0-Punkte-Match ab."
     }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Green
@@ -560,12 +523,6 @@ impl Badge for LongestStreakBadge {
     }
     fn icon(&self) -> &'static str {
         "🚀"
-    }
-    fn title(&self) -> &'static str {
-        "Längste Serie"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Längste je erreichte Folge fertiger Matches mit ≥1 Punkt."
     }
     fn compute(&self, ctx: &BadgeContext<'_>) -> BadgeDisplay {
         let mut user_rows: Vec<&PredictionRow> = ctx
@@ -598,12 +555,6 @@ impl Badge for RankDeltaBadge {
     fn icon(&self) -> &'static str {
         "📊"
     }
-    fn title(&self) -> &'static str {
-        "Rang-Bewegung"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Veränderung deines Rangs seit dem letzten Spieltag (positiv = aufgestiegen)."
-    }
     fn compute(&self, ctx: &BadgeContext<'_>) -> BadgeDisplay {
         // prev = nur Matches mit Berlin-Datum vor heute. Ohne solche Matches: kein Delta.
         let prev_rows: Vec<&PredictionRow> = ctx
@@ -614,7 +565,7 @@ impl Badge for RankDeltaBadge {
         if prev_rows.is_empty() {
             return BadgeDisplay::Metric(BadgeValue::Delta(None));
         }
-        // Punkte je User für prev (nur Matches mit Datum < heute).
+        // Points per user for the previous snapshot (only matches with date < today).
         let prev_final_decided = prev_rows.iter().any(|r| matches!(r.stage, Stage::Final));
         let prev_totals = totals_with_champion(
             &prev_rows,
@@ -650,12 +601,6 @@ impl Badge for ChampionPickBadge {
     }
     fn icon(&self) -> &'static str {
         "👑"
-    }
-    fn title(&self) -> &'static str {
-        "Weltmeister-Tipp"
-    }
-    fn how_to_earn(&self) -> &'static str {
-        "Dein Champion-Pick. 10 Punkte, wenn dein Team das Turnier gewinnt."
     }
     fn accent(&self) -> BadgeAccent {
         BadgeAccent::Yellow
@@ -1087,7 +1032,7 @@ mod tests {
     #[test]
     fn current_streak_counts_consecutive_recent() {
         let me = uid(1);
-        // chronologisch: 0, 0, 4, 2, 1 → Streak 3 (1, 2, 4 zurückwärts)
+        // chronological: 0, 0, 4, 2, 1 → streak 3 (counted backwards: 1, 2, 4)
         let rows = vec![
             pred(me, 1, ko(10, 18), (1, 0), (0, 1), Stage::Group), // 0
             pred(me, 2, ko(11, 18), (1, 0), (0, 2), Stage::Group), // 0
@@ -1116,7 +1061,7 @@ mod tests {
     #[test]
     fn longest_streak_tracks_best_run() {
         let me = uid(1);
-        // chronologisch: 1, 0, 2, 4, 4, 0, 1 → längste 3
+        // chronological: 1, 0, 2, 4, 4, 0, 1 → longest 3
         let rows = vec![
             pred(me, 1, ko(10, 18), (1, 0), (3, 0), Stage::Group), // 1
             pred(me, 2, ko(11, 18), (1, 0), (0, 1), Stage::Group), // 0
@@ -1312,7 +1257,10 @@ mod tests {
     #[test]
     fn registry_has_all_badges_in_stable_order() {
         let owned = base_owned(uid(1), vec![], vec![uid(1)]);
-        let views = compute_all(&owned.as_ctx());
+        let t = crate::translations::load_all()
+            .remove("de")
+            .expect("de locale must be loadable from locales/de.ftl");
+        let views = compute_all(&owned.as_ctx(), &t);
         let keys: Vec<&str> = views.iter().map(|v| v.key).collect();
         assert_eq!(
             keys,
@@ -1330,11 +1278,11 @@ mod tests {
                 "champion_pick",
             ]
         );
-        // Jeder Badge hat einen nicht-leeren how_to_earn-Text.
+        // Every badge must resolve to a non-empty title and how-to-earn.
         for v in &views {
             assert!(
                 !v.how_to_earn.is_empty(),
-                "{} hat keinen how_to_earn-Text",
+                "{} has no how_to_earn text",
                 v.key
             );
             assert!(!v.title.is_empty());

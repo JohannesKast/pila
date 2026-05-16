@@ -549,7 +549,7 @@ async fn badges_compute_only_within_one_league() {
         .seed_finished(finished_pred(t.b_charlie, t.league_b, 1, (2, 1), (2, 1)));
 
     let ctx_a_owned = build_badge_context(&t.repos, t.a_alice, t.league_a, Utc::now()).await;
-    let badges_a = badges::compute_all(&ctx_a_owned.as_ctx());
+    let badges_a = badges::compute_all(&ctx_a_owned.as_ctx(), &pila::translations::T::default());
     let exact_a = badges_a
         .iter()
         .find(|b| b.key == "exact_count")
@@ -558,7 +558,7 @@ async fn badges_compute_only_within_one_league() {
 
     // For Bob (Liga A), Charlie's perfect tip must not count.
     let ctx_bob_owned = build_badge_context(&t.repos, t.a_bob, t.league_a, Utc::now()).await;
-    let badges_bob = badges::compute_all(&ctx_bob_owned.as_ctx());
+    let badges_bob = badges::compute_all(&ctx_bob_owned.as_ctx(), &pila::translations::T::default());
     let exact_bob = badges_bob
         .iter()
         .find(|b| b.key == "exact_count")

@@ -554,3 +554,28 @@ Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt (Anpfiff Eröffnung
 { $magic_link }
 
 — Pila
+
+# ─── Hero-panel badges ───────────────────────────────────────────────────────
+# Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
+badge-matchday-wins-title = Tagessieg
+badge-matchday-wins-how-to-earn = Höchste Tagespunktzahl an einem Spieltag (Berlin-Zeit). Bei Gleichstand teilen sich die Sieger den Tag.
+badge-exact-count-title = Exakter Tipp
+badge-exact-count-how-to-earn = Tipp 100% korrekt: gleicher Heim- und Auswärtsscore wie das Endergebnis.
+badge-underdog-title = Underdog
+badge-underdog-how-to-earn = Exakter Tipp auf ein Match, das weniger als 30% aller Tipper exakt trafen.
+badge-solo-hit-title = Solo-Treffer
+badge-solo-hit-how-to-earn = Du warst als einziger Tipper exakt — pro Match einmal vergeben.
+badge-tendency-pct-title = Tendenz-Quote
+badge-tendency-pct-how-to-earn = Anteil deiner getippten fertigen Matches mit mindestens einem Punkt.
+badge-knockout-points-title = K.O.-Punkte
+badge-knockout-points-how-to-earn = Summe deiner Punkte aus der K.O.-Phase (ab Sechzehntelfinale).
+badge-discipline-pct-title = Tippmoral
+badge-discipline-pct-how-to-earn = Anteil bereits gestarteter Matches, für die du einen Tipp abgegeben hast.
+badge-current-streak-title = Aktuelle Serie
+badge-current-streak-how-to-earn = Folge fertiger Matches mit ≥1 Punkt — bricht beim ersten 0-Punkte-Match ab.
+badge-longest-streak-title = Längste Serie
+badge-longest-streak-how-to-earn = Längste je erreichte Folge fertiger Matches mit ≥1 Punkt.
+badge-rank-delta-title = Rang-Bewegung
+badge-rank-delta-how-to-earn = Veränderung deines Rangs seit dem letzten Spieltag (positiv = aufgestiegen).
+badge-champion-pick-title = Weltmeister-Tipp
+badge-champion-pick-how-to-earn = Dein Champion-Pick. 10 Punkte, wenn dein Team das Turnier gewinnt.

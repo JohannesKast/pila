@@ -467,3 +467,28 @@ El pronóstico del campeón se bloquea en menos de 24 horas (partido inaugural).
 { $magic_link }
 
 — Pila
+
+# ─── Hero-panel badges ───────────────────────────────────────────────────────
+# Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
+badge-matchday-wins-title = Victoria del día
+badge-matchday-wins-how-to-earn = Máximo de puntos del día (hora de Berlín). En caso de empate, los ganadores comparten el día.
+badge-exact-count-title = Resultado exacto
+badge-exact-count-how-to-earn = Pronóstico 100% correcto: mismo marcador local y visitante que el resultado final.
+badge-underdog-title = Tapado
+badge-underdog-how-to-earn = Pronóstico exacto en un partido que menos del 30% de los jugadores acertó exactamente.
+badge-solo-hit-title = Acierto único
+badge-solo-hit-how-to-earn = Fuiste el único en acertar el resultado exacto — una vez por partido.
+badge-tendency-pct-title = Tasa de tendencia
+badge-tendency-pct-how-to-earn = Proporción de tus partidos finalizados con al menos un punto.
+badge-knockout-points-title = Puntos eliminatoria
+badge-knockout-points-how-to-earn = Suma de tus puntos en la fase eliminatoria (desde los dieciseisavos).
+badge-discipline-pct-title = Disciplina
+badge-discipline-pct-how-to-earn = Proporción de partidos ya empezados para los que enviaste pronóstico.
+badge-current-streak-title = Racha actual
+badge-current-streak-how-to-earn = Sucesión de partidos finalizados con ≥1 punto — se rompe al primer 0 puntos.
+badge-longest-streak-title = Racha más larga
+badge-longest-streak-how-to-earn = La racha más larga de partidos finalizados con ≥1 punto que has logrado.
+badge-rank-delta-title = Cambio de rango
+badge-rank-delta-how-to-earn = Cambio de tu posición desde el último día de juego (positivo = subiste).
+badge-champion-pick-title = Pronóstico de campeón
+badge-champion-pick-how-to-earn = Tu pronóstico de campeón. 10 puntos si tu equipo gana el torneo.
