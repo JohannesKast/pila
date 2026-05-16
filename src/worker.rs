@@ -13,7 +13,7 @@ use std::time::Duration;
 use crate::mail;
 use crate::notifier::{in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier};
 use crate::repo::league::League;
-use crate::repo::match_::EspnMatchUpsert;
+use crate::repo::fixture::EspnMatchUpsert;
 use crate::repo::team::EspnTeamUpsert;
 use crate::repo::Repos;
 use crate::scoreboard::{ScoreboardClient, SportsEvent};
@@ -430,7 +430,7 @@ mod tests {
     use super::*;
     use crate::notifier::NotifierError;
     use crate::repo::league::{League as LeagueRow, MemoryLeagueRepo};
-    use crate::repo::match_::{FakeMatch, MemoryMatchRepo};
+    use crate::repo::fixture::{FakeMatch, MemoryMatchRepo};
     use crate::repo::notification::{ClosingSoonMatch, NotificationRepo};
     use crate::repo::{
         MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,

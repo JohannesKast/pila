@@ -9,7 +9,7 @@
 //! and the boundary is the only place that sees raw SQL.
 
 pub mod league;
-pub mod match_;
+pub mod fixture;
 pub mod notification;
 pub mod prediction;
 pub mod settings;
@@ -18,7 +18,7 @@ pub mod team;
 pub mod user;
 
 pub use league::{League, LeagueConfig, LeagueRepo, MemoryLeagueRepo, PgLeagueRepo, DEFAULT_LEAGUE_ID};
-pub use match_::{MatchRepo, MemoryMatchRepo, PgMatchRepo};
+pub use fixture::{MatchRepo, MemoryMatchRepo, PgMatchRepo};
 pub use notification::{MemoryNotificationRepo, NotificationRepo, PgNotificationRepo};
 pub use prediction::{MemoryPredictionRepo, PgPredictionRepo, PredictionRepo};
 pub use settings::{MemorySettingsRepo, PgSettingsRepo, SettingsRepo};

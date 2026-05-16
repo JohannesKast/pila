@@ -37,26 +37,30 @@ repository modules are split into trait / pg / fake.
 
 **Acceptance achieved:** No bare `.unwrap()` left in response/handler paths. Remaining `.unwrap()`s in `src/main.rs` are startup-only (DB pool connect, listener bind, axum::serve) — exempt. Worker/notifier production paths are clean (only test-gated unwraps remain). `cargo clippy --all-targets -- -D warnings` clean; 222 tests green.
 
-### 1.3 — Split repo modules: trait / postgres / memory [Polish, but worth it]
+### 1.3 — Split repo modules: trait / postgres / memory [PARTIAL]
 
-Four files mix trait definition, Postgres impl, in-memory fake, and tests:
+Four files mixed trait definition, Postgres impl, in-memory fake, and tests:
 
-- [ ] `src/repo/user.rs` (772 lines) → `src/repo/user/{mod.rs, postgres.rs, memory.rs}`
-- [ ] `src/repo/match_.rs` (743 lines) → `src/repo/match_/{mod.rs, postgres.rs, memory.rs}`
-- [ ] `src/repo/notification.rs` (650 lines) → `src/repo/notification/{mod.rs, postgres.rs, memory.rs}`
-- [ ] `src/repo/prediction.rs` (483 lines) → `src/repo/prediction/{mod.rs, postgres.rs, memory.rs}`
+- [x] `src/repo/user.rs` → `src/repo/user/{mod.rs, postgres.rs, memory.rs}`
+- [x] `src/repo/match_.rs` → `src/repo/match_/{mod.rs, postgres.rs, memory.rs}`
+- [x] `src/repo/notification.rs` → `src/repo/notification/{mod.rs, postgres.rs, memory.rs}`
+- [x] `src/repo/prediction.rs` → `src/repo/prediction/{mod.rs, postgres.rs, memory.rs}`
 
-**Pattern for each module:**
+Pattern landed for each module:
 ```
 src/repo/<name>/
-  mod.rs        — trait, error types, re-exports
+  mod.rs        — trait, public types, re-exports
   postgres.rs   — Pg<Name>Repo impl
-  memory.rs     — Memory<Name>Repo impl, gated by #[cfg(any(test, feature = "memory-repos"))]
+  memory.rs    — Memory<Name>Repo impl + #[cfg(test)] memory_tests submodule
 ```
 
-- [ ] Decide whether to gate in-memory fakes behind a `memory-repos` Cargo feature so they do not ship in the production binary. If yes, add `[features] memory-repos = []` to `Cargo.toml` and enable it in `[dev-dependencies]` and CI test runs. Otherwise leave as `#[cfg(test)]` only and remove their `pub` visibility from non-test code.
+Verification: `cargo clippy --all-targets -- -D warnings` clean; all 222 tests green.
 
-**Acceptance:** `cargo build --release` produces a binary that does not contain `Memory*Repo` symbols (verify with `nm target/release/pila | grep -i memory`); all tests still pass.
+**Still open — feature-gate decision:** memory fakes are currently `pub` always so the `tests/` integration tests (which link the lib compiled without `cfg(test)`) can use them. Production binary still contains `Memory*Repo` symbols. Two ways to fix:
+- (a) Add `[features] default = ["memory-repos"]; memory-repos = []` + gate every `Memory*` with `#[cfg(any(test, feature = "memory-repos"))]` + ship Dockerfile with `cargo build --release --no-default-features`.
+- (b) Leave as is (memory repos in release binary, ~tiny overhead, no behavioural effect).
+
+`nm target/release/pila | grep -i memory` will show `Memory*Repo` symbols until (a) is applied.
 
 ### 1.4 — Fix `AppState.db: Option<PgPool>` smell [Polish]
 

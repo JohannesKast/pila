@@ -10,7 +10,7 @@
 
 use chrono::{Duration, Utc};
 use pila::notifier::{NotificationEvent, Notifier, NotifierError};
-use pila::repo::match_::{EspnMatchUpsert, MatchRepo, PgMatchRepo};
+use pila::repo::fixture::{EspnMatchUpsert, MatchRepo, PgMatchRepo};
 use pila::repo::notification::{NotificationRepo, PgNotificationRepo};
 use pila::repo::prediction::{PgPredictionRepo, PredictionRepo};
 use pila::repo::settings::{PgSettingsRepo, SettingsRepo};
