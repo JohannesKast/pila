@@ -253,7 +253,6 @@ impl MemoryLeagueRepo {
     pub fn seed(&self, league: League) {
         self.inner.lock().unwrap().leagues.push(league);
     }
-
 }
 
 #[async_trait]
