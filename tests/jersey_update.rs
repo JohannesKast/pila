@@ -97,6 +97,7 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
 
     assert_eq!(
         updated_user.get::<String, _>("jersey_preset"),
+        "brasilien",
         "Jersey should be updated to brasilien"
     );
 
