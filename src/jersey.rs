@@ -183,10 +183,7 @@ pub fn load() -> Arc<HashMap<String, JerseyPreset>> {
     Arc::new(parsed.presets)
 }
 
-pub fn get<'a>(
-    presets: &'a HashMap<String, JerseyPreset>,
-    key: &str,
-) -> &'a JerseyPreset {
+pub fn get<'a>(presets: &'a HashMap<String, JerseyPreset>, key: &str) -> &'a JerseyPreset {
     presets
         .get(key)
         .or_else(|| presets.get("classic"))

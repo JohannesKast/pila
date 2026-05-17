@@ -16,10 +16,7 @@ impl PgBootstrapRepo {
 
 #[async_trait]
 impl BootstrapRepo for PgBootstrapRepo {
-    async fn create_first_league_and_admin(
-        &self,
-        params: FirstLeagueParams<'_>,
-    ) -> RepoResult<()> {
+    async fn create_first_league_and_admin(&self, params: FirstLeagueParams<'_>) -> RepoResult<()> {
         let mut tx = self.pool.begin().await.map_err(RepoError::from)?;
 
         let league_id: uuid::Uuid = sqlx::query_scalar!(

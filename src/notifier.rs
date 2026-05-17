@@ -45,8 +45,8 @@ pub fn from_env(t: T) -> Arc<dyn Notifier> {
     let api = std::env::var("SIGNAL_API_URL").ok();
     let from = std::env::var("SIGNAL_FROM_NUMBER").ok();
     let group = std::env::var("SIGNAL_GROUP_ID").ok();
-    let base_url = std::env::var("BASE_URL")
-        .unwrap_or_else(|_| "https://pila.example.com".to_string());
+    let base_url =
+        std::env::var("BASE_URL").unwrap_or_else(|_| "https://pila.example.com".to_string());
 
     match (api, from, group) {
         (Some(api), Some(from), Some(group))
@@ -148,10 +148,7 @@ pub async fn send_signal_message(
     Ok(())
 }
 
-pub fn signal_configured(
-    api_url: &Option<String>,
-    from_number: &Option<String>,
-) -> bool {
+pub fn signal_configured(api_url: &Option<String>, from_number: &Option<String>) -> bool {
     matches!((api_url, from_number), (Some(a), Some(f)) if !a.is_empty() && !f.is_empty())
 }
 
@@ -182,7 +179,10 @@ pub async fn send_invite_via_signal(
 
 fn names_or_count(names: &[String], t: &T) -> String {
     if names.len() > 5 {
-        t.format("notify-many-players", &[("count", &names.len().to_string())])
+        t.format(
+            "notify-many-players",
+            &[("count", &names.len().to_string())],
+        )
     } else {
         names.join(", ")
     }
@@ -223,10 +223,7 @@ fn render_message(event: &NotificationEvent, base_url: &str, t: &T) -> String {
                 &[("who", &who), ("base_url", base_url)],
             )
         }
-        NotificationEvent::KnockoutBracketReady {
-            stage,
-            match_count,
-        } => t.format(
+        NotificationEvent::KnockoutBracketReady { stage, match_count } => t.format(
             "notify-knockout-ready",
             &[
                 ("stage", &t.get(stage.ftl_key())),

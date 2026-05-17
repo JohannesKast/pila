@@ -19,10 +19,7 @@ struct LeaderboardTemplate {
     dev_mode: bool,
 }
 
-pub async fn leaderboard(
-    State(state): State<AppState>,
-    user: AuthenticatedUser,
-) -> Html<String> {
+pub async fn leaderboard(State(state): State<AppState>, user: AuthenticatedUser) -> Html<String> {
     let now = crate::time::now(&state.mock_now);
     let entries = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
     let lang_code = user.language.clone();

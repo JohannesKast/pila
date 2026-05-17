@@ -9,13 +9,14 @@
 //!
 //! All routes check `state.dev_mode` and return 404 if not enabled.
 
+use crate::repo::fixture::IndexMatchRow;
 use askama::Template;
 use axum::{
     extract::{Form, Path, State},
     http::StatusCode,
     response::{Html, IntoResponse, Json, Redirect},
 };
-use chrono::{NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
@@ -40,7 +41,7 @@ fn htmx_refresh() -> impl IntoResponse {
 /// Random goals per team, weighted to resemble real soccer scoring (rough
 /// Poisson(λ≈1.4) approximation). A uniform 0..=5 made 0:0 and other
 /// low-spread draws far too common.
-fn random_goals(rng: &mut StdRng) -> i32 {
+fn random_goals(rng: &mut impl Rng) -> i32 {
     let r: f64 = rng.gen();
     if r < 0.24 {
         0
@@ -55,6 +56,44 @@ fn random_goals(rng: &mut StdRng) -> i32 {
     } else {
         5
     }
+}
+
+fn random_result(rng: &mut impl Rng) -> (i32, i32) {
+    (random_goals(rng), random_goals(rng))
+}
+
+/// Returns all matches that belong to the same Berlin calendar day as the
+/// earliest unstarted, fully-known fixture. Returns `None` when no future
+/// tippable match exists.
+fn find_next_unstarted_matchday(
+    matches: &[IndexMatchRow],
+    now: DateTime<Utc>,
+) -> Option<Vec<IndexMatchRow>> {
+    use chrono_tz::Europe::Berlin;
+
+    let next = matches
+        .iter()
+        .filter(|m| m.team_home_id.is_some() && m.team_away_id.is_some())
+        .filter(|m| m.kickoff_time.is_some_and(|k| k > now))
+        .min_by_key(|m| m.kickoff_time)?;
+
+    let matchday = next
+        .kickoff_time
+        .expect("filter above guarantees kickoff_time is Some")
+        .with_timezone(&Berlin)
+        .date_naive();
+
+    let result = matches
+        .iter()
+        .filter(|m| m.team_home_id.is_some() && m.team_away_id.is_some())
+        .filter(|m| {
+            m.kickoff_time
+                .is_some_and(|k| k > now && k.with_timezone(&Berlin).date_naive() == matchday)
+        })
+        .cloned()
+        .collect();
+
+    Some(result)
 }
 
 // ─── Templates ──────────────────────────────────────────────────────────────
@@ -105,7 +144,12 @@ async fn render_panel(
         .users
         .list_basic(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let users: Vec<UserSummary> = users_raw
         .into_iter()
@@ -121,7 +165,12 @@ async fn render_panel(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let now = time::now(&state.mock_now);
     let unstarted_count = matches
@@ -137,7 +186,12 @@ async fn render_panel(
         unstarted_count,
     };
 
-    render_template(&template).map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Template error".to_string()))
+    render_template(&template).map_err(|_| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Template error".to_string(),
+        )
+    })
 }
 
 // ─── Route: POST /dev/time ───────────────────────────────────────────────────
@@ -207,7 +261,12 @@ pub async fn dev_random_tips(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
@@ -235,7 +294,12 @@ pub async fn dev_random_tips(
             .predictions
             .upsert(user.id, m.id, home, away)
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
+            })?;
     }
 
     Ok(htmx_refresh().into_response())
@@ -257,18 +321,23 @@ pub async fn dev_random_tips_all_users(
         .users
         .list_ids(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
 
     for uid in user_ids {
-        let matches = state
-            .repos
-            .matches
-            .list_for_index(uid)
-            .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        let matches = state.repos.matches.list_for_index(uid).await.map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
         for m in matches {
             if m.kickoff_time.is_some_and(|k| k <= now) {
@@ -286,7 +355,12 @@ pub async fn dev_random_tips_all_users(
                 .predictions
                 .upsert(uid, m.id, home, away)
                 .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+                .map_err(|_| {
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Database error".to_string(),
+                    )
+                })?;
         }
     }
 
@@ -309,7 +383,12 @@ pub async fn dev_random_results(
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let now = time::now(&state.mock_now);
     let mut rng = StdRng::from_entropy();
@@ -333,7 +412,12 @@ pub async fn dev_random_results(
             .matches
             .update_result(m.id, Some(home), Some(away), "finished")
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+            .map_err(|_| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Database error".to_string(),
+                )
+            })?;
     }
 
     Ok(htmx_refresh().into_response())
@@ -350,123 +434,91 @@ pub async fn dev_simulate_next_matchday(
         return Err((StatusCode::NOT_FOUND, "Dev mode not enabled".to_string()));
     }
 
+    let db_err = || {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database error".to_string(),
+        )
+    };
     let matches = state
         .repos
         .matches
         .list_for_index(user.id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
-
+        .map_err(|_| db_err())?;
     let now = time::now(&state.mock_now);
 
-    // Earliest unstarted match with both teams known defines the matchday.
-    let next_match = matches
-        .iter()
-        .filter(|m| m.team_home_id.is_some() && m.team_away_id.is_some())
-        .filter(|m| m.kickoff_time.is_some_and(|k| k > now))
-        .min_by_key(|m| m.kickoff_time);
-
-    let Some(next_match) = next_match else {
+    let matchday = find_next_unstarted_matchday(&matches, now).ok_or_else(|| {
         tracing::warn!(
-            "dev_simulate_next_matchday: no future tippable match found (mock_now={}, matches loaded={})",
+            "dev_simulate_next_matchday: no future tippable match (mock_now={}, matches={})",
             now,
             matches.len()
         );
-        return Err((
+        (
             StatusCode::BAD_REQUEST,
             "No future match found. Matches table empty or mock time past the final?".to_string(),
-        ));
-    };
+        )
+    })?;
 
-    // Group matches by calendar day in Europe/Berlin — that is what users
-    // perceive as a "Spieltag".
-    use chrono_tz::Europe::Berlin;
-    let matchday = next_match
-        .kickoff_time
-        .expect("filter above guarantees kickoff_time is Some")
-        .with_timezone(&Berlin)
-        .date_naive();
-
-    let matchday_matches: Vec<_> = matches
-        .iter()
-        .filter(|m| m.team_home_id.is_some() && m.team_away_id.is_some())
-        .filter(|m| {
-            m.kickoff_time
-                .is_some_and(|k| k > now && k.with_timezone(&Berlin).date_naive() == matchday)
-        })
-        .collect();
-
-    let mut rng = StdRng::from_entropy();
-
-    // 1. BEFORE jumping time: generate random tips for every user on every
-    //    matchday match. Existing tips of the current user are preserved so
-    //    the tester can compare their own picks against the random crowd.
     let user_ids = state
         .repos
         .users
         .list_ids(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| db_err())?;
+    let mut rng = StdRng::from_entropy();
 
-    for m in &matchday_matches {
+    for m in &matchday {
         for uid in &user_ids {
-            // Preserve manual tip of the current user; randomize everyone else.
             if *uid == user.id && m.predicted_home.is_some() {
                 continue;
             }
-            let home = random_goals(&mut rng);
-            let away = random_goals(&mut rng);
+            let (home, away) = random_result(&mut rng);
             state
                 .repos
                 .predictions
                 .upsert(*uid, m.id, home, away)
                 .await
-                .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+                .map_err(|_| db_err())?;
         }
     }
 
-    // 2. Jump mock time to the end of the matchday (latest kickoff + 2h)
-    //    so every match of that day is now "in the past" from the app's view.
-    let latest_kickoff = matchday_matches
+    let new_time = matchday
         .iter()
         .filter_map(|m| m.kickoff_time)
         .max()
-        .unwrap_or_else(|| {
-            next_match
-                .kickoff_time
-                .expect("filter above guarantees kickoff_time is Some")
-        });
-    let new_time = latest_kickoff + chrono::Duration::hours(2);
+        .expect("find_next_unstarted_matchday guarantees kickoff_time is Some")
+        + chrono::Duration::hours(2);
     time::set_mock_time(&state.mock_now, new_time);
 
-    // 3. Force every matchday match to a finished state. Preserves existing
-    //    scores (so repeated clicks don't keep re-rolling) but always sets
-    //    `status = "finished"` — necessary because the ESPN one-shot sync at
-    //    startup reverts the status of any previously-finished dev match
-    //    back to "scheduled" (its upsert uses `status = EXCLUDED.status`,
-    //    not COALESCE). Without forcing it here, those matches would render
-    //    as locked-but-unfinished ("– : –") on the index.
-    tracing::info!("🎮 Updating {} matchday matches with results", matchday_matches.len());
-    for m in &matchday_matches {
-        let home = random_goals(&mut rng);
-        let away = random_goals(&mut rng);
-        tracing::info!("🎮 Setting result: match {} ({} vs {}) → {}:{}", m.id, m.home_name, m.away_name, home, away);
+    tracing::info!(
+        "🎮 Updating {} matchday matches with results",
+        matchday.len()
+    );
+    for m in &matchday {
+        let (home, away) = random_result(&mut rng);
+        tracing::info!(
+            "🎮 Setting result: match {} ({} vs {}) → {}:{}",
+            m.id,
+            m.home_name,
+            m.away_name,
+            home,
+            away
+        );
         state
             .repos
             .matches
             .update_result(m.id, Some(home), Some(away), "finished")
             .await
-            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+            .map_err(|_| db_err())?;
     }
 
     tracing::info!(
-        "🎮 Simulated matchday {} ({} matches, {} users), mock_now is now: {}",
-        matchday,
-        matchday_matches.len(),
+        "🎮 Simulated matchday ({} matches, {} users), mock_now: {}",
+        matchday.len(),
         user_ids.len(),
         new_time
     );
-
     Ok(htmx_refresh().into_response())
 }
 
@@ -485,7 +537,12 @@ pub async fn dev_list_users(
         .users
         .list_basic(user.league_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?;
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?;
 
     let users: Vec<UserSummary> = users_raw
         .into_iter()
@@ -515,20 +572,90 @@ pub async fn dev_switch_user(
         .users
         .find_full_by_id(target_id)
         .await
-        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Database error".to_string()))?
+        .map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Database error".to_string(),
+            )
+        })?
         .ok_or((StatusCode::NOT_FOUND, "User not found".to_string()))?;
 
     if user.league_id != current.league_id {
-        return Err((StatusCode::FORBIDDEN, "Cross-league user switch denied".to_string()));
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Cross-league user switch denied".to_string(),
+        ));
     }
 
-    let cookie = format!(
-        "pila_token={}; Path=/; HttpOnly; SameSite=Lax",
-        user.token
-    );
+    let cookie = format!("pila_token={}; Path=/; HttpOnly; SameSite=Lax", user.token);
 
     Ok((
         [(axum::http::header::SET_COOKIE, cookie)],
         Redirect::to("/"),
     ))
+}
+
+// ─── Unit tests ──────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::{find_next_unstarted_matchday, random_result};
+    use crate::repo::fixture::IndexMatchRow;
+    use crate::stage::Stage;
+    use chrono::{DateTime, TimeZone, Utc};
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
+
+    fn make_match(id: i32, kickoff: DateTime<Utc>) -> IndexMatchRow {
+        IndexMatchRow {
+            id,
+            stage: Stage::Group,
+            group_letter: Some("A".to_string()),
+            kickoff_time: Some(kickoff),
+            status: "scheduled".to_string(),
+            score_home: None,
+            score_away: None,
+            team_home_id: Some(1),
+            team_away_id: Some(2),
+            home_name: "Home".to_string(),
+            away_name: "Away".to_string(),
+            home_flag: None,
+            away_flag: None,
+            predicted_home: None,
+            predicted_away: None,
+        }
+    }
+
+    #[test]
+    fn find_next_matchday_groups_same_berlin_day_excludes_next_day() {
+        // 12:00 UTC = 14:00 CEST and 18:00 UTC = 20:00 CEST — same Berlin day.
+        // 13:00 UTC next day is the following Berlin day.
+        let day1_early = Utc.with_ymd_and_hms(2026, 6, 12, 12, 0, 0).unwrap();
+        let day1_late = Utc.with_ymd_and_hms(2026, 6, 12, 18, 0, 0).unwrap();
+        let day2 = Utc.with_ymd_and_hms(2026, 6, 13, 13, 0, 0).unwrap();
+        let now = Utc.with_ymd_and_hms(2026, 6, 12, 10, 0, 0).unwrap();
+
+        let matches = vec![
+            make_match(1, day1_early),
+            make_match(2, day1_late),
+            make_match(3, day2),
+        ];
+        let matchday = find_next_unstarted_matchday(&matches, now).unwrap();
+
+        assert_eq!(matchday.len(), 2, "only same-day matches expected");
+        assert!(
+            matchday.iter().all(|m| m.id != 3),
+            "next-day match must be excluded"
+        );
+    }
+
+    #[test]
+    fn random_result_values_in_range() {
+        let mut rng = StdRng::seed_from_u64(42);
+        for _ in 0..200 {
+            let (home, away) = random_result(&mut rng);
+            assert!((0..=5).contains(&home), "home {home} out of range");
+            assert!((0..=5).contains(&away), "away {away} out of range");
+        }
+    }
 }

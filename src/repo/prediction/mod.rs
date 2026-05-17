@@ -53,6 +53,9 @@ pub struct LeaderboardPredictionRow {
 
 #[async_trait]
 pub trait PredictionRepo: Send + Sync {
+    /// Insert or overwrite a user's prediction for a match. The caller is
+    /// responsible for checking whether the match is still open before
+    /// calling this method.
     async fn upsert(
         &self,
         user_id: Uuid,

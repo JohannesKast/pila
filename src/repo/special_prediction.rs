@@ -25,16 +25,19 @@ pub struct ChampionPickRow {
 
 #[async_trait]
 pub trait SpecialPredictionRepo: Send + Sync {
+    /// Returns the user's current champion pick (team id), or `None` if they
+    /// have not made one yet.
     async fn get_user_champion(&self, user_id: Uuid) -> RepoResult<Option<i32>>;
+    /// Insert or overwrite the user's champion pick. Pass `None` for
+    /// `champion_id` to clear the pick.
     async fn upsert(&self, user_id: Uuid, champion_id: Option<i32>) -> RepoResult<()>;
     /// Champion picks of users in the given league, joined with user/team names.
-    async fn list_with_user_names(
-        &self,
-        league_id: Uuid,
-    ) -> RepoResult<Vec<ChampionPickRow>>;
+    async fn list_with_user_names(&self, league_id: Uuid) -> RepoResult<Vec<ChampionPickRow>>;
     /// All `(user_id, champion_team_id)` pairs in the given league — used by
     /// the badge engine to compute champion-related stats.
     async fn list_all_picks(&self, league_id: Uuid) -> RepoResult<Vec<(Uuid, i32)>>;
+    /// Display name and flag code for the user's champion pick. Returns `None`
+    /// if the user has no pick or the team id does not resolve to a known team.
     async fn user_champion_view(&self, user_id: Uuid) -> RepoResult<Option<ChampionView>>;
 }
 
@@ -81,10 +84,7 @@ impl SpecialPredictionRepo for PgSpecialPredictionRepo {
         Ok(())
     }
 
-    async fn list_with_user_names(
-        &self,
-        league_id: Uuid,
-    ) -> RepoResult<Vec<ChampionPickRow>> {
+    async fn list_with_user_names(&self, league_id: Uuid) -> RepoResult<Vec<ChampionPickRow>> {
         let rows = sqlx::query!(
             r#"
             SELECT u.name as user_name, sp.champion_id, t.name as "team_name?", t.flag_code
@@ -203,10 +203,7 @@ impl SpecialPredictionRepo for MemorySpecialPredictionRepo {
         Ok(())
     }
 
-    async fn list_with_user_names(
-        &self,
-        league_id: Uuid,
-    ) -> RepoResult<Vec<ChampionPickRow>> {
+    async fn list_with_user_names(&self, league_id: Uuid) -> RepoResult<Vec<ChampionPickRow>> {
         let s = self.inner.lock().unwrap();
         let mut rows: Vec<ChampionPickRow> = s
             .picks

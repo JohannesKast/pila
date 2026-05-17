@@ -8,7 +8,9 @@ use super::{RepoError, RepoResult};
 
 #[async_trait]
 pub trait SettingsRepo: Send + Sync {
+    /// Returns the value for `key`, or `None` if the key is not set.
     async fn get(&self, key: &str) -> RepoResult<Option<String>>;
+    /// Upserts the value for `key`.
     async fn set(&self, key: &str, value: &str) -> RepoResult<()>;
 }
 

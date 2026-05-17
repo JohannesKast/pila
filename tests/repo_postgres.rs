@@ -189,11 +189,10 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
         .unwrap();
 
     // Need a real match id to insert a prediction; pick the lowest existing one.
-    let some_match: Option<i32> =
-        sqlx::query_scalar!("SELECT id FROM matches ORDER BY id LIMIT 1")
-            .fetch_optional(&pool)
-            .await
-            .unwrap();
+    let some_match: Option<i32> = sqlx::query_scalar!("SELECT id FROM matches ORDER BY id LIMIT 1")
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
 
     let Some(match_id) = some_match else {
         // Empty matches table — skip rather than fail.
@@ -209,13 +208,10 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
     // either way because we just need the call not to panic.
     assert!(count >= 0);
 
-    sqlx::query!(
-        "DELETE FROM predictions WHERE user_id = $1",
-        user_id
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query!("DELETE FROM predictions WHERE user_id = $1", user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
     users.delete(user_id).await.unwrap();
 }
 
@@ -257,11 +253,10 @@ async fn special_prediction_repo_upsert_round_trip() {
         .await
         .unwrap();
 
-    let some_team: Option<i32> =
-        sqlx::query_scalar!("SELECT id FROM teams ORDER BY id LIMIT 1")
-            .fetch_optional(&pool)
-            .await
-            .unwrap();
+    let some_team: Option<i32> = sqlx::query_scalar!("SELECT id FROM teams ORDER BY id LIMIT 1")
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
 
     let Some(team_id) = some_team else {
         users.delete(user_id).await.unwrap();
@@ -316,9 +311,15 @@ async fn settings_repo_set_then_get_round_trips() {
     let settings = PgSettingsRepo::new(pool.clone());
     let key = format!("__test_key_{}__", Uuid::new_v4());
     settings.set(&key, "value-1").await.unwrap();
-    assert_eq!(settings.get(&key).await.unwrap().as_deref(), Some("value-1"));
+    assert_eq!(
+        settings.get(&key).await.unwrap().as_deref(),
+        Some("value-1")
+    );
     settings.set(&key, "value-2").await.unwrap();
-    assert_eq!(settings.get(&key).await.unwrap().as_deref(), Some("value-2"));
+    assert_eq!(
+        settings.get(&key).await.unwrap().as_deref(),
+        Some("value-2")
+    );
     sqlx::query!("DELETE FROM settings WHERE key = $1", key)
         .execute(&pool)
         .await
@@ -347,8 +348,8 @@ async fn team_repo_upsert_from_espn_inserts_then_updates_name() {
         .upsert_from_espn(EspnTeamUpsert {
             espn_id,
             name: "Atlantis FC",
-            short_name: None,    // must NOT clobber existing short_name
-            flag_code: None,     // ditto for flag_code
+            short_name: None, // must NOT clobber existing short_name
+            flag_code: None,  // ditto for flag_code
             group_letter: None,
         })
         .await
@@ -450,7 +451,14 @@ async fn notification_repo_try_send_records_then_skips_duplicate() {
     };
 
     let first = notifications
-        .try_send(&OkNotifier, DEFAULT_LEAGUE_ID, &kind, 1, None, event.clone())
+        .try_send(
+            &OkNotifier,
+            DEFAULT_LEAGUE_ID,
+            &kind,
+            1,
+            None,
+            event.clone(),
+        )
         .await
         .unwrap();
     assert!(first);

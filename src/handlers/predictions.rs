@@ -149,12 +149,18 @@ fn normalize_prediction(
         return Ok(scoring::outcome_bet_to_stored_scores(outcome));
     }
 
-    let score_home = form
-        .score_home
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, t.get("error-prediction-home-missing")))?;
-    let score_away = form
-        .score_away
-        .ok_or_else(|| (StatusCode::BAD_REQUEST, t.get("error-prediction-away-missing")))?;
+    let score_home = form.score_home.ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            t.get("error-prediction-home-missing"),
+        )
+    })?;
+    let score_away = form.score_away.ok_or_else(|| {
+        (
+            StatusCode::BAD_REQUEST,
+            t.get("error-prediction-away-missing"),
+        )
+    })?;
 
     if !(0..=20).contains(&score_home) || !(0..=20).contains(&score_away) {
         return Err((

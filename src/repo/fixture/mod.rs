@@ -82,11 +82,23 @@ pub struct EspnMatchUpsert<'a> {
 
 #[async_trait]
 pub trait MatchRepo: Send + Sync {
+    /// All matches with the given user's predictions merged in via LEFT JOIN.
+    /// Returns every match regardless of stage or status.
     async fn list_for_index(&self, user_id: Uuid) -> RepoResult<Vec<IndexMatchRow>>;
+    /// Lock-check data for the given match. Returns `None` if the match id
+    /// is unknown.
     async fn find_lock_info(&self, match_id: i32) -> RepoResult<Option<MatchLockInfo>>;
+    /// Earliest kickoff across all matches with both teams set. `None` if no
+    /// such match exists. Used as the champion-pick lock threshold.
     async fn first_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>>;
+    /// Earliest kickoff for knockout-stage matches. `None` if no knockout
+    /// matches exist yet.
     async fn first_knockout_kickoff(&self) -> RepoResult<Option<DateTime<Utc>>>;
+    /// Team id of the winner of the final, or `None` if the final has not
+    /// finished.
     async fn actual_champion(&self) -> RepoResult<Option<i32>>;
+    /// All finished group-stage matches with team display data — input to
+    /// the group standings calculator.
     async fn finished_group_rows(&self) -> RepoResult<Vec<FinishedGroupMatch>>;
     /// Count of matches with both teams known whose kickoff has already
     /// passed — used as the denominator of the "Tippmoral" badge.

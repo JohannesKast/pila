@@ -74,7 +74,11 @@ pub struct NewUser<'a> {
 
 #[async_trait]
 pub trait UserRepo: Send + Sync {
+    /// Looks up the user whose magic-link token matches. Returns `None` if
+    /// the token is unknown.
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>>;
+    /// Full user record needed by admin views. Returns `None` if the user
+    /// does not exist.
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>>;
     /// Global user count — the `/setup` route uses this to detect a fresh
     /// install (no users at all). Stays global on purpose.
@@ -91,13 +95,22 @@ pub trait UserRepo: Send + Sync {
     /// All user ids across every league — used by the worker's per-league
     /// notification dispatch loop.
     async fn list_all_ids(&self) -> RepoResult<Vec<Uuid>>;
+    /// Inserts a new user. Fails if the id or token already exist.
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()>;
+    /// Deletes the user and all dependent rows (predictions, special_predictions).
     async fn delete(&self, id: Uuid) -> RepoResult<()>;
+    /// Grants or revokes the `is_admin` flag. Use `count_admins` before
+    /// revoking to avoid demoting the last admin.
     async fn set_admin(&self, id: Uuid, is_admin: bool) -> RepoResult<()>;
+    /// Grants or revokes the super-admin `can_create_league` permission.
     async fn set_can_create_league(&self, id: Uuid, can: bool) -> RepoResult<()>;
+    /// Updates the user's display name.
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()>;
+    /// Persists the user's chosen jersey preset key.
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
+    /// Persists the user's preferred locale code.
     async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()>;
+    /// Sets or clears the user's email address. Pass `None` to remove.
     async fn set_email(&self, id: Uuid, email: Option<&str>) -> RepoResult<()>;
     /// Users in a league who have an email address and are missing a
     /// prediction for the given match. Returns (user_id, name, email, token).

@@ -64,14 +64,22 @@ pub async fn send_email(
     subject: &str,
     body: &str,
 ) -> Result<(), MailError> {
-    let from_mailbox: Mailbox = cfg.from.parse().map_err(|e| format!("Invalid SMTP_FROM: {e}"))?;
-    let to_mailbox: Mailbox = to_address.parse().map_err(|e| format!("Invalid recipient: {e}"))?;
+    let from_mailbox: Mailbox = cfg
+        .from
+        .parse()
+        .map_err(|e| format!("Invalid SMTP_FROM: {e}"))?;
+    let to_mailbox: Mailbox = to_address
+        .parse()
+        .map_err(|e| format!("Invalid recipient: {e}"))?;
 
     let email = Message::builder()
         .from(from_mailbox)
         .to(to_mailbox)
         .subject(subject)
-        .header(ContentType::parse("text/plain; charset=utf-8").expect("static content-type literal is valid"))
+        .header(
+            ContentType::parse("text/plain; charset=utf-8")
+                .expect("static content-type literal is valid"),
+        )
         .body(body.to_string())?;
 
     let mailer = build_transport(cfg)?;

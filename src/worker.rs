@@ -11,9 +11,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::mail;
-use crate::notifier::{in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier};
-use crate::repo::league::League;
+use crate::notifier::{
+    in_quiet_hours_now, NoopNotifier, NotificationEvent, Notifier, SignalNotifier,
+};
 use crate::repo::fixture::EspnMatchUpsert;
+use crate::repo::league::League;
 use crate::repo::team::EspnTeamUpsert;
 use crate::repo::Repos;
 use crate::scoreboard::{ScoreboardClient, SportsEvent};
@@ -67,7 +69,10 @@ pub async fn bootstrap_notifications(
         if league.notifications_bootstrapped {
             continue;
         }
-        repos.notifications.silence_existing_matches(league.id).await?;
+        repos
+            .notifications
+            .silence_existing_matches(league.id)
+            .await?;
         repos.leagues.set_bootstrapped(league.id).await?;
         tracing::info!(
             "Notification bootstrap complete for league {} ({}) — current open matches silenced",
@@ -94,11 +99,7 @@ pub async fn update_data(
                 total_events += events.len();
                 for ev in events {
                     if let Err(e) = upsert_event(repos, &ev).await {
-                        tracing::warn!(
-                            "event {} processing failed: {:?}",
-                            ev.provider_event_id,
-                            e
-                        );
+                        tracing::warn!("event {} processing failed: {:?}", ev.provider_event_id, e);
                     }
                 }
             }
@@ -225,7 +226,11 @@ pub(crate) async fn dispatch_pending_for_all_leagues(
     for league in leagues {
         let cfg = repos.leagues.get_config(league.id).await?;
         let t = translations::resolve(translations, &cfg.default_language);
-        let notifier: Box<dyn Notifier> = match (signal_api_url, &cfg.signal_group_id, &cfg.signal_from_number) {
+        let notifier: Box<dyn Notifier> = match (
+            signal_api_url,
+            &cfg.signal_group_id,
+            &cfg.signal_from_number,
+        ) {
             (Some(api), Some(gid), Some(from))
                 if !api.is_empty() && !gid.is_empty() && !from.is_empty() =>
             {
@@ -298,7 +303,14 @@ pub(crate) async fn dispatch_pending_for_league(
         };
         let _ = repos
             .notifications
-            .try_send(notifier, league.id, "match_closing_soon", r.match_id, None, event)
+            .try_send(
+                notifier,
+                league.id,
+                "match_closing_soon",
+                r.match_id,
+                None,
+                event,
+            )
             .await?;
     }
 
@@ -348,14 +360,30 @@ pub(crate) async fn dispatch_pending_for_league(
             for (user_id, name, email, token) in users {
                 let already = repos
                     .notifications
-                    .already_sent(league.id, "email_match_closing_soon", r.match_id, Some(user_id))
+                    .already_sent(
+                        league.id,
+                        "email_match_closing_soon",
+                        r.match_id,
+                        Some(user_id),
+                    )
                     .await?;
                 if already {
                     continue;
                 }
                 let link = format!("{}/play/me/{}", base_url.trim_end_matches('/'), token);
                 let stage_label = t.get(r.stage.ftl_key());
-                if let Err(e) = mail::send_reminder_email(smtp, &name, &email, &r.home, &r.away, &stage_label, &link, t).await {
+                if let Err(e) = mail::send_reminder_email(
+                    smtp,
+                    &name,
+                    &email,
+                    &r.home,
+                    &r.away,
+                    &stage_label,
+                    &link,
+                    t,
+                )
+                .await
+                {
                     tracing::warn!("Email reminder to {} failed: {:?}", email, e);
                     continue;
                 }
@@ -399,7 +427,9 @@ pub(crate) async fn dispatch_pending_for_league(
                         continue;
                     }
                     let link = format!("{}/play/me/{}", base_url.trim_end_matches('/'), token);
-                    if let Err(e) = mail::send_champion_reminder_email(smtp, &name, &email, &link, t).await {
+                    if let Err(e) =
+                        mail::send_champion_reminder_email(smtp, &name, &email, &link, t).await
+                    {
                         tracing::warn!("Champion email reminder to {} failed: {:?}", email, e);
                         continue;
                     }
@@ -429,8 +459,8 @@ pub(crate) async fn dispatch_pending_for_league(
 mod tests {
     use super::*;
     use crate::notifier::NotifierError;
-    use crate::repo::league::{League as LeagueRow, MemoryLeagueRepo};
     use crate::repo::fixture::{FakeMatch, MemoryMatchRepo};
+    use crate::repo::league::{League as LeagueRow, MemoryLeagueRepo};
     use crate::repo::notification::{ClosingSoonMatch, NotificationRepo};
     use crate::repo::{
         MemoryBootstrapRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
@@ -614,9 +644,17 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
 
         let sent = notifier.sent.lock().unwrap();
         assert_eq!(sent.len(), 1);
@@ -651,9 +689,17 @@ mod tests {
 
         let repos = build_repos(notifications.clone());
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert!(
             notifier.sent.lock().unwrap().is_empty(),
             "no missing tippers → no notification"
@@ -677,15 +723,31 @@ mod tests {
         let notifier = RecordingNotifier::default();
 
         // First tick: dispatches.
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
 
         // Second tick: must be a no-op for the same (league, match_id).
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert_eq!(notifier.sent.lock().unwrap().len(), 1);
     }
 
@@ -704,9 +766,17 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
 
         {
             let sent = notifier.sent.lock().unwrap();
@@ -738,9 +808,17 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
         assert!(!notifications
             .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0, None)
@@ -763,9 +841,17 @@ mod tests {
         repos.matches = matches;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert!(notifier.sent.lock().unwrap().is_empty());
         assert!(!notifications
             .already_sent(DEFAULT_LEAGUE_ID, "special_lock_soon", 0, None)
@@ -798,9 +884,17 @@ mod tests {
         repos.leagues = leagues;
 
         let notifier = RecordingNotifier::default();
-        dispatch_pending_for_league(&repos, &default_league(), &notifier, Utc::now(), "https://test.example", &None, &T::default())
-            .await
-            .unwrap();
+        dispatch_pending_for_league(
+            &repos,
+            &default_league(),
+            &notifier,
+            Utc::now(),
+            "https://test.example",
+            &None,
+            &T::default(),
+        )
+        .await
+        .unwrap();
         assert!(
             notifier.sent.lock().unwrap().is_empty(),
             "group-stage match should be skipped for KO-only league"

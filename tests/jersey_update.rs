@@ -45,7 +45,10 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
     .unwrap();
 
     let jerseys = pila::jersey::load();
-    assert!(jerseys.contains_key("classic"), "classic jersey preset must exist");
+    assert!(
+        jerseys.contains_key("classic"),
+        "classic jersey preset must exist"
+    );
     assert!(
         jerseys.contains_key("brasilien"),
         "brasilien jersey preset must exist"
@@ -73,7 +76,7 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         signal_group_id: None,
         http_client: reqwest::Client::new(),
         smtp_config: None,
-            mock_now: pila::time::new_mock_time(),
+        mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 

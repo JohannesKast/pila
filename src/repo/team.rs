@@ -97,9 +97,9 @@ impl TeamRepo for PgTeamRepo {
     async fn upsert_from_espn(&self, u: EspnTeamUpsert<'_>) -> RepoResult<()> {
         let short_name = u.short_name.map(|s| s.to_string());
         let flag_code = u.flag_code.map(|s| s.to_string());
-        let group_for_team = u.group_letter.map(|g| {
-            g.chars().next().unwrap_or(' ').to_string()
-        });
+        let group_for_team = u
+            .group_letter
+            .map(|g| g.chars().next().unwrap_or(' ').to_string());
 
         sqlx::query!(
             r#"

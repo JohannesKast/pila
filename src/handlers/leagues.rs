@@ -45,7 +45,14 @@ pub async fn leagues_list(
     SuperAdminUser(user): SuperAdminUser,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &user.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let leagues = state.repos.leagues.list().await.map_err(|_| db_err())?;
 
@@ -146,7 +153,14 @@ pub async fn league_settings_form(
     Path(league_id): Path<Uuid>,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &user.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let league = state
         .repos
@@ -154,7 +168,14 @@ pub async fn league_settings_form(
         .find_by_id(league_id)
         .await
         .map_err(|_| db_err())?
-        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-league-not-found"))?;
+        .ok_or_else(|| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::NOT_FOUND,
+                "error-league-not-found",
+            )
+        })?;
     let config = state
         .repos
         .leagues
@@ -206,7 +227,14 @@ pub async fn league_settings_save(
     let scoring_system = MatchScoringSystem::from_setting_value(form.match_scoring_system.trim())
         .ok_or_else(|| err(StatusCode::BAD_REQUEST, "error-unknown-scoring"))?;
 
-    set_or_clear_bool(&state, user_lang, league_id, LeagueConfig::KEY_KO_ONLY, form.ko_only).await?;
+    set_or_clear_bool(
+        &state,
+        user_lang,
+        league_id,
+        LeagueConfig::KEY_KO_ONLY,
+        form.ko_only,
+    )
+    .await?;
     set_or_clear(
         &state,
         user_lang,

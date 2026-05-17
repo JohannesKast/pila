@@ -101,10 +101,17 @@ impl LeagueConfig {
 
 #[async_trait]
 pub trait LeagueRepo: Send + Sync {
+    /// All leagues, sorted alphabetically by name.
     async fn list(&self) -> RepoResult<Vec<League>>;
+    /// Returns `None` if no league with that id exists.
     async fn find_by_id(&self, id: Uuid) -> RepoResult<Option<League>>;
+    /// Creates a new league with the given name and returns its id.
     async fn create(&self, name: &str) -> RepoResult<Uuid>;
+    /// Marks the league's `notifications_bootstrapped` flag as true so
+    /// the worker bootstrap pass does not repeat on the next restart.
     async fn set_bootstrapped(&self, league_id: Uuid) -> RepoResult<()>;
+    /// Returns the league's typed config assembled from `league_settings`
+    /// k/v rows. Missing keys fall back to `LeagueConfig` defaults.
     async fn get_config(&self, league_id: Uuid) -> RepoResult<LeagueConfig>;
     /// Set a single key/value pair. Passing `None` deletes the row.
     async fn set_setting(&self, league_id: Uuid, key: &str, value: Option<&str>) -> RepoResult<()>;

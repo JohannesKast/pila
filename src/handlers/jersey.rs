@@ -20,7 +20,7 @@ use crate::AppState;
 #[derive(Template)]
 #[template(path = "jersey_picker.html")]
 struct JerseyPickerTemplate {
-    grouped_options: Vec<(String, Vec<JerseyOption>)>,  // (variant_label, options)
+    grouped_options: Vec<(String, Vec<JerseyOption>)>, // (variant_label, options)
     current: String,
     t: T,
 }
@@ -186,9 +186,6 @@ pub async fn set_language_post(
         .ok();
 
     let mut headers = HeaderMap::new();
-    headers.insert(
-        "HX-Location",
-        axum::http::HeaderValue::from_static("/"),
-    );
+    headers.insert("HX-Location", axum::http::HeaderValue::from_static("/"));
     (StatusCode::OK, headers).into_response()
 }

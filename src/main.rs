@@ -49,8 +49,7 @@ async fn main() {
 
     // Read once at startup so handlers and the worker don't call
     // `std::env::var` on every request / notification tick.
-    let base_url = std::env::var("BASE_URL")
-        .unwrap_or_else(|_| "http://localhost:8000".into());
+    let base_url = std::env::var("BASE_URL").unwrap_or_else(|_| "http://localhost:8000".into());
     let signal_api_url = std::env::var("SIGNAL_API_URL").ok();
     let signal_from_number = std::env::var("SIGNAL_FROM_NUMBER").ok();
     let signal_group_id = std::env::var("SIGNAL_GROUP_ID").ok();
@@ -82,9 +81,7 @@ async fn main() {
         news: news::NewsCache::from_env(),
         repos: repos.clone(),
         translations: pila::translations::load_all(),
-        concurrency_limit: Arc::new(tokio::sync::Semaphore::new(
-            pila::MAX_CONCURRENT_REQUESTS,
-        )),
+        concurrency_limit: Arc::new(tokio::sync::Semaphore::new(pila::MAX_CONCURRENT_REQUESTS)),
         base_url: base_url.clone(),
         signal_api_url: signal_api_url.clone(),
         signal_from_number: signal_from_number.clone(),
@@ -106,15 +103,11 @@ async fn main() {
         // would revert any manually-set "finished" status back to ESPN's
         // "scheduled" for future matches. Skipping the sync when data
         // exists preserves dev state across server restarts.
-        let already_seeded = repos
-            .matches
-            .first_kickoff()
-            .await
-            .ok()
-            .flatten()
-            .is_some();
+        let already_seeded = repos.matches.first_kickoff().await.ok().flatten().is_some();
         if already_seeded {
-            tracing::info!("Dev mode: matches already seeded, skipping ESPN sync to preserve state");
+            tracing::info!(
+                "Dev mode: matches already seeded, skipping ESPN sync to preserve state"
+            );
         } else {
             match worker::update_data(&*scoreboard, &repos).await {
                 Ok(_) => tracing::info!("Dev one-shot scoreboard sync complete"),
@@ -167,7 +160,10 @@ async fn security_headers_middleware(request: axum::extract::Request, next: Next
         HeaderValue::from_static("max-age=63072000; includeSubDomains"),
     );
     headers.insert("X-Frame-Options", HeaderValue::from_static("DENY"));
-    headers.insert("X-Content-Type-Options", HeaderValue::from_static("nosniff"));
+    headers.insert(
+        "X-Content-Type-Options",
+        HeaderValue::from_static("nosniff"),
+    );
     headers.insert(
         "Referrer-Policy",
         HeaderValue::from_static("strict-origin-when-cross-origin"),
@@ -274,16 +270,28 @@ fn build_router() -> Router<AppState> {
             "/setup",
             get(handlers::setup_get).post(handlers::setup_post),
         )
-        .route("/predict/:match_id", axum::routing::post(handlers::predict_match))
-        .route("/predict_special", axum::routing::post(handlers::predict_special))
+        .route(
+            "/predict/:match_id",
+            axum::routing::post(handlers::predict_match),
+        )
+        .route(
+            "/predict_special",
+            axum::routing::post(handlers::predict_special),
+        )
         .route("/leaderboard", get(handlers::leaderboard))
         .route("/profile/jersey-picker", get(handlers::jersey_picker_get))
         .route(
             "/profile/jersey-picker/close",
             get(handlers::jersey_picker_close),
         )
-        .route("/profile/jersey", axum::routing::post(handlers::jersey_post))
-        .route("/profile/language", axum::routing::post(handlers::set_language_post))
+        .route(
+            "/profile/jersey",
+            axum::routing::post(handlers::jersey_post),
+        )
+        .route(
+            "/profile/language",
+            axum::routing::post(handlers::set_language_post),
+        )
         // Convenience landing — redirects the admin to their own league's
         // user list. Kept so old bookmarks / scripts keep working.
         .route("/admin/users", get(handlers::admin_users_redirect))
@@ -329,11 +337,29 @@ fn build_dev_router() -> Router<AppState> {
         .layer(middleware::from_fn(security_headers_middleware))
         .route("/dev", get(handlers::dev_panel))
         .route("/dev/time", axum::routing::post(handlers::dev_set_time))
-        .route("/dev/time/reset", axum::routing::post(handlers::dev_reset_time))
-        .route("/dev/tips/random", axum::routing::post(handlers::dev_random_tips))
-        .route("/dev/tips/all-users", axum::routing::post(handlers::dev_random_tips_all_users))
-        .route("/dev/results/random", axum::routing::post(handlers::dev_random_results))
-        .route("/dev/simulate/next-matchday", axum::routing::post(handlers::dev_simulate_next_matchday))
+        .route(
+            "/dev/time/reset",
+            axum::routing::post(handlers::dev_reset_time),
+        )
+        .route(
+            "/dev/tips/random",
+            axum::routing::post(handlers::dev_random_tips),
+        )
+        .route(
+            "/dev/tips/all-users",
+            axum::routing::post(handlers::dev_random_tips_all_users),
+        )
+        .route(
+            "/dev/results/random",
+            axum::routing::post(handlers::dev_random_results),
+        )
+        .route(
+            "/dev/simulate/next-matchday",
+            axum::routing::post(handlers::dev_simulate_next_matchday),
+        )
         .route("/dev/users", get(handlers::dev_list_users))
-        .route("/dev/switch-user/:id", axum::routing::post(handlers::dev_switch_user))
+        .route(
+            "/dev/switch-user/:id",
+            axum::routing::post(handlers::dev_switch_user),
+        )
 }

@@ -8,7 +8,9 @@ use axum::{
 };
 use axum_extra::extract::CookieJar;
 
-use crate::handlers::util::{make_csrf_cookie, make_login_cookie, t_err_from_headers, HandlerError};
+use crate::handlers::util::{
+    make_csrf_cookie, make_login_cookie, t_err_from_headers, HandlerError,
+};
 use crate::AppState;
 
 pub async fn login_magic_link(

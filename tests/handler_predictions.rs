@@ -17,8 +17,8 @@ use pila::auth::AuthenticatedUser;
 use pila::handlers::predictions::{
     predict_match, predict_special, PredictionForm, SpecialPredictionForm,
 };
-use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::fixture::{FakeMatch, MemoryMatchRepo};
+use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::team::TeamOption;
 use pila::repo::{
     MemoryBootstrapRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,

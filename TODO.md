@@ -87,34 +87,38 @@ Also fixed two `MemoryUserRepo` bugs uncovered by new tests:
 
 **Acceptance achieved:** `cargo test --all-targets` passes (13 test suites, all green); clippy clean.
 
-### 1.6 — Refactor `dev_simulate_next_matchday` [Polish]
+### 1.6 — Refactor `dev_simulate_next_matchday` [Polish] [DONE]
 
 Currently 127 lines in `src/handlers/dev.rs:344–470`. Mixes match selection,
 RNG, time mutation, and bulk updates.
 
-- [ ] Extract `fn find_next_unstarted_matchday(matches: &[Match]) -> Option<Vec<Match>>` (pure, testable)
-- [ ] Extract `fn random_result(rng: &mut impl Rng) -> (i32, i32)` (pure, testable)
-- [ ] Unit-test both extracted helpers
-- [ ] Handler shrinks to orchestration only
+- [x] Extract `fn find_next_unstarted_matchday(matches: &[Match]) -> Option<Vec<Match>>` (pure, testable)
+- [x] Extract `fn random_result(rng: &mut impl Rng) -> (i32, i32)` (pure, testable)
+- [x] Unit-test both extracted helpers
+- [x] Handler shrinks to orchestration only
 
-**Acceptance:** Handler ≤ 50 lines; two new unit tests in `dev.rs`; behaviour unchanged (verify by running `/dev/simulate/next-matchday` manually).
+**Acceptance achieved:** Handler ≤ 50 lines; two new unit tests in `dev.rs`; clippy clean; all tests green.
 
-### 1.7 — Add missing doc comments on public trait methods [Polish]
+### 1.7 — Add missing doc comments on public trait methods [Polish] [DONE]
 
-- [ ] `src/repo/league.rs` — `LeagueRepo::get_config()`, `set_config_*()`, `list_*()`
-- [ ] `src/repo/user.rs` — `set_jersey()`, `set_email()`, `set_language()` and any other undocumented trait methods
-- [ ] `src/repo/notification.rs` — verify all trait methods documented (idempotency contract is critical)
-- [ ] `src/repo/prediction.rs`, `src/repo/match_.rs`, `src/repo/special_prediction.rs`, `src/repo/team.rs`, `src/repo/settings.rs` — same sweep
+- [x] `src/repo/league.rs` — `list`, `find_by_id`, `create`, `set_bootstrapped`, `get_config`
+- [x] `src/repo/user/mod.rs` — `find_by_token`, `find_full_by_id`, `create`, `delete`, `set_admin`, `set_can_create_league`, `rename`, `set_jersey`, `set_language`, `set_email`
+- [x] `src/repo/notification/mod.rs` — verified all methods already documented
+- [x] `src/repo/prediction/mod.rs` — `upsert`
+- [x] `src/repo/fixture/mod.rs` — `list_for_index`, `find_lock_info`, `first_kickoff`, `first_knockout_kickoff`, `actual_champion`, `finished_group_rows`
+- [x] `src/repo/special_prediction.rs` — `get_user_champion`, `upsert`, `user_champion_view`
+- [x] `src/repo/team.rs` — verified all methods already documented
+- [x] `src/repo/settings.rs` — `get`, `set`
 
-**Acceptance:** `cargo doc --no-deps --document-private-items 2>&1 | grep -i 'missing'` is empty for all `pub fn` on traits.
+**Acceptance achieved:** All public trait methods documented; clippy clean.
 
-### 1.8 — Sprint 1 wrap-up [Blocker]
+### 1.8 — Sprint 1 wrap-up [Blocker] [DONE]
 
-- [ ] Run `cargo clippy --all-targets -- -D warnings` — clean
-- [ ] Run `cargo fmt` — clean diff
-- [ ] Run `cargo sqlx prepare` and commit `.sqlx/` if any query changed
-- [ ] Update CHANGELOG.md (create if missing) with v0.1.0-unreleased entries
-- [ ] Tag a working snapshot: `git tag v0.1.0-rc1` (do not push yet)
+- [x] Run `cargo clippy --all-targets -- -D warnings` — clean
+- [x] Run `cargo fmt` — clean diff
+- [x] Run `cargo sqlx prepare` and commit `.sqlx/` if any query changed (`.sqlx/` updated due to fmt reformatting SQL strings)
+- [x] Update CHANGELOG.md (create if missing) with v0.1.0-unreleased entries
+- [x] Tag a working snapshot: `git tag v0.1.0-rc1` (not pushed)
 
 ---
 

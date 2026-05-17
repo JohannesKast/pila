@@ -58,7 +58,7 @@ fn build_harness() -> Harness {
         signal_group_id: None,
         http_client: reqwest::Client::new(),
         smtp_config: None,
-            mock_now: pila::time::new_mock_time(),
+        mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 

@@ -124,8 +124,14 @@ pub async fn setup_post(
 
     let settings = [
         (LeagueConfig::KEY_DEFAULT_LANGUAGE, lang),
-        (LeagueConfig::KEY_SIGNAL_GROUP_ID, form.signal_group_id.trim()),
-        (LeagueConfig::KEY_SIGNAL_FROM_NUMBER, form.signal_from_number.trim()),
+        (
+            LeagueConfig::KEY_SIGNAL_GROUP_ID,
+            form.signal_group_id.trim(),
+        ),
+        (
+            LeagueConfig::KEY_SIGNAL_FROM_NUMBER,
+            form.signal_from_number.trim(),
+        ),
         (LeagueConfig::KEY_RSS_FEED_URL, form.rss_feed_url.trim()),
     ];
     state

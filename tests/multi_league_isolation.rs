@@ -420,7 +420,10 @@ async fn notification_idempotency_is_per_league() {
         )
         .await
         .unwrap();
-    assert!(!again, "second send for same (league, kind, ref) is a no-op");
+    assert!(
+        !again,
+        "second send for same (league, kind, ref) is a no-op"
+    );
 
     // Liga B's slot for the same (kind, ref) is independent — must succeed.
     let b_first = t
@@ -560,11 +563,9 @@ async fn badges_compute_only_within_one_league() {
 
     // For Bob (Liga A), Charlie's perfect tip must not count.
     let ctx_bob_owned = build_badge_context(&t.repos, t.a_bob, t.league_a, Utc::now()).await;
-    let badges_bob = badges::compute_all(&ctx_bob_owned.as_ctx(), &pila::translations::T::default());
-    let exact_bob = badges_bob
-        .iter()
-        .find(|b| b.key == "exact_count")
-        .unwrap();
+    let badges_bob =
+        badges::compute_all(&ctx_bob_owned.as_ctx(), &pila::translations::T::default());
+    let exact_bob = badges_bob.iter().find(|b| b.key == "exact_count").unwrap();
     assert_eq!(
         exact_bob.display.times_earned(),
         0,
@@ -640,7 +641,7 @@ async fn new_user_create_lands_in_specified_league() {
             phone_number: None,
             league_id: t.league_b,
             language: "de",
-        email: None,
+            email: None,
         })
         .await
         .unwrap();

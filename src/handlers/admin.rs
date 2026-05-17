@@ -15,7 +15,9 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::AdminUser;
-use crate::handlers::util::{build_magic_link, html_escape, render_template, t_err, t_for, HandlerError};
+use crate::handlers::util::{
+    build_magic_link, html_escape, render_template, t_err, t_for, HandlerError,
+};
 use crate::notifier::{self, signal_configured};
 use crate::repo;
 use crate::translations::T;
@@ -31,7 +33,11 @@ struct AdminRowTemplate {
 }
 
 fn render_admin_row(u: AdminUserView, signal_enabled: bool, smtp_enabled: bool) -> Html<String> {
-    let tpl = AdminRowTemplate { u, signal_enabled, smtp_enabled };
+    let tpl = AdminRowTemplate {
+        u,
+        signal_enabled,
+        smtp_enabled,
+    };
     render_template(&tpl).unwrap_or_else(|_| Html("Internal error".to_string()))
 }
 
@@ -75,7 +81,14 @@ pub async fn league_users_page(
 ) -> Result<Html<String>, HandlerError> {
     ensure_league_access(&state, &admin, league_id)?;
     let lang = &admin.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let league = state
         .repos
@@ -83,7 +96,14 @@ pub async fn league_users_page(
         .find_by_id(league_id)
         .await
         .map_err(|_| db_err())?
-        .ok_or_else(|| t_err(&state, lang, StatusCode::NOT_FOUND, "error-league-not-found"))?;
+        .ok_or_else(|| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::NOT_FOUND,
+                "error-league-not-found",
+            )
+        })?;
 
     let rows = state
         .repos
@@ -140,11 +160,23 @@ pub async fn admin_create_user(
 ) -> Result<Html<String>, HandlerError> {
     ensure_league_access(&state, &admin, league_id)?;
     let lang = &admin.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let name = form.name.trim();
     if name.is_empty() {
-        return Err(t_err(&state, lang, StatusCode::BAD_REQUEST, "error-name-empty"));
+        return Err(t_err(
+            &state,
+            lang,
+            StatusCode::BAD_REQUEST,
+            "error-name-empty",
+        ));
     }
     let phone = form.phone_number.trim();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
@@ -216,7 +248,11 @@ pub async fn admin_create_user(
         magic_link: link,
         is_self: false,
     };
-    Ok(render_admin_row(view, signal_enabled, state.smtp_config.is_some()))
+    Ok(render_admin_row(
+        view,
+        signal_enabled,
+        state.smtp_config.is_some(),
+    ))
 }
 
 /// Convenience redirect: `/admin/users` is the index "User-Verwaltung" entry
@@ -232,7 +268,14 @@ pub async fn admin_delete_user(
     Path(id): Path<Uuid>,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &admin.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     if id == admin.id {
         return Err(t_err(
@@ -257,12 +300,7 @@ pub async fn admin_delete_user(
             "error-cross-league-forbidden",
         ));
     }
-    state
-        .repos
-        .users
-        .delete(id)
-        .await
-        .map_err(|_| db_err())?;
+    state.repos.users.delete(id).await.map_err(|_| db_err())?;
     Ok(Html(String::new()))
 }
 
@@ -272,7 +310,14 @@ pub async fn admin_toggle_admin(
     Path(id): Path<Uuid>,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &admin.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
 
     let target = state
         .repos
@@ -333,7 +378,11 @@ pub async fn admin_toggle_admin(
         is_admin: new_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number), state.smtp_config.is_some()))
+    Ok(render_admin_row(
+        view,
+        signal_configured(&state.signal_api_url, &state.signal_from_number),
+        state.smtp_config.is_some(),
+    ))
 }
 
 #[derive(Deserialize)]
@@ -348,12 +397,24 @@ pub async fn admin_rename_user(
     Form(form): Form<AdminRenameForm>,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &admin.language;
-    let db_err = || t_err(&state, lang, StatusCode::INTERNAL_SERVER_ERROR, "error-database");
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
     let not_found = || t_err(&state, lang, StatusCode::NOT_FOUND, "error-user-not-found");
 
     let name = form.name.trim();
     if name.is_empty() {
-        return Err(t_err(&state, lang, StatusCode::BAD_REQUEST, "error-name-empty"));
+        return Err(t_err(
+            &state,
+            lang,
+            StatusCode::BAD_REQUEST,
+            "error-name-empty",
+        ));
     }
     let target_pre = state
         .repos
@@ -395,7 +456,11 @@ pub async fn admin_rename_user(
         is_admin: target.is_admin,
         can_create_league: target.can_create_league,
     };
-    Ok(render_admin_row(view, signal_configured(&state.signal_api_url, &state.signal_from_number), state.smtp_config.is_some()))
+    Ok(render_admin_row(
+        view,
+        signal_configured(&state.signal_api_url, &state.signal_from_number),
+        state.smtp_config.is_some(),
+    ))
 }
 
 pub async fn admin_resend_invite(
@@ -428,15 +493,19 @@ pub async fn admin_resend_invite(
             )
             .await
             {
-                Ok(_) => return Html(format!(
-                    r#"<span class="text-emerald-400 text-xs">{}</span>"#,
-                    html_escape(&t.get("admin-resend-signal-ok"))
-                )),
-                Err(e) => return Html(format!(
-                    r#"<span class="text-red-400 text-xs">{} {}</span>"#,
-                    html_escape(&t.get("admin-resend-signal-error")),
-                    html_escape(&e.to_string())
-                )),
+                Ok(_) => {
+                    return Html(format!(
+                        r#"<span class="text-emerald-400 text-xs">{}</span>"#,
+                        html_escape(&t.get("admin-resend-signal-ok"))
+                    ))
+                }
+                Err(e) => {
+                    return Html(format!(
+                        r#"<span class="text-red-400 text-xs">{} {}</span>"#,
+                        html_escape(&t.get("admin-resend-signal-error")),
+                        html_escape(&e.to_string())
+                    ))
+                }
             }
         }
     }
@@ -446,15 +515,19 @@ pub async fn admin_resend_invite(
         if let Some(ref smtp) = state.smtp_config {
             match crate::mail::send_invite_email(smtp, &row.name, email, &link, &recipient_t).await
             {
-                Ok(_) => return Html(format!(
-                    r#"<span class="text-emerald-400 text-xs">{}</span>"#,
-                    html_escape(&t.get("admin-resend-email-ok"))
-                )),
-                Err(e) => return Html(format!(
-                    r#"<span class="text-red-400 text-xs">{} {}</span>"#,
-                    html_escape(&t.get("admin-resend-email-error")),
-                    html_escape(&e.to_string())
-                )),
+                Ok(_) => {
+                    return Html(format!(
+                        r#"<span class="text-emerald-400 text-xs">{}</span>"#,
+                        html_escape(&t.get("admin-resend-email-ok"))
+                    ))
+                }
+                Err(e) => {
+                    return Html(format!(
+                        r#"<span class="text-red-400 text-xs">{} {}</span>"#,
+                        html_escape(&t.get("admin-resend-email-error")),
+                        html_escape(&e.to_string())
+                    ))
+                }
             }
         }
     }

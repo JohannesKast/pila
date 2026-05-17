@@ -68,16 +68,15 @@ impl NewsCache {
             }
             Err(e) => {
                 tracing::warn!("RSS fetch failed for {}: {}", url, e);
-                guard
-                    .as_ref()
-                    .map(|c| c.items.clone())
-                    .unwrap_or_default()
+                guard.as_ref().map(|c| c.items.clone()).unwrap_or_default()
             }
         }
     }
 }
 
-async fn fetch_and_parse(url: &str) -> Result<Vec<NewsItem>, Box<dyn std::error::Error + Send + Sync>> {
+async fn fetch_and_parse(
+    url: &str,
+) -> Result<Vec<NewsItem>, Box<dyn std::error::Error + Send + Sync>> {
     let client = reqwest::Client::builder().timeout(HTTP_TIMEOUT).build()?;
     let bytes = client
         .get(url)

@@ -58,7 +58,7 @@ fn build_harness() -> Harness {
         signal_group_id: None,
         http_client: reqwest::Client::new(),
         smtp_config: None,
-            mock_now: pila::time::new_mock_time(),
+        mock_now: pila::time::new_mock_time(),
         dev_mode: false,
     };
 
@@ -130,7 +130,10 @@ async fn admin_create_user_persists_new_user_and_returns_row_html() {
     .await
     .expect("created");
     let body = res.0;
-    assert!(body.contains("Bob"), "html should mention the new user's name");
+    assert!(
+        body.contains("Bob"),
+        "html should mention the new user's name"
+    );
 
     let listed = h.users.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
     assert_eq!(listed.len(), 1);
@@ -162,7 +165,7 @@ async fn admin_delete_user_removes_target() {
             phone_number: None,
             league_id: DEFAULT_LEAGUE_ID,
             language: "de",
-        email: None,
+            email: None,
         })
         .await
         .unwrap();
@@ -179,7 +182,8 @@ async fn admin_delete_user_removes_target() {
 async fn admin_toggle_admin_promotes_target() {
     let h = build_harness();
     let target_id = Uuid::new_v4();
-    h.users.seed(user_full(target_id, "T", "tk", false), "classic");
+    h.users
+        .seed(user_full(target_id, "T", "tk", false), "classic");
     let admin = admin_extractor(Uuid::new_v4());
     let _ = admin_toggle_admin(State(h.state.clone()), admin, Path(target_id))
         .await
@@ -192,7 +196,8 @@ async fn admin_toggle_admin_promotes_target() {
 async fn admin_toggle_admin_refuses_to_demote_last_admin() {
     let h = build_harness();
     let admin_id = Uuid::new_v4();
-    h.users.seed(user_full(admin_id, "Sole", "tk", true), "classic");
+    h.users
+        .seed(user_full(admin_id, "Sole", "tk", true), "classic");
     let admin = admin_extractor(admin_id);
     let res = admin_toggle_admin(State(h.state.clone()), admin, Path(admin_id)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -203,8 +208,10 @@ async fn admin_toggle_admin_refuses_self_demotion_with_other_admins_present() {
     let h = build_harness();
     let admin_id = Uuid::new_v4();
     let other_admin = Uuid::new_v4();
-    h.users.seed(user_full(admin_id, "Me", "t1", true), "classic");
-    h.users.seed(user_full(other_admin, "Other", "t2", true), "classic");
+    h.users
+        .seed(user_full(admin_id, "Me", "t1", true), "classic");
+    h.users
+        .seed(user_full(other_admin, "Other", "t2", true), "classic");
     let admin = admin_extractor(admin_id);
     let res = admin_toggle_admin(State(h.state.clone()), admin, Path(admin_id)).await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -221,9 +228,7 @@ async fn admin_rename_user_rejects_blank_name() {
         State(h.state.clone()),
         admin,
         Path(target_id),
-        Form(AdminRenameForm {
-            name: "  ".into(),
-        }),
+        Form(AdminRenameForm { name: "  ".into() }),
     )
     .await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -233,15 +238,14 @@ async fn admin_rename_user_rejects_blank_name() {
 async fn admin_rename_user_updates_name_and_returns_row() {
     let h = build_harness();
     let target_id = Uuid::new_v4();
-    h.users.seed(user_full(target_id, "Old", "tk", false), "classic");
+    h.users
+        .seed(user_full(target_id, "Old", "tk", false), "classic");
     let admin = admin_extractor(Uuid::new_v4());
     let res = admin_rename_user(
         State(h.state.clone()),
         admin,
         Path(target_id),
-        Form(AdminRenameForm {
-            name: "New".into(),
-        }),
+        Form(AdminRenameForm { name: "New".into() }),
     )
     .await
     .unwrap();

@@ -49,7 +49,10 @@ async fn lookup_user(
 impl FromRequestParts<AppState> for AuthenticatedUser {
     type Rejection = HandlerError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let cookie_jar = CookieJar::from_headers(&parts.headers);
         let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
 
@@ -82,7 +85,10 @@ pub struct MaybeAuthenticatedUser(pub Option<AuthenticatedUser>);
 impl FromRequestParts<AppState> for MaybeAuthenticatedUser {
     type Rejection = HandlerError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let cookie_jar = CookieJar::from_headers(&parts.headers);
         let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
 
@@ -107,7 +113,10 @@ pub struct AdminUser(pub AuthenticatedUser);
 impl FromRequestParts<AppState> for AdminUser {
     type Rejection = HandlerError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
         if !user.is_admin {
             return Err(crate::handlers::util::t_err(
@@ -129,7 +138,10 @@ pub struct SuperAdminUser(pub AuthenticatedUser);
 impl FromRequestParts<AppState> for SuperAdminUser {
     type Rejection = HandlerError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let user = AuthenticatedUser::from_request_parts(parts, state).await?;
         if !user.is_admin || !user.can_create_league {
             return Err(crate::handlers::util::t_err(
