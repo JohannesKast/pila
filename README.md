@@ -258,13 +258,13 @@ PR gates. Issues and PRs are open to everyone.
 
 - Per-user notification preferences (opt-out of reminders)
 - Per-league notification language (currently fixed at league default)
-- Optional public leaderboard link (read-only, no login required)
-- mdBook documentation site
+- Stability
+- More funny badges
+- Local LLM based game day reports 
 
 ### Intentionally out of scope
 
 - Mobile apps — the web UI is responsive
-- Social features (comments, chat)
 - Commercial hosting or SaaS
 - Betting-money mechanics — this is a points game
 

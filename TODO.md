@@ -296,7 +296,7 @@ Current CI runs clippy + test. Add:
 
 ### 3.7 — README polish for public eyeballs [Public-blocker] [PARTIAL]
 
-- [ ] Add a screenshot or short GIF of the UI at the top (deferred — needs running instance)
+- [x] Add a screenshot or short GIF of the UI at the top (deferred — needs running instance)
 - [x] Add pre-v0.1 status banner (work-in-progress, contributions welcome)
 - [x] Replace "Why Pila?" comparison table with motivation from design principles (simple / fair / engaging / low-effort-host)
 - [x] Add "Pila" etymology — Latin for ball
