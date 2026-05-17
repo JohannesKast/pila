@@ -126,7 +126,6 @@ impl OutcomeBet {
             _ => None,
         }
     }
-
 }
 
 /// Winner-only service kept separate from the classic exact-score rules.

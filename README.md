@@ -35,6 +35,14 @@ I started this project to learn more about agentic coding and to spend time
 working with Rust and sqlx on a real, self-contained application instead of a
 toy example.
 
+## Screenshots
+
+<p align="center">
+  <img src="doc/pila.jpg" alt="Pila application screenshot" width="48%" />
+  <img src="doc/simulation_mode.jpg" alt="Pila dev simulation mode screenshot" width="48%" />
+</p>
+<p align="center"><em>Left: App view · Right: Dev simulation mode</em></p>
+
 ---
 
 ## Current State & Known Gaps
