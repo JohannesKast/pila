@@ -336,6 +336,36 @@ See Sprint 1.3 — finalise the `memory-repos` feature gating if it was deferred
 - [ ] `mdbook` or `mkdocs` site published via GitHub Pages
 - [ ] Pulls from `doc/` and rendered as a navigable docs site
 
+### 4.7 — Dead code sweep [Polish]
+
+Compiler `dead_code` lint reports clean only because nearly every symbol is `pub` via `lib.rs` — manual audit found the following.
+
+**High confidence — delete:**
+
+- [ ] `src/scoring.rs:127` — `OutcomeBet::as_form_value` — zero callers
+- [ ] `src/scoring.rs:321` — `max_points_for_phase` — superseded by `max_points_for_phase_with_system`; zero callers
+- [ ] `src/scoring.rs:355` — `calculate_match_points` — only used by `_for_system` wrapper + own test; inline or make `pub(crate)`
+- [ ] `src/scoring.rs:376` — `max_potential_points` — only own in-file test references it
+- [ ] `src/notifier.rs:44` — `notifier::from_env` — replaced by per-league `SignalNotifier::new`; zero callers
+- [ ] `src/repo/league.rs:255` — `MemoryLeagueRepo::seed_setting` — zero callers
+- [ ] `src/badges.rs:67` — `BadgeDisplay::is_metric` — templates use `metric_kind()`; zero callers
+- [ ] `Cargo.toml:23` — `tower` crate — no `tower::` import; only `tower_http` is used (different crate)
+- [ ] `locales/{de,en,es,fr}.ftl` — `error-internal` key — no `t.get` / template reference in any of the four files
+- [ ] `locales/{de,en,es,fr}.ftl` — `lang-de`, `lang-en`, `lang-es`, `lang-fr` keys — language menu uses hardcoded labels in templates
+
+**Medium confidence — verify before acting:**
+
+- [ ] Gate all `Memory*Repo` types + their `seed_*` helpers + `FakeMatch` / `FakeFinishedRow` / `FakeLeaderboardRow` (in `src/repo/*/memory.rs` and `src/repo/{league,settings,special_prediction,team}.rs`) behind `#[cfg(any(test, feature = "test-fakes"))]`. Closes the deferred half of Sprint 1.3.
+- [ ] `src/scoreboard/mod.rs:84` — `FakeScoreboardClient` and its helpers (`new`, `seed`, `fail_once`, `call_count`) — same treatment: test-only, gate it
+- [ ] `src/repo/fixture/memory.rs:67` — `MemoryMatchRepo::record_prediction` — only used by its own unit tests; check it's actually needed
+
+**Low confidence — worth a look:**
+
+- [ ] `src/scoring.rs:202–228` — free functions `outcome_bet_from_form`, `outcome_bet_to_stored_scores`, `outcome_bet_from_stored_scores`, `score_match` are thin wrappers around inherent methods on `OutcomeBet`. Collapse to one form (free fn OR inherent method) — having both is API noise.
+- [ ] Naming collision: `ChampionView` exists in both `src/repo/special_prediction.rs:12` and `src/badges.rs:194` with different field shapes — rename one.
+
+**Acceptance:** All high-confidence items deleted; `cargo clippy --all-targets -- -D warnings` clean; `cargo test --all-targets` green; medium-confidence items either done or explicitly deferred with a one-line rationale here.
+
 ---
 
 ## Decision Log
