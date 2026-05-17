@@ -241,21 +241,21 @@ CLAUDE.md is Claude-Code-specific. Externals need an equivalent.
 
 Current CI runs clippy + test. Add:
 
-- [ ] `cargo fmt --check` step
-- [ ] `cargo audit` (RustSec advisory DB) — fail on any unpatched advisory
-- [ ] `cargo deny check` (license + source allowlist + dupes). Add a `deny.toml` that:
+- [x] `cargo fmt --check` step
+- [x] `cargo audit` (RustSec advisory DB) — fail on any unpatched advisory
+- [x] `cargo deny check` (license + source allowlist + dupes). Add a `deny.toml` that:
   - Allowlists AGPL-compatible licenses for deps
   - Bans known-bad crates
   - Warns on duplicate versions
-- [ ] Enable Dependabot (`.github/dependabot.yml`) for `cargo` and `github-actions` ecosystems, weekly schedule
-- [ ] (Optional) Coverage step with `cargo-llvm-cov` and upload to Codecov
+- [x] Enable Dependabot (`.github/dependabot.yml`) for `cargo` and `github-actions` ecosystems, weekly schedule
+- [x] (Optional) Coverage step with `cargo-llvm-cov` and upload to Codecov
 
 ### 3.7 — README polish for public eyeballs [Public-blocker]
 
 - [ ] Add a screenshot or short GIF of the UI at the top
 - [ ] Add a "Why Pila?" paragraph (vs. existing prediction games — fewer ads, self-hostable, multi-league, AGPL)
 - [ ] Add a "Roadmap" section: what's coming (post-v0.1 ideas) and what's intentionally out of scope
-- [ ] Add badges row: CI (exists), license (AGPL), Rust edition, GHCR image tag (once built)
+- [x] Add badges row: CI (exists), license (AGPL), Rust edition, GHCR image tag (once built)
 - [ ] Verify all internal links work (`CLAUDE.md`, `doc/`, etc.)
 
 ### 3.8 — Release artefacts [Public-blocker]

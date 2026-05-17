@@ -1,6 +1,9 @@
 # Pila
 
 [![CI](https://github.com/JohannesKast/pila/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/JohannesKast/pila/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/JohannesKast/pila/graph/badge.svg)](https://codecov.io/gh/JohannesKast/pila)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Rust 2021](https://img.shields.io/badge/rust-2021-orange.svg)](https://doc.rust-lang.org/edition-guide/rust-2021/)
 
 A self-hostable FIFA World Cup 2026 prediction game (Tippspiel) written in Rust.
 Friends and family submit exact-score tips for every match plus a champion pick,
