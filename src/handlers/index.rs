@@ -287,9 +287,8 @@ pub async fn index(
             _ => None,
         };
         let mv = MatchView {
-            id: r.gd,
+            id: r.id,
             stage: r.stage,
-            stage_label: r.stage.label_de().to_string(),
             group_letter: r.group_letter.map(|s| s.trim().to_string()),
             home_name: r.home_name,
             away_name: r.away_name,
