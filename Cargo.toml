@@ -5,7 +5,7 @@ edition = "2021"
 license = "AGPL-3.0-or-later"
 
 [dependencies]
-axum = { version = "0.7", features = ["macros"] }
+axum = { version = "0.8", features = ["macros"] }
 axum-extra = { version = "0.9", features = ["cookie"] }
 tokio = { version = "1.36", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
 serde = { version = "1.0", features = ["derive"] }
