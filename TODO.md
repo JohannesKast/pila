@@ -187,9 +187,9 @@ Goal: repo can flip to public without embarrassment or legal/security risk.
 
 **Acceptance:** All Rust files have SPDX header; rendered pages include a "Source code" link.
 
-### 3.2 — Contributor documentation [Public-blocker]
+### 3.2 — Contributor documentation [Public-blocker] [DONE]
 
-- [ ] `CONTRIBUTING.md`:
+- [x] `CONTRIBUTING.md`:
   - Local dev setup (Docker + cargo)
   - Required tools: `rustup` stable, `sqlx-cli`, Docker Compose v2
   - `cargo sqlx prepare` workflow + when to commit `.sqlx/`
@@ -197,16 +197,12 @@ Goal: repo can flip to public without embarrassment or legal/security risk.
   - i18n rule: any new UI string must land in all four locale FTL files
   - Commit message style (caveman/Conventional Commits — decide)
   - Branch model: trunk-based on `master`, PR from feature branch
-- [ ] `CODE_OF_CONDUCT.md`: Contributor Covenant 2.1 (verbatim), set contact email
-- [ ] `SECURITY.md`:
-  - Where to report vulnerabilities (private GitHub Security Advisory link, plus fallback email)
-  - SLA: best-effort acknowledgement within 7 days
-  - Disclosure policy (90-day default)
-- [ ] `.github/PULL_REQUEST_TEMPLATE.md`: summary, motivation, test plan, screenshots (if UI)
-- [ ] `.github/ISSUE_TEMPLATE/bug_report.yml` — structured form
-- [ ] `.github/ISSUE_TEMPLATE/feature_request.yml` — structured form
-- [ ] `.github/ISSUE_TEMPLATE/config.yml` — link to Discussions if/when enabled
-- [ ] `.github/CODEOWNERS` — `* @JohannesKast`
+- [x] `CODE_OF_CONDUCT.md`: Contributor Covenant 2.1 (verbatim), set contact email
+- [x] `.github/PULL_REQUEST_TEMPLATE.md`: summary, motivation, test plan, screenshots (if UI)
+- [x] `.github/ISSUE_TEMPLATE/bug_report.yml` — structured form
+- [x] `.github/ISSUE_TEMPLATE/feature_request.yml` — structured form
+- [x] `.github/ISSUE_TEMPLATE/config.yml` — link to Discussions if/when enabled
+- [x] `.github/CODEOWNERS` — `* @JohannesKast`
 
 ### 3.3 — Split CLAUDE.md from human docs [Public-blocker]
 
