@@ -23,7 +23,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.5", features = ["limit", "util"] }
 tower-http = { version = "0.5", features = ["fs"] }
 feed-rs = "2"
-thiserror = "1"
+thiserror = "2"
 fluent-bundle = "0.15"
 unic-langid = "0.9"
 time = { version = "0.3.47", features = ["macros"] }
