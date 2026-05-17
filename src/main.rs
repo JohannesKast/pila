@@ -78,7 +78,6 @@ async fn main() {
     let mock_now = time::new_mock_time();
 
     let state = AppState {
-        db: Some(pool.clone()),
         jerseys: pila::jersey::load(),
         news: news::NewsCache::from_env(),
         repos: repos.clone(),

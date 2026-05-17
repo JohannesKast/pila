@@ -16,7 +16,6 @@ pub mod worker;
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use sqlx::PgPool;
 use tokio::sync::Semaphore;
 
 /// Maximum in-flight requests the server handles concurrently.
@@ -26,9 +25,6 @@ pub const MAX_CONCURRENT_REQUESTS: usize = 30;
 
 #[derive(Clone)]
 pub struct AppState {
-    /// Direct pool handle used by `setup_post` for its multi-table
-    /// transaction. `None` in tests that use in-memory repos.
-    pub db: Option<PgPool>,
     pub jerseys: Arc<HashMap<String, jersey::JerseyPreset>>,
     pub news: Arc<news::NewsCache>,
     pub repos: repo::Repos,

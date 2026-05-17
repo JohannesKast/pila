@@ -21,7 +21,7 @@ use crate::handlers::util::{
 };
 use crate::notifier::{self, signal_configured};
 use crate::repo::league::LeagueConfig;
-use crate::repo::Repos;
+use crate::repo::{FirstLeagueParams, Repos};
 use crate::AppState;
 
 #[derive(Template)]
@@ -122,93 +122,30 @@ pub async fn setup_post(
     let token = Uuid::new_v4().to_string();
     let magic_link = build_magic_link(&token, &state.base_url);
 
-    // ── Transaction: league + settings + user + can_create_league ──
-    // If any step fails the whole setup rolls back; a half-created league
-    // or orphan user can never exist.
-    {
-        let mut tx = state
-            .db
-            .as_ref()
-            .ok_or_else(db_err)?
-            .begin()
-            .await
-            .map_err(|e| {
-                tracing::error!(%e, "setup: begin transaction failed");
-                db_err()
-            })?;
-
-        // 1. Create league
-        let league_id: Uuid = sqlx::query_scalar!(
-            "INSERT INTO leagues (name) VALUES ($1) RETURNING id",
-            &league_name
-        )
-        .fetch_one(&mut *tx)
+    let settings = [
+        (LeagueConfig::KEY_DEFAULT_LANGUAGE, lang),
+        (LeagueConfig::KEY_SIGNAL_GROUP_ID, form.signal_group_id.trim()),
+        (LeagueConfig::KEY_SIGNAL_FROM_NUMBER, form.signal_from_number.trim()),
+        (LeagueConfig::KEY_RSS_FEED_URL, form.rss_feed_url.trim()),
+    ];
+    state
+        .repos
+        .bootstrap
+        .create_first_league_and_admin(FirstLeagueParams {
+            user_id: id,
+            user_name: &name,
+            token: &token,
+            phone_number: phone_opt,
+            email: email_opt,
+            language: lang,
+            league_name: &league_name,
+            settings: &settings,
+        })
         .await
         .map_err(|e| {
-            tracing::error!(%e, "setup: create league failed");
+            tracing::error!(%e, "setup: bootstrap transaction failed");
             db_err()
         })?;
-
-        // 2. Persist settings (only non-empty values)
-        let settings: &[(&str, &str)] = &[
-            (LeagueConfig::KEY_DEFAULT_LANGUAGE, lang),
-            (LeagueConfig::KEY_SIGNAL_GROUP_ID, form.signal_group_id.trim()),
-            (LeagueConfig::KEY_SIGNAL_FROM_NUMBER, form.signal_from_number.trim()),
-            (LeagueConfig::KEY_RSS_FEED_URL, form.rss_feed_url.trim()),
-        ];
-        for (key, value) in settings {
-            if value.is_empty() {
-                continue;
-            }
-            sqlx::query!(
-                "INSERT INTO league_settings (league_id, key, value) VALUES ($1, $2, $3) \
-                 ON CONFLICT (league_id, key) DO UPDATE SET value = EXCLUDED.value",
-                league_id,
-                key,
-                value
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| {
-                tracing::error!(%e, key, "setup: insert setting failed");
-                db_err()
-            })?;
-        }
-
-        // 3. Create user
-        sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
-            id,
-            &name,
-            &token,
-            true, // is_admin
-            phone_opt,
-            email_opt,
-            league_id,
-            lang
-        )
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| {
-            tracing::error!(%e, "setup: create user failed");
-            db_err()
-        })?;
-
-        // 4. Grant super-admin
-        sqlx::query!("UPDATE users SET can_create_league = TRUE WHERE id = $1", id)
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| {
-                tracing::error!(%e, "setup: grant can_create_league failed");
-                db_err()
-            })?;
-
-        tx.commit().await.map_err(|e| {
-            tracing::error!(%e, "setup: commit failed");
-            db_err()
-        })?;
-    }
 
     // Signal invite is outside the transaction — best-effort side effect.
     let invite_t = crate::handlers::util::t_for(&state, lang);

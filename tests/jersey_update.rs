@@ -67,7 +67,6 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         repos: pila::repo::Repos::from_pool(pool.clone()),
         translations: std::collections::HashMap::new(),
         concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
-        db: Some(pool.clone()),
         base_url: "http://localhost:8000".into(),
         signal_api_url: None,
         signal_from_number: None,

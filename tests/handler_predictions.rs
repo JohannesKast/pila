@@ -21,8 +21,8 @@ use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::fixture::{FakeMatch, MemoryMatchRepo};
 use pila::repo::team::TeamOption;
 use pila::repo::{
-    MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo, MemorySpecialPredictionRepo,
-    MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
+    MemoryBootstrapRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
+    MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
 };
 use pila::stage::Stage;
 use pila::AppState;
@@ -50,6 +50,7 @@ fn build_harness() -> Harness {
     });
 
     let repos = Repos {
+        bootstrap: Arc::new(MemoryBootstrapRepo::new()),
         users: users.clone(),
         leagues,
         matches: matches.clone(),
@@ -66,7 +67,6 @@ fn build_harness() -> Harness {
         repos,
         translations: std::collections::HashMap::new(),
         concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
-        db: None,
         base_url: "http://localhost:8000".into(),
         signal_api_url: None,
         signal_from_number: None,

@@ -62,19 +62,16 @@ Verification: `cargo clippy --all-targets -- -D warnings` clean; all 222 tests g
 
 `nm target/release/pila | grep -i memory` will show `Memory*Repo` symbols until (a) is applied.
 
-### 1.4 — Fix `AppState.db: Option<PgPool>` smell [Polish]
+### 1.4 — Fix `AppState.db: Option<PgPool>` smell [Polish] [DONE]
 
-The `Option<PgPool>` exists only because `setup_post` runs a multi-table
-transaction outside the repo layer.
+- [x] `repo::bootstrap::BootstrapRepo` trait + `FirstLeagueParams` DTO
+- [x] `PgBootstrapRepo` encapsulates the multi-table setup transaction
+- [x] `MemoryBootstrapRepo` stub for handler tests
+- [x] `Repos.bootstrap` field; `Repos::from_pool` wires `PgBootstrapRepo`
+- [x] `handlers/setup.rs` uses `state.repos.bootstrap.create_first_league_and_admin`
+- [x] `AppState.db` field removed
 
-- [ ] Introduce `repo::bootstrap::BootstrapRepo` trait with one method:
-  `create_first_league_and_admin(name, league_name, …) -> Result<UserId>`
-- [ ] Implement for `PgBootstrapRepo` (encapsulates the existing multi-table tx)
-- [ ] Wire into `Repos` struct
-- [ ] Replace direct `state.db` calls in `handlers/setup.rs` with the new repo method
-- [ ] Remove `AppState.db` field
-
-**Acceptance:** `grep -n 'state\.db' src/` returns no hits except possibly `main.rs` setup; `cargo test` green; `/setup` integration test (added in 1.5) passes.
+**Acceptance achieved:** `grep -n 'state\.db' src/` → no hits; clippy clean; 222+ tests green.
 
 ### 1.5 — Close test coverage gaps [Blocker]
 

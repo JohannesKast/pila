@@ -433,7 +433,7 @@ mod tests {
     use crate::repo::fixture::{FakeMatch, MemoryMatchRepo};
     use crate::repo::notification::{ClosingSoonMatch, NotificationRepo};
     use crate::repo::{
-        MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
+        MemoryBootstrapRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
         MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
     };
     use crate::scoreboard::{FakeScoreboardClient, MatchStatus, SportsEvent, SportsTeam};
@@ -471,6 +471,7 @@ mod tests {
             notifications_bootstrapped: false,
         });
         Repos {
+            bootstrap: Arc::new(MemoryBootstrapRepo::new()),
             users: Arc::new(MemoryUserRepo::new()),
             leagues,
             matches: Arc::new(MemoryMatchRepo::new()),
