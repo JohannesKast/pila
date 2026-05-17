@@ -9,6 +9,19 @@ Friends and family submit exact-score tips for every match plus a champion pick,
 collect points, and watch the leaderboard move. Built to run on a homelab box
 with Docker Compose.
 
+Pila is built around a simple idea: provide a fair prediction game that people
+can join without account registration, password friction, or advertising. At
+the same time, it should be a page players actually like returning to during
+the tournament, with badges, jerseys, an optional RSS feed, and room for
+further fun additions that do not compromise the core game. For the person
+hosting it, the goal is equally pragmatic: low setup and maintenance overhead,
+so they can do something nice for their group without taking on much operator
+burden.
+
+I started this project personally to learn more about agentic coding and to
+spend time working with Rust and sqlx on a real, self-contained application
+instead of a toy example.
+
 ## Features
 
 - **Per-match score tipping** for the entire tournament (group stage through
@@ -24,6 +37,8 @@ with Docker Compose.
 - **No accounts, no passwords**: each user gets a personal link. Open it and
   you're in — anyone with the link can tip, so treat it like a password and
   share it privately.
+- **No ads, no signup funnel**: the app stays focused on the game instead of
+  monetisation clutter.
 - **Notifications** (both optional): remind the group when a match or the
   champion pick is about to lock — via a Signal group message and/or by email.
   Quiet hours 22:00–08:00 Europe/Berlin.
@@ -177,7 +192,7 @@ cargo clippy
 cargo sqlx prepare   # after any sqlx::query! change — commit .sqlx/
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for the full architecture overview.
+See [`doc/architecture.md`](doc/architecture.md) for the full architecture overview.
 
 ## License
 

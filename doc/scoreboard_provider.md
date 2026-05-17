@@ -7,8 +7,9 @@ the data returned, so that a second provider (e.g. a commercial sports
 data API) can be plugged in without re-reading the worker code.
 
 > **Maintenance rule:** every change to the trait, its DTOs, or the
-> contracts below must be reflected here in the same commit. CLAUDE.md
-> points here so the file stays the single source of truth.
+> contracts below must be reflected here in the same commit.
+> [`architecture.md`](./architecture.md) points here so the file stays
+> the single source of truth for provider behaviour.
 
 ---
 

@@ -8,7 +8,7 @@
 //! built once per request and passed to every registered badge, which
 //! derives a `BadgeView` from it purely.
 //!
-//! Architecture overview: see CLAUDE.md, section "Badges".
+//! Architecture overview: see `doc/architecture.md`, section "Badge System".
 
 use chrono::{DateTime, NaiveDate, Utc};
 use chrono_tz::Europe::Berlin;

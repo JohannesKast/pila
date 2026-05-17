@@ -204,11 +204,11 @@ Goal: repo can flip to public without embarrassment or legal/security risk.
 - [x] `.github/ISSUE_TEMPLATE/config.yml` — link to Discussions if/when enabled
 - [x] `.github/CODEOWNERS` — `* @JohannesKast`
 
-### 3.3 — Split CLAUDE.md from human docs [Public-blocker]
+### 3.3 — Split CLAUDE.md from human docs [Public-blocker] [DONE]
 
 CLAUDE.md is Claude-Code-specific. Externals need an equivalent.
 
-- [ ] Create `doc/architecture.md` — same content minus AI references:
+- [x] Create `doc/architecture.md` — same content minus AI references:
   - What Pila is
   - Module map (src/ tree)
   - DB schema overview
@@ -216,8 +216,13 @@ CLAUDE.md is Claude-Code-specific. Externals need an equivalent.
   - Worker / notification flow
   - i18n architecture
   - SQLx offline workflow
-- [ ] CLAUDE.md keeps only: AI-collaboration rules, links into `doc/architecture.md`
-- [ ] Move `doc/scoreboard_provider.md` reference into `doc/architecture.md` as well
+- [x] CLAUDE.md keeps only: AI-collaboration rules, links into `doc/architecture.md`
+- [x] Move `doc/scoreboard_provider.md` reference into `doc/architecture.md` as well
+
+**Acceptance achieved:** `doc/architecture.md` is now the human-facing
+architecture reference; `CLAUDE.md` was reduced to AI-collaboration rules plus
+links; `README.md`, `doc/scoreboard_provider.md`, and `src/badges.rs` now
+point to the human doc instead of the old mixed-purpose file.
 
 ### 3.4 — Clean up `handoff/` directory [DONE]
 
