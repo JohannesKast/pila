@@ -3,51 +3,100 @@
 [![CI](https://github.com/JohannesKast/pila/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/JohannesKast/pila/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/JohannesKast/pila/graph/badge.svg)](https://codecov.io/gh/JohannesKast/pila)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+[![Rust edition](https://img.shields.io/badge/Rust-2024-orange)](https://doc.rust-lang.org/edition-guide/rust-2024/index.html)
+
+> **Pre-v0.1 — work in progress.** Core gameplay works; not every planned
+> feature is implemented yet. If something is broken or missing, that is
+> expected — contributions are very welcome.
+
+*Pila* is Latin for **ball**.
 
 A self-hostable FIFA World Cup 2026 prediction game (Tippspiel) written in Rust.
-Friends and family submit exact-score tips for every match plus a champion pick,
-collect points, and watch the leaderboard move. Built to run on a homelab box
-with Docker Compose.
+Players submit exact-score tips for every match plus a champion pick, collect
+points, and watch the leaderboard move while gaining badges (not counted towards score ;-)). Built to run on a homelab box with
+docker compose.
 
-Pila is built around a simple idea: provide a fair prediction game that people
-can join without account registration, password friction, or advertising. At
-the same time, it should be a page players actually like returning to during
-the tournament, with badges, jerseys, an optional RSS feed, and room for
-further fun additions that do not compromise the core game. For the person
-hosting it, the goal is equally pragmatic: low setup and maintenance overhead,
-so they can do something nice for their group without taking on much operator
-burden.
+Pila is built around four principles:
 
-I started this project personally to learn more about agentic coding and to
-spend time working with Rust and sqlx on a real, self-contained application
-instead of a toy example.
+1. **Simple for players.** No account registration, no password management, no
+   app install. Each player gets one personal magic link — open it and you're
+   in.
+2. **Fair and distraction-free.** No ads, no growth mechanics, transparent
+   scoring, clear match-lock behaviour. Strict league isolation so one league's
+   data never touches another's.
+3. **A page worth coming back to.** Badges, jersey presets, and an optional RSS
+   news ticker keep the experience alive between kickoffs — without undermining
+   the core game.
+4. **Low effort for the host.** One small Docker Compose stack, automatic
+   migrations, optional integrations. The person hosting it should be able to
+   do something nice for their group without taking on much operator burden.
+
+I started this project to learn more about agentic coding and to spend time
+working with Rust and sqlx on a real, self-contained application instead of a
+toy example.
+
+---
+
+## Current State & Known Gaps
+
+Pila is **pre-v0.1**. The core game loop works end-to-end in local testing, but
+several things are not yet production-verified:
+
+- **Notifications (Signal & Email)** — the plumbing is there, but both
+  transports are barely tested beyond the unit-test level. Real-world delivery
+  (Signal account linking, SMTP edge cases, quiet-hours timing) has not been
+  exercised in anger. Treat them as experimental and please report issues.
+- **No release image yet** — you build from source with `docker compose build`.
+  A pre-built GHCR image is planned for v0.2.
+- I plan to use this for my friends and family group so I will constantly improve
+  this project during the world cup season.
+
+### Simulation mode
+
+To try the app locally without waiting for real match results, enable dev mode:
+
+```bash
+PILA_DEV_MODE=true cargo run
+# — or add PILA_DEV_MODE=true to your .env for the compose stack
+```
+
+Dev mode mounts a set of additional routes (only active when
+`PILA_DEV_MODE=true`; 404 everywhere else) that let you:
+
+- **Jump mock time** forward so pre-match deadlines pass and tip inputs lock.
+- **Simulate a matchday** in one click: randomises results for the next batch
+  of matches and advances time past their kickoffs.
+- **Generate random tips** for all users at once — useful for testing the
+  leaderboard and badge logic without clicking through every form.
+- **Switch between users** without needing separate browser sessions.
+
+This makes it straightforward to walk through an entire tournament — group
+stage, knockouts, final — in minutes on a laptop.
+
+---
 
 ## Features
 
 - **Per-match score tipping** for the entire tournament (group stage through
-  final) plus a single Weltmeister/champion pick.
+  final) plus a single champion pick.
 - **Points-based scoring** with a fixed table per tournament phase. Default
   (exact-score) mode: exact result / correct goal difference / correct tendency
   / wrong → 4-3-2-0 (group), 6-4-3-0 (R32/R16), 8-6-5-0 (QF/SF),
   11-8-6-0 (3rd place/final). Each league can optionally switch to a simpler
   winner-only mode (tip home win, draw, or away win) worth 1–7 points depending
   on the round.
-- **Multi-tenancy (Tipp-Ligen)**: run several isolated leagues on one instance,
-  each with its own users, leaderboard, notification channel, and default language.
+- **Multi-tenancy**: run several isolated leagues on one instance, each with
+  its own users, leaderboard, notification channel, and default language.
 - **No accounts, no passwords**: each user gets a personal link. Open it and
-  you're in — anyone with the link can tip, so treat it like a password and
-  share it privately.
-- **No ads, no signup funnel**: the app stays focused on the game instead of
-  monetisation clutter.
-- **Notifications** (both optional): remind the group when a match or the
-  champion pick is about to lock — via a Signal group message and/or by email.
-  Quiet hours 22:00–08:00 Europe/Berlin.
-- **Internationalised UI** in German, English, Spanish, French.
+  you're in — treat it like a password and share it privately.
+- **Notifications** (optional, experimental): remind the group when a match or
+  the champion pick is about to lock — via Signal group message and/or email.
+- **Internationalised UI** in English, Spanish, French, and German.
 - **Live score sync** via ESPN's scoreboard, polled every 30 minutes.
-- **Hero panel with badges** — purely cosmetic gamification, computed on the fly.
+- **Badges** — purely cosmetic gamification, computed on the fly.
 - **RSS news ticker** (optional) for a feed of your choice on the index page.
-- **Hardened container by default**: read-only root FS, all capabilities dropped,
-  CPU/memory/PID limits, healthchecks.
+- **Hardened container by default**: read-only root FS, all capabilities
+  dropped, CPU/memory/PID limits, healthchecks.
 
 ## Tech Stack
 
@@ -57,65 +106,51 @@ binary. Signal notifications go through `bbernhard/signal-cli-rest-api`.
 ## Requirements
 
 - Linux host with Docker and Docker Compose v2
-- ~512 MB RAM and 1 CPU core free for the app container
 - A public hostname + reverse proxy if you want to expose the app to the
   internet (recommended: Caddy, Traefik, or nginx with Let's Encrypt)
 - Optional: a dedicated Signal phone number for the bot
 - Optional: an email account for outgoing notifications
 
-## Installation (Homelab Quickstart)
+## Installation
 
 ```bash
-git clone https://github.com/<your-fork>/pila.git
+git clone https://github.com/JohannesKast/pila.git
 cd pila
-
-# 1. Configure environment
 cp .env.example .env
-# Edit .env — at minimum set POSTGRES_PASSWORD (strong random) and BASE_URL.
-$EDITOR .env
-
-# 2. Start the stack (database + signal-cli + app)
+$EDITOR .env          # set POSTGRES_PASSWORD and BASE_URL at minimum
 docker compose up -d
 docker compose logs -f app
 ```
 
-The app listens on `http://localhost:8000`. Migrations and first-run bootstrap
-run automatically on startup — no manual database setup needed. On first start
-the admin setup page will walk you through creating the first league and your
-personal invite link.
+The app listens on `http://localhost:8000`. Migrations run automatically on
+startup. On first start the admin setup page walks you through creating the
+first league and your personal invite link.
 
-### Notifications (optional)
+### Notifications (optional, experimental)
 
-Pila can reach out to players in two ways — both are optional and independent:
+> **Note:** Both notification transports are under-tested. If you run into
+> problems, please open an issue — this is one of the areas most in need of
+> real-world feedback.
 
-**Signal**: ping a group when a match or the champion pick locks soon. You need
-a dedicated phone number registered with Signal. Set `SIGNAL_FROM_NUMBER` and
-`SIGNAL_GROUP_ID` in `.env` (or per-league from the admin UI), then link the
-number to the bundled `signal-cli` container:
+**Signal**: set `SIGNAL_FROM_NUMBER` and `SIGNAL_GROUP_ID` in `.env`, then link
+a dedicated phone number to the bundled `signal-cli` container:
 
 ```bash
-# Temporarily expose the signal-cli REST API to localhost for registration
-# (uncomment the ports: line in docker-compose.yml for signal-cli, then restart)
-docker compose up -d signal-cli
-# Register your number, verify via SMS, add the bot to your group.
 # Full guide: https://github.com/bbernhard/signal-cli-rest-api
+# Temporarily uncomment the signal-cli ports: line in docker-compose.yml,
+# restart, register your number, then comment the port back out.
 ```
 
 **Email**: set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and
-`SMTP_FROM` in `.env`. Any standard mail provider works (Gmail app password,
-Fastmail, your homelab MTA, etc.). If the vars are absent, Pila skips email
-delivery and only shows invite links in the admin UI for manual sharing.
+`SMTP_FROM` in `.env`. Any standard provider works (Gmail app password,
+Fastmail, a homelab MTA). If the vars are absent, email delivery is skipped and
+invite links are shown in the admin UI for manual sharing.
 
-## Recommended Secure Deployment
-
-Pila is small and pragmatic — most of the heavy lifting is done by your
-reverse proxy and the kernel.
+## Secure Deployment
 
 ### Reverse proxy with TLS
 
-Do **not** expose port 8000 directly. Front the app with Caddy, Traefik, or
-nginx, terminate TLS there, and let the proxy talk to the app over the Docker
-network. Example Caddy snippet:
+Do **not** expose port 8000 directly. Example Caddy snippet:
 
 ```caddyfile
 pila.example.com {
@@ -133,29 +168,21 @@ pila.example.com {
 Set `BASE_URL=https://pila.example.com` in `.env` so invite links and
 notifications use the public hostname.
 
-### Secrets
+### Secrets & access control
 
-- Generate `POSTGRES_PASSWORD` with `openssl rand -base64 32` and store `.env`
+- Generate `POSTGRES_PASSWORD` with `openssl rand -base64 32`; store `.env`
   with `chmod 600`.
 - Keep `.env` out of git (already in `.gitignore`).
 - Invite links are bearer credentials — share them via Signal, a password
-  manager, or another private channel, not in a public chat.
+  manager, or another private channel.
+- Do **not** expose the `signal-cli` port in production — it has no auth. The
+  comment in `docker-compose.yml` is for the one-time registration step only.
 
 ### Container hardening
 
 The default `docker-compose.yml` already drops all Linux capabilities, sets
 `no-new-privileges`, mounts the root FS read-only, and limits CPU/memory/PIDs.
 Don't relax those without a reason.
-
-### Network exposure
-
-- Bind the reverse proxy to your WAN; keep everything else on the Docker
-  internal network.
-- Do **not** expose the `signal-cli` port in production — it has no auth. The
-  port comment in `docker-compose.yml` is there for the one-time registration
-  step only.
-- For LAN-only access, bind the proxy to a private interface and skip the
-  public DNS record entirely.
 
 ### Backups
 
@@ -164,8 +191,8 @@ Don't relax those without a reason.
 ./restore_db.sh backups/<file>  # restore
 ```
 
-Schedule `backup_db.sh` via cron or a systemd timer and copy dumps off the
-host. The database is the only stateful piece worth backing up.
+Schedule `backup_db.sh` via cron or a systemd timer. The database is the only
+stateful piece worth backing up.
 
 ### Updates
 
@@ -175,8 +202,7 @@ docker compose build app
 docker compose up -d app
 ```
 
-Migrations run automatically on startup. Review the diff before pulling — this
-is a hobby project, not LTS software.
+Migrations run automatically on startup.
 
 ## Local Development
 
@@ -192,13 +218,55 @@ cargo clippy
 cargo sqlx prepare   # after any sqlx::query! change — commit .sqlx/
 ```
 
-See [`doc/architecture.md`](doc/architecture.md) for the full architecture overview.
+Enable `PILA_DEV_MODE=true` to play through the tournament locally without real
+match data (see [Simulation mode](#simulation-mode) above).
+
+See [`doc/architecture.md`](doc/architecture.md) for the full architecture
+overview and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contributor workflow.
+
+## Contributing
+
+Contributions are very welcome. The project is young and there is plenty to do —
+especially:
+
+- **Battle-testing notifications** (Signal and email delivery in real setups)
+- **UI feedback** — Askama/HTMX templates, no JavaScript framework required
+- **i18n improvements** — four locale files (`locales/{en,es,fr,de}.ftl`);
+  better translations or new languages are straightforward to add
+- **Bug reports** from anyone running the app against real tournament data
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup instructions and mandatory
+PR gates. Issues and PRs are open to everyone.
+
+## Roadmap
+
+### Planned for v0.1
+
+- Pre-built Docker image on GHCR (no build step for end users)
+- Verified notification delivery (Signal + email) in a real homelab setup
+- Configurable quiet hours (currently hardcoded to `Europe/Berlin`)
+
+### Post-v0.1 ideas
+
+- Per-user notification preferences (opt-out of reminders)
+- Per-league notification language (currently fixed at league default)
+- Optional public leaderboard link (read-only, no login required)
+- mdBook documentation site
+
+### Intentionally out of scope
+
+- Mobile apps — the web UI is responsive
+- Social features (comments, chat)
+- Commercial hosting or SaaS
+- Betting-money mechanics — this is a points game
+
+---
 
 ## License
 
 [GNU Affero General Public License v3.0 or later](LICENSE).
 
-Pila is free software: you can redistribute it and/or modify it under the
-terms of the AGPL-3.0-or-later. In short: if you run a modified version on a
-network server, you must offer its source code to the users interacting with
-it. See the LICENSE file for the full text.
+Pila is free software: you can redistribute it and/or modify it under the terms
+of the AGPL-3.0-or-later. If you run a modified version on a network server,
+you must offer its source code to the users interacting with it. See the LICENSE
+file for the full text.

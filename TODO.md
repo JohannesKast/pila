@@ -128,11 +128,11 @@ Goal: deployment works end-to-end, operators have what they need.
 
 ### 2.1 — Smoke-test operational scripts [Blocker]
 
+`create_invite.sh`, `admin_edit.sh`, and `delete_user.sh` were deleted — all
+those operations are handled through the in-app admin UI. Remaining scripts:
+
 - [ ] `./backup_db.sh` — produces a valid `.sql.gz` dump in `./backups/`
 - [ ] `./restore_db.sh backups/<file>` — restores into a fresh DB, app comes up
-- [ ] `./create_invite.sh` — with `PILA_BASE_URL=https://example.com`, the printed URL uses the override
-- [ ] `./admin_edit.sh` — works on a populated DB (round-trip a prediction edit)
-- [ ] `./delete_user.sh` — confirms cascade delete (predictions, special_predictions, sent_notifications cleaned up)
 - [ ] `./signal_send.sh` — manually triggers a Signal message to the configured group (or NoopNotifier path if not configured)
 
 **Acceptance:** Each script runs without errors against a real Docker Compose stack.
@@ -228,15 +228,58 @@ point to the human doc instead of the old mixed-purpose file.
 
 - [x] `handoff/` directory deleted (was never tracked by git; design artefacts not preserved).
 
-### 3.5 — Scrub git history for secrets [Public-blocker]
+### 3.5 — Scrub git history for secrets [Public-blocker] [DONE]
 
-- [ ] Run `git log --all -p | grep -iE 'password|secret|token|@gmail\.com|@.*\..*\.com'` — review every hit
-- [ ] Run `gitleaks detect --source . --log-opts="--all"` (install via `go install github.com/gitleaks/gitleaks/v8@latest` or use the Docker image)
-- [ ] Review `.env.example` for any non-placeholder values
-- [ ] Search for hardcoded personal email/phone in fixtures and migrations
-- [ ] If any real secret found: rewrite history with `git filter-repo` and rotate the secret. **Do not push** the original branch first.
+- [x] Run `git log --all -p | grep -iE 'password|secret|token|@gmail\.com|@.*\..*\.com'` — reviewed all hits
+- [x] Run `gitleaks detect --source . --log-opts="--all"` (via Docker image `zricethezav/gitleaks:latest`)
+- [x] Review `.env.example` for any non-placeholder values
+- [x] Search for hardcoded personal email/phone in fixtures and migrations
 
-**Acceptance:** Gitleaks run is clean; manual grep returns no real secrets.
+**Acceptance achieved:** Gitleaks scanned 51 commits — no leaks found. Manual grep returned no real secrets. Findings:
+- `POSTGRES_PASSWORD: pila` in CI workflows is an ephemeral test-only value (standard practice, not a real secret)
+- `.env.example` contains only placeholders (`change_me`, empty fields)
+- `.env` was never committed to git
+- No personal email/phone in migrations or source code
+- `mail@johannes-kast.de` in `CODE_OF_CONDUCT.md` is intentional (CoC contact address)
+
+### 3.5b — Make quiet hours timezone configurable [Public-blocker]
+
+`src/notifier.rs:in_quiet_hours_now()` is hardcoded to `Europe/Berlin`
+(`chrono_tz::Europe::Berlin`). The World Cup is a global event; groups in
+other time zones should not receive notifications at 3 AM.
+
+- [ ] Add `QUIET_HOURS_TZ` env var (IANA tz string, e.g. `America/New_York`);
+  default `UTC` so the behaviour is at least predictable outside Europe.
+- [ ] Or: make quiet hours configurable per-league in `LeagueConfig` (the
+  Signal fields are already moving there per Sprint 4.2 notes).
+- [ ] Update `in_quiet_hours_now()` / worker to use the resolved timezone.
+- [ ] Document the env var in `.env.example` and README.
+
+**Acceptance:** A league in `America/Sao_Paulo` does not get silenced by
+Berlin's night hours.
+
+### 3.5c — Measure actual container resource usage
+
+README previously claimed "~512 MB RAM" with no measurement behind it. That
+number was removed; a real figure is needed before publishing.
+
+- [ ] Run `docker stats pila_app` during an idle period and during a
+  simulated full tournament (using `PILA_DEV_MODE` to fire all score-sync
+  cycles).
+- [ ] Record peak RSS and typical CPU. Add a sentence to README / `doc/` with
+  the measured values and the test conditions.
+
+### 3.5d — Simplify first-run installation [Polish]
+
+Current install requires `git clone`, editing `.env`, and running
+`docker compose up`. That is the minimum, but there is friction:
+
+- [ ] Provide a standalone `docker-compose.yml` that works without cloning the
+  full repo (pulls the GHCR image once it exists; depends on 3.8).
+- [ ] Consider a `setup.sh` or `make setup` that copies `.env.example → .env`
+  and prompts for the two required values (`POSTGRES_PASSWORD`, `BASE_URL`)
+  before starting the stack.
+- [ ] Goal: `curl … | bash` or a two-command install for the common case.
 
 ### 3.6 — Harden CI [Public-blocker]
 
@@ -251,13 +294,21 @@ Current CI runs clippy + test. Add:
 - [x] Enable Dependabot (`.github/dependabot.yml`) for `cargo` and `github-actions` ecosystems, weekly schedule
 - [x] (Optional) Coverage step with `cargo-llvm-cov` and upload to Codecov
 
-### 3.7 — README polish for public eyeballs [Public-blocker]
+### 3.7 — README polish for public eyeballs [Public-blocker] [PARTIAL]
 
-- [ ] Add a screenshot or short GIF of the UI at the top
-- [ ] Add a "Why Pila?" paragraph (vs. existing prediction games — fewer ads, self-hostable, multi-league, AGPL)
-- [ ] Add a "Roadmap" section: what's coming (post-v0.1 ideas) and what's intentionally out of scope
-- [x] Add badges row: CI (exists), license (AGPL), Rust edition, GHCR image tag (once built)
-- [ ] Verify all internal links work (`CLAUDE.md`, `doc/`, etc.)
+- [ ] Add a screenshot or short GIF of the UI at the top (deferred — needs running instance)
+- [x] Add pre-v0.1 status banner (work-in-progress, contributions welcome)
+- [x] Replace "Why Pila?" comparison table with motivation from design principles (simple / fair / engaging / low-effort-host)
+- [x] Add "Pila" etymology — Latin for ball
+- [x] Add "Current State & Known Gaps" section: notifications experimental, no release image yet
+- [x] Add simulation/dev mode documentation (`PILA_DEV_MODE=true`, what the dev routes do)
+- [x] Remove unverified resource claim (512 MB RAM) — see 3.5c for measurement task
+- [x] Remove deleted scripts (`create_invite.sh`, `admin_edit.sh`, `delete_user.sh`) from README
+- [x] Fix i18n locale order to English, Spanish, French, German
+- [x] Add "Contributing" section with explicit call to action + priority areas (notifications, i18n, UI)
+- [x] Add "Roadmap" section: v0.1 plan, post-v0.1 ideas, intentionally out of scope; quiet hours tz mentioned
+- [x] Add badges row: CI (exists), license (AGPL), Rust edition
+- [x] Verify all internal links (`doc/architecture.md`, `CONTRIBUTING.md`, `LICENSE`) — all valid
 
 ### 3.8 — Release artefacts [Public-blocker]
 
