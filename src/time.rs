@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Time abstraction for dev/testing.
 //!
 //! In production, `now()` delegates to `Utc::now()`. In dev mode (`PILA_DEV_MODE=true`),

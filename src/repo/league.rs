@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! League (Tipp-Liga) persistence.
 //!
 //! A league is the multi-tenancy boundary. Users belong to exactly one league,

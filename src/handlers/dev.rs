@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Dev/testing routes for simulating tournament progression.
 //!
 //! **Only active when `PILA_DEV_MODE=true`.** These routes allow:

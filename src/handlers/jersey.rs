@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Profile-jersey customisation. The `jersey_post` route is the one place
 //! where we issue an HTMX out-of-band swap to refresh the user's row in
 //! the leaderboard sidebar without re-rendering the page.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Background tournament-data sync + notification dispatch.
 //!
 //! Worker depends only on the repo abstraction (DB) and the

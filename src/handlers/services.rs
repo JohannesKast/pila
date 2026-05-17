@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Cross-handler aggregations: leaderboard, group standings, badge context.
 //!
 //! These functions combine multiple repositories into the higher-level

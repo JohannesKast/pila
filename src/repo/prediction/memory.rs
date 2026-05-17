@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! In-memory [`PredictionRepo`] fake for tests.
 
 use async_trait::async_trait;

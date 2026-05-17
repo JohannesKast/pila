@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Hero-panel badge system.
 //!
 //! Badges aggregate on-the-fly over existing predictions — they do not

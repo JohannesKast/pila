@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! ESPN `soccer/fifa.world` scoreboard implementation of `ScoreboardClient`.
 //!
 //! All ESPN-specific quirks live here:

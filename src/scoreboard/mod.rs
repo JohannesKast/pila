@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Provider-agnostic sports-data abstraction.
 //!
 //! The worker depends only on the [`ScoreboardClient`] trait and its

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! HTTP route handlers, organised by feature area.
 //!
 //! Each submodule owns its routes, the form types they parse, and the

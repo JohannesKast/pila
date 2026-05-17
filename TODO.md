@@ -179,11 +179,11 @@ Goal: repo can flip to public without embarrassment or legal/security risk.
 - [x] `LICENSE` replaced with AGPL-3.0-or-later
 - [x] `README.md` license section updated
 - [x] `Cargo.toml` `license = "AGPL-3.0-or-later"`
-- [ ] Add SPDX header to every Rust source file:
+- [x] Add SPDX header to every Rust source file:
       `// SPDX-License-Identifier: AGPL-3.0-or-later`
       `// Copyright (C) 2026 Johannes Kast`
       (consider a script: `for f in src/**/*.rs; do …; done`)
-- [ ] Add a short AGPL notice at the bottom of every full-page rendered template (link to source repo, satisfies "Appropriate Legal Notices" in AGPL §5(d) when running over a network)
+- [x] Add a short AGPL notice at the bottom of every full-page rendered template (link to source repo, satisfies "Appropriate Legal Notices" in AGPL §5(d) when running over a network)
 
 **Acceptance:** All Rust files have SPDX header; rendered pages include a "Source code" link.
 

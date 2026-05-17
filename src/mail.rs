@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Email delivery via SMTP (lettre).
 //!
 //! SMTP configuration is global (same mail server for all leagues).

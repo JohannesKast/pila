@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Template-facing view types.
 //!
 //! These structs are the boundary between handler logic and the Askama

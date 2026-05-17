@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Scoring rules for match and champion predictions.
 //!
 //! The match scorer is deliberately modular: leagues select a

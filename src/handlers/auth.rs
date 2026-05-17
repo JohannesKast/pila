@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Magic-link login. The token cookie is the only authentication
 //! mechanism in the system — `create_invite.sh` is the issuer.
 

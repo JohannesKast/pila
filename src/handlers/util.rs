@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Small handler helpers — cookie building, URL escaping, kickoff
 //! formatting. Anything trivial enough that a fresh look reveals it.
 

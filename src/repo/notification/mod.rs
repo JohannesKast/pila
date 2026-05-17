@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Sent-notification idempotency persistence + the dispatch tx used by
 //! the worker.
 //!

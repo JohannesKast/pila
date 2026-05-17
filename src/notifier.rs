@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 use chrono::{DateTime, Timelike, Utc};
 use chrono_tz::Europe::Berlin;
 use reqwest::Client;

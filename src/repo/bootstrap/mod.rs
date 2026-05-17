@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Bootstrap repo — creates the first league, its settings, and the super-admin
 //! user in a single atomic transaction. Used only by the `/setup` handler.
 

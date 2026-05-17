@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! Admin user-management routes. All routes require `AdminUser` and most
 //! return an HTMX partial that updates a single row in the admin table.
 //!

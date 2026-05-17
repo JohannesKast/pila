@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Johannes Kast
+
 //! First-run admin creation. Idempotent: if any user exists, the routes
 //! redirect / refuse — preventing accidental admin overwrites.
 //!
