@@ -265,13 +265,13 @@ fn build_router() -> Router<AppState> {
         .layer(middleware::from_fn(csrf_middleware))
         .route("/", get(handlers::index))
         .route("/healthz", get(handlers::healthz))
-        .route("/play/me/:token", get(handlers::login_magic_link))
+        .route("/play/me/{token}", get(handlers::login_magic_link))
         .route(
             "/setup",
             get(handlers::setup_get).post(handlers::setup_post),
         )
         .route(
-            "/predict/:match_id",
+            "/predict/{match_id}",
             axum::routing::post(handlers::predict_match),
         )
         .route(
@@ -296,19 +296,19 @@ fn build_router() -> Router<AppState> {
         // user list. Kept so old bookmarks / scripts keep working.
         .route("/admin/users", get(handlers::admin_users_redirect))
         .route(
-            "/admin/users/:id/delete",
+            "/admin/users/{id}/delete",
             axum::routing::post(handlers::admin_delete_user),
         )
         .route(
-            "/admin/users/:id/promote",
+            "/admin/users/{id}/promote",
             axum::routing::post(handlers::admin_toggle_admin),
         )
         .route(
-            "/admin/users/:id/rename",
+            "/admin/users/{id}/rename",
             axum::routing::post(handlers::admin_rename_user),
         )
         .route(
-            "/admin/users/:id/resend",
+            "/admin/users/{id}/resend",
             axum::routing::post(handlers::admin_resend_invite),
         )
         .route(
@@ -317,13 +317,13 @@ fn build_router() -> Router<AppState> {
         )
         .route("/admin/leagues/new", get(handlers::leagues_new_form))
         .route(
-            "/admin/leagues/:id/settings",
+            "/admin/leagues/{id}/settings",
             get(handlers::league_settings_form).post(handlers::league_settings_save),
         )
         // User management always lives inside a league scope. Both the league
         // admin (own league) and the super-admin (any league) reach this URL.
         .route(
-            "/admin/leagues/:id/users",
+            "/admin/leagues/{id}/users",
             get(handlers::league_users_page).post(handlers::admin_create_user),
         )
         .nest_service("/static", ServeDir::new("static"))
@@ -359,7 +359,7 @@ fn build_dev_router() -> Router<AppState> {
         )
         .route("/dev/users", get(handlers::dev_list_users))
         .route(
-            "/dev/switch-user/:id",
+            "/dev/switch-user/{id}",
             axum::routing::post(handlers::dev_switch_user),
         )
 }
