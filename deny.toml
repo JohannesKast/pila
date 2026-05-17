@@ -13,10 +13,11 @@ allow = [
   "ISC",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "Unicode-3.0",
   "Unicode-DFS-2016",
+  "CDLA-Permissive-2.0",
   "Zlib",
   "CC0-1.0",
-  "OpenSSL",
   "AGPL-3.0-or-later",
 ]
 # Confidence threshold for SPDX expression parsing.
