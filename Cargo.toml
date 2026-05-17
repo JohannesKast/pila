@@ -5,14 +5,14 @@ edition = "2021"
 license = "AGPL-3.0-or-later"
 
 [dependencies]
-axum = { version = "0.7", features = ["macros"] }
-axum-extra = { version = "0.9", features = ["cookie"] }
+axum = { version = "0.8", features = ["macros"] }
+axum-extra = { version = "0.12", features = ["cookie"] }
 tokio = { version = "1.36", features = ["rt-multi-thread", "macros", "net", "time", "sync", "signal"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "postgres", "macros", "migrate", "chrono", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.9"
+chrono-tz = "0.10"
 async-trait = "0.1"
 uuid = { version = "1.7", features = ["v4", "serde"] }
 askama = "0.12"
@@ -21,9 +21,9 @@ dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.5", features = ["limit", "util"] }
-tower-http = { version = "0.5", features = ["fs"] }
+tower-http = { version = "0.6", features = ["fs"] }
 feed-rs = "2"
-thiserror = "1"
+thiserror = "2"
 fluent-bundle = "0.15"
 unic-langid = "0.9"
 time = { version = "0.3.47", features = ["macros"] }

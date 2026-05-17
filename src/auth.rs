@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
@@ -45,7 +44,6 @@ async fn lookup_user(
     }))
 }
 
-#[async_trait]
 impl FromRequestParts<AppState> for AuthenticatedUser {
     type Rejection = HandlerError;
 
@@ -81,7 +79,6 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
 
 pub struct MaybeAuthenticatedUser(pub Option<AuthenticatedUser>);
 
-#[async_trait]
 impl FromRequestParts<AppState> for MaybeAuthenticatedUser {
     type Rejection = HandlerError;
 
@@ -109,7 +106,6 @@ impl FromRequestParts<AppState> for MaybeAuthenticatedUser {
 
 pub struct AdminUser(pub AuthenticatedUser);
 
-#[async_trait]
 impl FromRequestParts<AppState> for AdminUser {
     type Rejection = HandlerError;
 
@@ -134,7 +130,6 @@ impl FromRequestParts<AppState> for AdminUser {
 /// `AdminUser` so league CRUD routes can refuse a regular league admin.
 pub struct SuperAdminUser(pub AuthenticatedUser);
 
-#[async_trait]
 impl FromRequestParts<AppState> for SuperAdminUser {
     type Rejection = HandlerError;
 
