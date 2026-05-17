@@ -10,8 +10,7 @@ Please assume that only the latest commit on `master` receives fixes.
 Please do not open public issues for suspected security vulnerabilities.
 
 Report them privately via GitHub's private vulnerability reporting for this
-repository once it is enabled. If that is not available yet, contact the
-maintainer directly and include:
+repository and include:
 
 - a short summary of the issue
 - affected deployment mode or component
