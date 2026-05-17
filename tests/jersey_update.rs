@@ -1,5 +1,6 @@
 use pila::AppState;
 use sqlx::postgres::PgPoolOptions;
+use sqlx::Row;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -24,22 +25,20 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
     // No league is seeded by migration anymore — create one explicitly so
     // the user row's NOT NULL `league_id` foreign key resolves.
     let league_id = Uuid::new_v4();
-    sqlx::query!(
-        "INSERT INTO leagues (id, name) VALUES ($1, $2)",
-        league_id,
-        "Test League"
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-    sqlx::query!(
+    sqlx::query("INSERT INTO leagues (id, name) VALUES ($1, $2)")
+        .bind(league_id)
+        .bind("Test League")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query(
         "INSERT INTO users (id, name, token, jersey_preset, league_id) VALUES ($1, $2, $3, $4, $5)",
-        user_id,
-        "Test User",
-        token,
-        "classic",
-        league_id
     )
+    .bind(user_id)
+    .bind("Test User")
+    .bind(&token)
+    .bind("classic")
+    .bind(league_id)
     .execute(&pool)
     .await
     .unwrap();
@@ -54,13 +53,15 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         "brasilien jersey preset must exist"
     );
 
-    let updated_user = sqlx::query!("SELECT jersey_preset FROM users WHERE id = $1", user_id)
+    let updated_user = sqlx::query("SELECT jersey_preset FROM users WHERE id = $1")
+        .bind(user_id)
         .fetch_one(&pool)
         .await
         .unwrap();
 
     assert_eq!(
-        updated_user.jersey_preset, "classic",
+        updated_user.get::<String, _>("jersey_preset"),
+        "classic",
         "Initial jersey should be classic"
     );
 
@@ -81,37 +82,36 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
     };
 
     let new_jersey = "brasilien";
-    sqlx::query!(
-        "UPDATE users SET jersey_preset = $1 WHERE id = $2",
-        new_jersey,
-        user_id
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE users SET jersey_preset = $1 WHERE id = $2")
+        .bind(new_jersey)
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
-    let updated_user = sqlx::query!("SELECT jersey_preset FROM users WHERE id = $1", user_id)
+    let updated_user = sqlx::query("SELECT jersey_preset FROM users WHERE id = $1")
+        .bind(user_id)
         .fetch_one(&pool)
         .await
         .unwrap();
 
     assert_eq!(
-        updated_user.jersey_preset, "brasilien",
+        updated_user.get::<String, _>("jersey_preset"),
         "Jersey should be updated to brasilien"
     );
 
-    let leaderboard = sqlx::query!(
+    let leaderboard = sqlx::query(
         r#"
         SELECT u.name, u.jersey_preset
         FROM users u
         WHERE u.id = $1
         "#,
-        user_id
     )
+    .bind(user_id)
     .fetch_one(&pool)
     .await
     .unwrap();
 
-    assert_eq!(leaderboard.name, "Test User");
-    assert_eq!(leaderboard.jersey_preset, "brasilien");
+    assert_eq!(leaderboard.get::<String, _>("name"), "Test User");
+    assert_eq!(leaderboard.get::<String, _>("jersey_preset"), "brasilien");
 }

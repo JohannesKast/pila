@@ -1,8 +1,7 @@
 //! Postgres-backed integration tests for the repo layer.
 //!
-//! Mirrors the in-memory fake tests, but exercises the actual SQL — proves
-//! that the trait contracts hold against the real schema and the sqlx
-//! macros stay in sync after a migration.
+//! Mirrors the in-memory fake tests, but exercises the actual SQL and proves
+//! that the trait contracts hold against the real schema after migrations.
 //!
 //! Each test creates its own ephemeral users/matches and tears them down at
 //! the end; the suite is meant to be safe to run repeatedly against the
@@ -21,6 +20,7 @@ use pila::repo::DEFAULT_LEAGUE_ID;
 use pila::stage::Stage;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::Row;
 use uuid::Uuid;
 
 async fn pool() -> PgPool {
@@ -39,11 +39,11 @@ async fn pool() -> PgPool {
     // Migrations no longer seed a default league, but every test in this
     // file references `DEFAULT_LEAGUE_ID` as a stable tenant. Seed it here
     // once (idempotent) so foreign-key inserts succeed.
-    sqlx::query!(
+    sqlx::query(
         "INSERT INTO leagues (id, name, notifications_bootstrapped) \
          VALUES ($1, 'Test Default', true) ON CONFLICT (id) DO NOTHING",
-        DEFAULT_LEAGUE_ID
     )
+    .bind(DEFAULT_LEAGUE_ID)
     .execute(&pool)
     .await
     .expect("seed default test league");
@@ -189,7 +189,7 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
         .unwrap();
 
     // Need a real match id to insert a prediction; pick the lowest existing one.
-    let some_match: Option<i32> = sqlx::query_scalar!("SELECT id FROM matches ORDER BY id LIMIT 1")
+    let some_match: Option<i32> = sqlx::query_scalar("SELECT id FROM matches ORDER BY id LIMIT 1")
         .fetch_optional(&pool)
         .await
         .unwrap();
@@ -208,7 +208,8 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
     // either way because we just need the call not to panic.
     assert!(count >= 0);
 
-    sqlx::query!("DELETE FROM predictions WHERE user_id = $1", user_id)
+    sqlx::query("DELETE FROM predictions WHERE user_id = $1")
+        .bind(user_id)
         .execute(&pool)
         .await
         .unwrap();
@@ -253,7 +254,7 @@ async fn special_prediction_repo_upsert_round_trip() {
         .await
         .unwrap();
 
-    let some_team: Option<i32> = sqlx::query_scalar!("SELECT id FROM teams ORDER BY id LIMIT 1")
+    let some_team: Option<i32> = sqlx::query_scalar("SELECT id FROM teams ORDER BY id LIMIT 1")
         .fetch_optional(&pool)
         .await
         .unwrap();
@@ -269,13 +270,11 @@ async fn special_prediction_repo_upsert_round_trip() {
     sp.upsert(user_id, None).await.unwrap();
     assert_eq!(sp.get_user_champion(user_id).await.unwrap(), None);
 
-    sqlx::query!(
-        "DELETE FROM special_predictions WHERE user_id = $1",
-        user_id
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("DELETE FROM special_predictions WHERE user_id = $1")
+        .bind(user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
     users.delete(user_id).await.unwrap();
 }
 
@@ -320,7 +319,8 @@ async fn settings_repo_set_then_get_round_trips() {
         settings.get(&key).await.unwrap().as_deref(),
         Some("value-2")
     );
-    sqlx::query!("DELETE FROM settings WHERE key = $1", key)
+    sqlx::query("DELETE FROM settings WHERE key = $1")
+        .bind(&key)
         .execute(&pool)
         .await
         .unwrap();
@@ -355,18 +355,23 @@ async fn team_repo_upsert_from_espn_inserts_then_updates_name() {
         .await
         .unwrap();
 
-    let row = sqlx::query!(
-        "SELECT name, short_name, flag_code FROM teams WHERE id = $1",
-        espn_id
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(row.name, "Atlantis FC");
-    assert_eq!(row.short_name.as_deref(), Some("ATL"));
-    assert_eq!(row.flag_code.as_deref(), Some("xx"));
+    let row = sqlx::query("SELECT name, short_name, flag_code FROM teams WHERE id = $1")
+        .bind(espn_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(row.get::<String, _>("name"), "Atlantis FC");
+    assert_eq!(
+        row.get::<Option<String>, _>("short_name").as_deref(),
+        Some("ATL")
+    );
+    assert_eq!(
+        row.get::<Option<String>, _>("flag_code").as_deref(),
+        Some("xx")
+    );
 
-    sqlx::query!("DELETE FROM teams WHERE id = $1", espn_id)
+    sqlx::query("DELETE FROM teams WHERE id = $1")
+        .bind(espn_id)
         .execute(&pool)
         .await
         .unwrap();
@@ -414,16 +419,17 @@ async fn match_repo_upsert_from_espn_round_trips_and_preserves_kickoff() {
         .await
         .unwrap();
 
-    let row = sqlx::query!(
-        "SELECT kickoff_time FROM matches WHERE espn_event_id = $1",
-        espn_id
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert!(row.kickoff_time.is_some());
+    let row = sqlx::query("SELECT kickoff_time FROM matches WHERE espn_event_id = $1")
+        .bind(espn_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(row
+        .get::<Option<chrono::DateTime<Utc>>, _>("kickoff_time")
+        .is_some());
 
-    sqlx::query!("DELETE FROM matches WHERE espn_event_id = $1", espn_id)
+    sqlx::query("DELETE FROM matches WHERE espn_event_id = $1")
+        .bind(espn_id)
         .execute(&pool)
         .await
         .unwrap();
@@ -473,7 +479,8 @@ async fn notification_repo_try_send_records_then_skips_duplicate() {
         .unwrap();
     assert!(!second, "duplicate must be a no-op");
 
-    sqlx::query!("DELETE FROM sent_notifications WHERE kind = $1", kind)
+    sqlx::query("DELETE FROM sent_notifications WHERE kind = $1")
+        .bind(&kind)
         .execute(&pool)
         .await
         .unwrap();
