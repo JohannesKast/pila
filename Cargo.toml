@@ -21,7 +21,7 @@ dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tower = { version = "0.5", features = ["limit", "util"] }
-tower-http = { version = "0.5", features = ["fs"] }
+tower-http = { version = "0.6", features = ["fs"] }
 feed-rs = "2"
 thiserror = "1"
 fluent-bundle = "0.15"
