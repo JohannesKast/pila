@@ -49,7 +49,7 @@ impl UserRepo for MemoryUserRepo {
                 .get(&u.id)
                 .cloned()
                 .unwrap_or_else(|| "classic".to_string()),
-            language: "de".to_string(),
+            language: u.language.clone(),
             league_id: u.league_id,
         }))
     }
@@ -188,7 +188,11 @@ impl UserRepo for MemoryUserRepo {
         Ok(())
     }
 
-    async fn set_language(&self, _id: Uuid, _language: &str) -> RepoResult<()> {
+    async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()> {
+        let mut s = self.inner.lock().unwrap();
+        if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
+            u.language = language.to_string();
+        }
         Ok(())
     }
 

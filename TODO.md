@@ -73,17 +73,19 @@ Verification: `cargo clippy --all-targets -- -D warnings` clean; all 222 tests g
 
 **Acceptance achieved:** `grep -n 'state\.db' src/` → no hits; clippy clean; 222+ tests green.
 
-### 1.5 — Close test coverage gaps [Blocker]
+### 1.5 — Close test coverage gaps [Blocker] [DONE]
 
-Add integration tests under `tests/` for paths currently uncovered:
+- [x] `tests/handler_setup.rs` — 9 tests: happy path sets `pila_token` cookie; already-done → 403; empty name/league-name → 400; league-name > 255 chars → 400; unknown language → 400; empty language defaults to `de`.
+- [x] `tests/handler_language.rs` — 7 tests: all four locales accepted (200 + `HX-Location: /`); unknown + empty locale rejected (400); persistence verified in `MemoryUserRepo`.
+- [x] `tests/handler_auth.rs` — 6 tests: magic-link valid token → cookie + redirect; unknown token → 401; `AuthenticatedUser` extractor: valid / missing / unknown cookie → correct results.
+- [x] `tests/handler_leaderboard.rs` — 4 tests: renders HTML; includes league-mates; excludes cross-league users (isolation in both directions).
+- [x] `tests/handler_services.rs` — 11 tests covering the internal orchestration the handlers share: `fetch_actual_champion` (none on unfinished final / winner on finished); `fetch_leaderboard` (lists zero-point users, sorts by `total_points` desc, unfinished tips add to `max_potential`, jersey preset attached); `fetch_group_standings` (empty when no finished matches, 3-pts-win / 1-pt-draw / 0-pts-loss with goal accumulation, within-group sort by points→goal_diff, multi-group keyed by letter); `build_badge_context` shape.
 
-- [ ] `tests/handler_setup.rs` — Happy path: POST `/setup` with valid form creates league + first user + cookie. Edge cases: setup already done (returns 403/redirect), missing required fields, invalid email format.
-- [ ] `tests/handler_language.rs` — POST `/profile/language` with each of `de`, `en`, `es`, `fr` persists and returns `HX-Location: /`. Invalid locale (e.g. `xx`) is rejected.
-- [ ] `tests/handler_auth.rs` — Magic link flow: valid token sets cookie + redirects; unknown token → 401/404; tampered cookie → 401; missing cookie on protected route → redirect to error page.
-- [ ] `tests/handler_leaderboard.rs` — Returns 200 with the right users, in the right order, scoped to the caller's league. Cross-league isolation (extend `multi_league_isolation.rs` if more natural there).
-- [ ] `tests/handler_services.rs` — Leaderboard JSON endpoint (if exposed). Verify shape + league scope.
+Also fixed two `MemoryUserRepo` bugs uncovered by new tests:
+- `find_by_token` returned hardcoded `language: "de"` instead of the stored value
+- `set_language` was a no-op stub; now properly updates the in-memory record
 
-**Acceptance:** `cargo test --all-targets` passes; `cargo llvm-cov --html` (optional) shows the new files covered.
+**Acceptance achieved:** `cargo test --all-targets` passes (13 test suites, all green); clippy clean.
 
 ### 1.6 — Refactor `dev_simulate_next_matchday` [Polish]
 

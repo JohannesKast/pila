@@ -68,20 +68,20 @@ const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
 
 #[derive(Deserialize)]
 pub struct SetupForm {
-    name: String,
+    pub name: String,
     #[serde(default)]
-    phone_number: String,
+    pub phone_number: String,
     #[serde(default)]
-    email: String,
-    league_name: String,
+    pub email: String,
+    pub league_name: String,
     #[serde(default)]
-    default_language: String,
+    pub default_language: String,
     #[serde(default)]
-    signal_group_id: String,
+    pub signal_group_id: String,
     #[serde(default)]
-    signal_from_number: String,
+    pub signal_from_number: String,
     #[serde(default)]
-    rss_feed_url: String,
+    pub rss_feed_url: String,
 }
 
 pub async fn setup_post(
