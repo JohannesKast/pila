@@ -25,7 +25,6 @@ pub struct AdminUserView {
 pub struct MatchView {
     pub id: i32,
     pub stage: Stage,
-    pub stage_label: String,
     pub group_letter: Option<String>,
     pub home_name: String,
     pub away_name: String,
