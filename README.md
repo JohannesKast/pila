@@ -242,9 +242,11 @@ especially:
 - **i18n improvements** — four locale files (`locales/{en,es,fr,de}.ftl`);
   better translations or new languages are straightforward to add
 - **Bug reports** from anyone running the app against real tournament data
+- **Small focused pull requests** from forks against `master`
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup instructions and mandatory
-PR gates. Issues and PRs are open to everyone.
+PR gates. Issues are open to everyone, and code contributions should come
+through the standard fork + pull request workflow so review stays centralized.
 
 ## Roadmap
 

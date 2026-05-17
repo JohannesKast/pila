@@ -35,6 +35,17 @@ docker compose up -d
 docker compose logs -f app
 ```
 
+## Issues and Pull Requests
+
+- Everyone may open issues for bugs, feature requests, docs gaps, and
+  operational feedback.
+- External code contributions should come from a fork and be proposed as a pull
+  request against `master`.
+- Please open an issue before spending significant time on a larger feature so
+  the scope can be aligned early.
+- The maintainer decides what gets merged and when. Opening a PR does not imply
+  acceptance.
+
 ## sqlx Offline Mode
 
 All `sqlx::query!` / `query_as!` macros are checked at compile time against
@@ -93,7 +104,8 @@ Common types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `ci`.
 ## Branch Model
 
 - **Trunk-based development** on `master`
-- Work on a feature branch: `git checkout -b feat/my-feature`
+- If you are contributing from a fork, create your feature branch there:
+  `git checkout -b feat/my-feature`
 - Open a pull request from your branch into `master`
 - Rebase before merging; no merge commits on `master`
 
