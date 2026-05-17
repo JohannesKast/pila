@@ -54,8 +54,6 @@ several things are not yet production-verified:
   transports are barely tested beyond the unit-test level. Real-world delivery
   (Signal account linking, SMTP edge cases, quiet-hours timing) has not been
   exercised in anger. Treat them as experimental and please report issues.
-- **No release image yet** — you build from source with `docker compose build`.
-  A pre-built GHCR image is planned for v0.2.
 - I plan to use this for my friends and family group so I will constantly improve
   this project during the world cup season.
 
@@ -121,18 +119,42 @@ binary. Signal notifications go through `bbernhard/signal-cli-rest-api`.
 
 ## Installation
 
+The shortest path is to run the published container image. If you are trying
+this before the first release tag has been published, use the source-build
+fallback below.
+
 ```bash
-git clone https://github.com/JohannesKast/pila.git
+mkdir pila
 cd pila
-cp .env.example .env
+curl -fsSLO https://raw.githubusercontent.com/JohannesKast/pila/master/docker-compose.yml
+curl -fsSLo .env https://raw.githubusercontent.com/JohannesKast/pila/master/.env.example
 $EDITOR .env          # set POSTGRES_PASSWORD and BASE_URL at minimum
 docker compose up -d
 docker compose logs -f app
 ```
 
+By default `.env.example` tracks `ghcr.io/johanneskast/pila:latest`. To pin a
+specific release, set `PILA_IMAGE=ghcr.io/johanneskast/pila:v0.1.0` in `.env`
+before starting. To update later, run `docker compose pull && docker compose up
+-d`.
+
 The app listens on `http://localhost:8000`. Migrations run automatically on
 startup. On first start the admin setup page walks you through creating the
 first league and your personal invite link.
+
+### Build from source
+
+If you want to test local changes or no release image exists yet:
+
+```bash
+git clone https://github.com/JohannesKast/pila.git
+cd pila
+cp .env.example .env
+$EDITOR .env          # set POSTGRES_PASSWORD and BASE_URL at minimum
+docker build -t pila:local .
+PILA_IMAGE=pila:local docker compose up -d
+docker compose logs -f app
+```
 
 ### Notifications (optional, experimental)
 
@@ -230,7 +252,8 @@ Enable `PILA_DEV_MODE=true` to play through the tournament locally without real
 match data (see [Simulation mode](#simulation-mode) above).
 
 See [`doc/architecture.md`](doc/architecture.md) for the full architecture
-overview and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contributor workflow.
+overview, [`doc/release.md`](doc/release.md) for the GitHub release flow,
+and [`CONTRIBUTING.md`](CONTRIBUTING.md) for the contributor workflow.
 
 ## Contributing
 
