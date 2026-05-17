@@ -124,13 +124,6 @@ impl OutcomeBet {
         }
     }
 
-    pub fn as_form_value(self) -> &'static str {
-        match self {
-            OutcomeBet::HomeWin => "home",
-            OutcomeBet::Draw => "draw",
-            OutcomeBet::AwayWin => "away",
-        }
-    }
 }
 
 /// Winner-only service kept separate from the classic exact-score rules.
@@ -318,10 +311,6 @@ pub fn max_points_for_phase_with_system(system: MatchScoringSystem, phase: Tourn
     }
 }
 
-pub fn max_points_for_phase(phase: TournamentPhase) -> i32 {
-    max_points_for_phase_with_system(MatchScoringSystem::ExactScore, phase)
-}
-
 pub fn score_match(
     phase: TournamentPhase,
     goals_home: i32,
@@ -352,7 +341,7 @@ pub fn calculate_match_points_for_system(
     }
 }
 
-pub fn calculate_match_points(
+pub(crate) fn calculate_match_points(
     stage: Stage,
     actual_h: i32,
     actual_a: i32,
@@ -371,10 +360,6 @@ pub fn calculate_match_points(
 
 pub fn max_potential_points_for_system(system: MatchScoringSystem, stage: Stage) -> i32 {
     max_points_for_phase_with_system(system, stage.to_tournament_phase())
-}
-
-pub fn max_potential_points(stage: Stage) -> i32 {
-    max_potential_points_for_system(MatchScoringSystem::ExactScore, stage)
 }
 
 /// 10 points if the predicted Weltmeister team matches the actual champion.
@@ -454,8 +439,11 @@ mod tests {
         }
 
         #[test]
-        fn max_potential_points_keeps_legacy_exact_score_behavior() {
-            assert_eq!(max_potential_points(Stage::SemiFinal), 8);
+        fn max_potential_points_for_exact_score_semi_final() {
+            assert_eq!(
+                max_potential_points_for_system(MatchScoringSystem::ExactScore, Stage::SemiFinal),
+                8
+            );
         }
     }
 

@@ -64,9 +64,6 @@ impl BadgeDisplay {
     pub fn is_achievement(&self) -> bool {
         matches!(self, BadgeDisplay::Achievement { .. })
     }
-    pub fn is_metric(&self) -> bool {
-        matches!(self, BadgeDisplay::Metric(_))
-    }
     pub fn times_earned(&self) -> i32 {
         match self {
             BadgeDisplay::Achievement { times_earned } => *times_earned,

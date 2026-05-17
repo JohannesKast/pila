@@ -251,14 +251,6 @@ impl MemoryLeagueRepo {
         self.inner.lock().unwrap().leagues.push(league);
     }
 
-    /// Pre-populate a setting without going through the trait method.
-    pub fn seed_setting(&self, league_id: Uuid, key: &str, value: &str) {
-        self.inner
-            .lock()
-            .unwrap()
-            .settings
-            .insert((league_id, key.to_string()), value.to_string());
-    }
 }
 
 #[async_trait]

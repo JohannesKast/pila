@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use chrono::{DateTime, Timelike, Utc};
 use chrono_tz::Europe::Berlin;
 use reqwest::Client;
@@ -39,34 +37,6 @@ pub trait Notifier: Send + Sync {
 pub fn in_quiet_hours_now() -> bool {
     let h = Utc::now().with_timezone(&Berlin).hour();
     !(8..22).contains(&h)
-}
-
-pub fn from_env(t: T) -> Arc<dyn Notifier> {
-    let api = std::env::var("SIGNAL_API_URL").ok();
-    let from = std::env::var("SIGNAL_FROM_NUMBER").ok();
-    let group = std::env::var("SIGNAL_GROUP_ID").ok();
-    let base_url =
-        std::env::var("BASE_URL").unwrap_or_else(|_| "https://pila.example.com".to_string());
-
-    match (api, from, group) {
-        (Some(api), Some(from), Some(group))
-            if !api.is_empty() && !from.is_empty() && !group.is_empty() =>
-        {
-            tracing::info!("Signal notifier configured (group {})", group);
-            Arc::new(SignalNotifier {
-                client: Client::new(),
-                api_url: api,
-                from_number: from,
-                group_id: group,
-                base_url,
-                t,
-            })
-        }
-        _ => {
-            tracing::info!("Signal env vars not set — notifications disabled");
-            Arc::new(NoopNotifier)
-        }
-    }
 }
 
 pub struct NoopNotifier;

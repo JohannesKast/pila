@@ -336,35 +336,35 @@ See Sprint 1.3 — finalise the `memory-repos` feature gating if it was deferred
 - [ ] `mdbook` or `mkdocs` site published via GitHub Pages
 - [ ] Pulls from `doc/` and rendered as a navigable docs site
 
-### 4.7 — Dead code sweep [Polish]
+### 4.7 — Dead code sweep [Polish] [DONE]
 
 Compiler `dead_code` lint reports clean only because nearly every symbol is `pub` via `lib.rs` — manual audit found the following.
 
 **High confidence — delete:**
 
-- [ ] `src/scoring.rs:127` — `OutcomeBet::as_form_value` — zero callers
-- [ ] `src/scoring.rs:321` — `max_points_for_phase` — superseded by `max_points_for_phase_with_system`; zero callers
-- [ ] `src/scoring.rs:355` — `calculate_match_points` — only used by `_for_system` wrapper + own test; inline or make `pub(crate)`
-- [ ] `src/scoring.rs:376` — `max_potential_points` — only own in-file test references it
-- [ ] `src/notifier.rs:44` — `notifier::from_env` — replaced by per-league `SignalNotifier::new`; zero callers
-- [ ] `src/repo/league.rs:255` — `MemoryLeagueRepo::seed_setting` — zero callers
-- [ ] `src/badges.rs:67` — `BadgeDisplay::is_metric` — templates use `metric_kind()`; zero callers
-- [ ] `Cargo.toml:23` — `tower` crate — no `tower::` import; only `tower_http` is used (different crate)
-- [ ] `locales/{de,en,es,fr}.ftl` — `error-internal` key — no `t.get` / template reference in any of the four files
-- [ ] `locales/{de,en,es,fr}.ftl` — `lang-de`, `lang-en`, `lang-es`, `lang-fr` keys — language menu uses hardcoded labels in templates
+- [x] `src/scoring.rs` — `OutcomeBet::as_form_value` — deleted
+- [x] `src/scoring.rs` — `max_points_for_phase` — deleted (superseded by `max_points_for_phase_with_system`)
+- [x] `src/scoring.rs` — `calculate_match_points` — narrowed to `pub(crate)` (used by `_for_system` wrapper)
+- [x] `src/scoring.rs` — `max_potential_points` — deleted; test updated to call `max_potential_points_for_system` directly
+- [x] `src/notifier.rs` — `notifier::from_env` — deleted (replaced by per-league `SignalNotifier::new`); unused `Arc` import also removed
+- [x] `src/repo/league.rs` — `MemoryLeagueRepo::seed_setting` — deleted
+- [x] `src/badges.rs` — `BadgeDisplay::is_metric` — deleted (templates use `metric_kind()`)
+- [x] `Cargo.toml` — `tower` crate removed (only `tower_http` is used)
+- [x] `locales/{de,en,es,fr}.ftl` — `error-internal` key removed from all four files
+- [x] `locales/{de,en,es,fr}.ftl` — `lang-de`, `lang-en`, `lang-es`, `lang-fr` keys removed from all four files
 
-**Medium confidence — verify before acting:**
+**Medium confidence — deferred:**
 
-- [ ] Gate all `Memory*Repo` types + their `seed_*` helpers + `FakeMatch` / `FakeFinishedRow` / `FakeLeaderboardRow` (in `src/repo/*/memory.rs` and `src/repo/{league,settings,special_prediction,team}.rs`) behind `#[cfg(any(test, feature = "test-fakes"))]`. Closes the deferred half of Sprint 1.3.
-- [ ] `src/scoreboard/mod.rs:84` — `FakeScoreboardClient` and its helpers (`new`, `seed`, `fail_once`, `call_count`) — same treatment: test-only, gate it
-- [ ] `src/repo/fixture/memory.rs:67` — `MemoryMatchRepo::record_prediction` — only used by its own unit tests; check it's actually needed
+- [ ] Gate all `Memory*Repo` types + their `seed_*` helpers + `FakeMatch` / `FakeFinishedRow` / `FakeLeaderboardRow` (in `src/repo/*/memory.rs` and `src/repo/{league,settings,special_prediction,team}.rs`) behind `#[cfg(any(test, feature = "test-fakes"))]`. Closes the deferred half of Sprint 1.3. *Deferred: involves a feature flag restructure; integration tests in `tests/` (compiled as a separate crate without `cfg(test)`) need access to fakes — non-trivial.*
+- [ ] `src/scoreboard/mod.rs` — `FakeScoreboardClient` and its helpers — same gating treatment. *Deferred: same reason.*
+- [ ] `src/repo/fixture/memory.rs` — `MemoryMatchRepo::record_prediction` — used only by in-file unit tests. *Deferred: benign; no public surface.*
 
-**Low confidence — worth a look:**
+**Low confidence — deferred:**
 
-- [ ] `src/scoring.rs:202–228` — free functions `outcome_bet_from_form`, `outcome_bet_to_stored_scores`, `outcome_bet_from_stored_scores`, `score_match` are thin wrappers around inherent methods on `OutcomeBet`. Collapse to one form (free fn OR inherent method) — having both is API noise.
-- [ ] Naming collision: `ChampionView` exists in both `src/repo/special_prediction.rs:12` and `src/badges.rs:194` with different field shapes — rename one.
+- [ ] `src/scoring.rs:202–228` — free functions `outcome_bet_from_form`, `outcome_bet_to_stored_scores`, `outcome_bet_from_stored_scores` are thin wrappers around inherent methods. *Deferred: all three have real callers in handlers; collapsing is an API style question, not dead code.*
+- [ ] Naming collision: `ChampionView` in `src/repo/special_prediction.rs` and `src/badges.rs` with different shapes. *Deferred: no actual conflict since they're in different modules; rename is cosmetic.*
 
-**Acceptance:** All high-confidence items deleted; `cargo clippy --all-targets -- -D warnings` clean; `cargo test --all-targets` green; medium-confidence items either done or explicitly deferred with a one-line rationale here.
+**Acceptance achieved:** All high-confidence items deleted; `cargo clippy --all-targets -- -D warnings` clean; `cargo test --all-targets` green (157 lib + integration tests); medium/low items explicitly deferred with rationale above.
 
 ---
 

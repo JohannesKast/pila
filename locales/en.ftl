@@ -104,13 +104,6 @@ jersey-variant-home = Home Jerseys
 jersey-variant-away = Away
 jersey-variant-fan = Fan
 
-## Language picker
-
-lang-de = Deutsch
-lang-en = English
-lang-es = Español
-lang-fr = Français
-
 ## Leaderboard page
 
 leaderboard-page-title = Leaderboard
@@ -347,8 +340,6 @@ admin-card-users-sub = Invite players, rename them, grant roles
 admin-card-users-cta = Open
 
 # ─── Handler error responses ─────────────────────────────────────────────────
-# Generic fallback for unexpected server / template errors.
-error-internal = Internal error
 # Database errors surface as a single message — the actual cause is logged.
 error-database = Database error
 # Returned when an unauthenticated request hits a protected page.
