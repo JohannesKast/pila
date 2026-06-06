@@ -27,6 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 COPY --from=builder --chown=appuser:appuser /app/target/release/pila .
+COPY --from=builder --chown=appuser:appuser /app/locales ./locales
 
 USER appuser
 
