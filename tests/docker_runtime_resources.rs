@@ -107,6 +107,27 @@ fn dockerignore_does_not_exclude_runtime_resources() {
 }
 
 #[test]
+fn base_template_uses_built_css_not_cdn() {
+    // The styling must come from the build-time bundle, not the Tailwind Play
+    // CDN (dev-only, third-party dependency, unstyled page if unreachable).
+    let base = fs::read_to_string("templates/base.html").expect("base.html must exist");
+    assert!(
+        base.contains("/static/app.css"),
+        "base.html must link the compiled /static/app.css"
+    );
+    assert!(
+        !base.contains("cdn.tailwindcss.com"),
+        "base.html must not load the Tailwind Play CDN — it is not for production. \
+         Use the build-time bundle (static/app.css)."
+    );
+    let css = Path::new("static/app.css");
+    assert!(
+        css.is_file() && fs::metadata(css).map(|m| m.len() > 0).unwrap_or(false),
+        "static/app.css must be built and non-empty (run `npm run build:css`)"
+    );
+}
+
+#[test]
 fn servedir_paths_are_declared_runtime_resources() {
     // Auto-detect drift: if someone adds another `ServeDir::new("…")` the path
     // becomes a new runtime dependency. Force it to be registered in

@@ -16,6 +16,11 @@
 # Build artefacts (Rust)
 target/
 
+# Node — only used locally to (re)generate static/app.css; the image builds
+# the CSS with the standalone Tailwind CLI instead.
+node_modules/
+package-lock.json
+
 # Database dumps & backups
 backups/
 *.dump

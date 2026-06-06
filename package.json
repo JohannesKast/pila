@@ -1,0 +1,12 @@
+{
+  "name": "pila-frontend",
+  "private": true,
+  "description": "Frontend CSS build tooling for Pila. The Rust binary serves the compiled static/app.css; Node is only needed to (re)generate it.",
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.js -i styles/input.css -o static/app.css --minify",
+    "watch:css": "tailwindcss -c tailwind.config.js -i styles/input.css -o static/app.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "3.4.17"
+  }
+}

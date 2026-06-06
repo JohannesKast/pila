@@ -2,7 +2,7 @@
 FROM rust:1-slim as builder
 
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev curl && rm -rf /var/lib/apt/lists/*
 
 COPY Cargo.toml Cargo.lock ./
 RUN mkdir src
@@ -11,6 +11,22 @@ RUN cargo build --release
 RUN rm -rf src/
 
 COPY . .
+
+# Compile the production CSS bundle (static/app.css) with the standalone
+# Tailwind CLI — no Node toolchain in the image. Regenerated on every build so
+# it can never drift from the templates. Keep TAILWIND_VERSION in sync with the
+# devDependency in package.json (used for local `npm run build:css`).
+ARG TAILWIND_VERSION=v3.4.17
+RUN arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) tw_arch=x64 ;; \
+      arm64) tw_arch=arm64 ;; \
+      *) echo "unsupported arch for Tailwind CLI: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSLo /usr/local/bin/tailwindcss \
+      "https://github.com/tailwindlabs/tailwindcss/releases/download/${TAILWIND_VERSION}/tailwindcss-linux-${tw_arch}" \
+    && chmod +x /usr/local/bin/tailwindcss
+RUN tailwindcss -c tailwind.config.js -i styles/input.css -o static/app.css --minify
 
 ENV SQLX_OFFLINE=true
 

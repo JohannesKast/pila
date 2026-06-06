@@ -35,6 +35,28 @@ docker compose up -d
 docker compose logs -f app
 ```
 
+## Frontend CSS (Tailwind)
+
+Styling is compiled ahead of time with Tailwind into `static/app.css`, which is
+served as a static asset — there is **no CDN dependency at runtime**. The
+compiled bundle is committed so `cargo run` and the tests work out of the box.
+
+Whenever you change Tailwind classes in `templates/**/*.html` or in Rust files
+that emit HTML (e.g. `src/handlers/admin.rs`), regenerate and commit the bundle:
+
+```bash
+npm install          # one-time: installs the pinned tailwindcss devDependency
+npm run build:css    # writes static/app.css
+# or, while iterating:
+npm run watch:css
+git add static/app.css
+```
+
+The Docker image regenerates `static/app.css` during the build with the
+standalone Tailwind CLI (no Node in the image), so it can never ship stale.
+Keep `TAILWIND_VERSION` in the `Dockerfile` in sync with the `tailwindcss`
+version in `package.json`.
+
 ## Issues and Pull Requests
 
 - Everyone may open issues for bugs, feature requests, docs gaps, and

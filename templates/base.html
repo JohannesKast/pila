@@ -3,43 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://flagcdn.com; connect-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://flagcdn.com; connect-src 'self';">
     <title>Pila — WM Tippspiel</title>
     <link rel="icon" type="image/svg+xml" href="/static/pila-logo.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bricolage+Grotesque:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/tokens.css">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        'pl-bg':     '#0a0f0c',
-                        'pl-bg-2':   '#131a16',
-                        'pl-bg-3':   '#1c2521',
-                        'pl-line':   '#283130',
-                        'pl-line-2': '#3a4541',
-                        'pl-fg':     '#f3f3ed',
-                        'pl-fg-2':   '#cbd1cc',
-                        'pl-mute':   '#7c8783',
-                        'pl-mute-2': '#4d5754',
-                        'pl-green':  '#74ff8c',
-                        'pl-yellow': '#ffe600',
-                        'pl-red':    '#ff4d4d',
-                        'pl-blue':   '#5fb7ff',
-                    },
-                    fontFamily: {
-                        display: ['"Archivo Black"', 'sans-serif'],
-                        mono:    ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
-                        body:    ['Inter', 'system-ui', 'sans-serif'],
-                    },
-                }
-            }
-        }
-    </script>
+    <!-- Tailwind compiled at build time (see tailwind.config.js). Linked after
+         tokens.css so preflight + utilities sit after the token layer. -->
+    <link rel="stylesheet" href="/static/app.css">
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <meta name="csrf-token-name" content="pila_csrf">
     <meta name="csrf-header-name" content="X-CSRF-Token">

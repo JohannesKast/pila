@@ -1,0 +1,7 @@
+/* Tailwind entry point compiled to static/app.css at build time.
+   Design tokens and component classes live in static/tokens.css, which is
+   linked BEFORE app.css so Tailwind's preflight + utilities sit after the
+   token layer in the cascade (matching the former Play-CDN behaviour). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
