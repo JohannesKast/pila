@@ -6,6 +6,6 @@
     {% else %}{{ rank }}
     {% endif %}
 </span>
-{% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}
+{% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}
 <span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
 <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} PKT</span>

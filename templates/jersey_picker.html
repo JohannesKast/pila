@@ -24,7 +24,7 @@
                     hx-post="/profile/jersey?preset={{ option.key }}"
                     hx-target="#sheet" hx-swap="innerHTML"
                     style="background:{% if option.key == current %}rgba(255,230,0,.08){% else %}var(--pl-bg-3){% endif %};border:1.5px solid {% if option.key == current %}var(--pl-yellow){% else %}var(--pl-line){% endif %};border-radius:8px;padding:10px 4px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;color:var(--pl-fg-2)">
-              {% call j::jersey_svg(option.preset.body, option.preset.accent, option.preset.pattern, 48, option.key) %}
+              {% call j::jersey_svg(option.preset.body, option.preset.accent, option.preset.pattern, 48, option.key) %}{% endcall %}
               <span class="pl-mono" style="font-size:8px;text-align:center;line-height:1.2;letter-spacing:.04em">{{ option.display_name }}</span>
             </button>
             {% endfor %}

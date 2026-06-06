@@ -178,7 +178,7 @@
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">
-        {% for m in sg.groups %}{% call match_card(m, t) %}{% endfor %}
+        {% for m in sg.groups %}{% call match_card(m, t) %}{% endcall %}{% endfor %}
     </div>
 </div>
 {% endif %}
@@ -189,7 +189,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_32.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.round_of_16.len() > 0 %}
@@ -199,7 +199,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_16.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.quarter_final.len() > 0 %}
@@ -209,7 +209,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.quarter_final.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.semi_final.len() > 0 %}
@@ -219,7 +219,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.semi_final.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.third_place.len() > 0 %}
@@ -229,7 +229,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.third_place.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.final_.len() > 0 %}
@@ -239,7 +239,7 @@
         <span class="text-[10px] text-slate-500 font-mono">{{ sg.final_.len() }}</span>
         <span class="flex-1 h-px bg-slate-700/50"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t) %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% endmacro %}
@@ -322,7 +322,7 @@
                         {% else %}{{ loop.index }}
                         {% endif %}
                     </span>
-                    {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}
+                    {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}
                     <span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
                     <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} {{ t.get("points-suffix") }}</span>
                 </div>
@@ -379,12 +379,12 @@
         {% else %}
             {% if !started_in_progress.is_empty() %}
             <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
-            {% call stage_section(started_in_progress, t) %}
+            {% call stage_section(started_in_progress, t) %}{% endcall %}
             {% endif %}
 
             {% if !started_finished.is_empty() %}
             <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
-            {% call stage_section(started_finished, t) %}
+            {% call stage_section(started_finished, t) %}{% endcall %}
             {% endif %}
         {% endif %}
     </section>
@@ -414,7 +414,7 @@
         {% if open_matches.is_empty() %}
         <p class="text-slate-500 text-sm text-center py-12">{{ t.get("no-open-tips") }}</p>
         {% else %}
-        {% call stage_section(open_matches, t) %}
+        {% call stage_section(open_matches, t) %}{% endcall %}
         {% endif %}
     </section>
 

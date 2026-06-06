@@ -1,6 +1,6 @@
 {# Jersey SVG macro — usage:
    {% import "partials/jersey.html" as j %}
-   {% call j::jersey_svg(preset.body, preset.accent, preset.pattern, 28, "u-1") %}
+   {% call j::jersey_svg(preset.body, preset.accent, preset.pattern, 28, "u-1") %}{% endcall %}
    `uid` MUST be unique per page for pattern <defs> id namespacing. #}
 {% macro jersey_svg(body, accent, pattern, size, uid) %}
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="{{ size }}" height="{{ size }}" style="display:inline-block; flex-shrink:0;" aria-hidden="true">
