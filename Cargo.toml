@@ -15,7 +15,7 @@ chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 async-trait = "0.1"
 uuid = { version = "1.7", features = ["v4", "serde"] }
-askama = "0.12"
+askama = "0.16"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 dotenvy = "0.15"
 tracing = "0.1"
