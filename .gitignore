@@ -4,6 +4,5 @@
 /.agents
 /.claude
 .env
-.env.*
 docker-compose.override.yml
 skills-lock.json
