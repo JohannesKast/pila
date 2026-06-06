@@ -26,8 +26,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 # Create unprivileged user – the binary must never run as root.
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
+# Runtime resources read from disk by the binary (relative to WORKDIR):
+#   - locales/  → translations::load_at_startup (std::fs::read_to_string)
+#   - static/   → ServeDir::new("static") in build_router
+# Templates and migrations are embedded into the binary at compile time
+# (Askama, sqlx::migrate!) and therefore need no COPY here.
 COPY --from=builder --chown=appuser:appuser /app/target/release/pila .
 COPY --from=builder --chown=appuser:appuser /app/locales ./locales
+COPY --from=builder --chown=appuser:appuser /app/static ./static
 
 USER appuser
 
