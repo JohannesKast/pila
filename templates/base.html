@@ -13,6 +13,13 @@
     <!-- Tailwind compiled at build time (see tailwind.config.js). Linked after
          tokens.css so preflight + utilities sit after the token layer. -->
     <link rel="stylesheet" href="/static/app.css">
+    <style>
+        /* Inline auto-save indicator next to a score-tip form. */
+        .tip-status { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; font-size:15px; font-weight:700; line-height:1; opacity:0; transition:opacity .2s ease; }
+        .tip-status[data-state="saving"] { opacity:.55; color:var(--pl-mute); }
+        .tip-status[data-state="saved"]  { opacity:1;   color:var(--pl-green); }
+        .tip-status[data-state="error"]  { opacity:1;   color:#ff6b6b; }
+    </style>
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
     <meta name="csrf-token-name" content="pila_csrf">
     <meta name="csrf-header-name" content="X-CSRF-Token">
@@ -37,5 +44,123 @@
         <a href="https://github.com/JohannesKast/pila" class="underline hover:text-pl-fg">Source code</a>
         (AGPL-3.0-or-later)
     </footer>
+    <script>
+        // Score-tip ergonomics: auto-advance between the two number fields and
+        // auto-save the tip a few seconds after the last change (no OK button).
+        (function () {
+            const QUIET = 700;     // save shortly after the user stops typing
+            const MAX_WAIT = 3000; // ...but never wait longer than this after a change
+            const state = new WeakMap();
+
+            function st(form) {
+                let s = state.get(form);
+                if (!s) { s = {}; state.set(form, s); }
+                return s;
+            }
+            function snapshot(form) {
+                const h = form.querySelector('[name="score_home"]');
+                const a = form.querySelector('[name="score_away"]');
+                return (h ? h.value.trim() : '') + ':' + (a ? a.value.trim() : '');
+            }
+            function setStatus(form, kind) {
+                const el = form.querySelector('[data-tip-status]');
+                if (!el) return;
+                const glyph = { saving: '…', saved: '✓', error: '!' }[kind] || '';
+                const key = kind ? 'label' + kind[0].toUpperCase() + kind.slice(1) : '';
+                const label = (key && el.dataset[key]) || '';
+                el.textContent = glyph;
+                if (kind) { el.dataset.state = kind; } else { delete el.dataset.state; }
+                if (label) { el.title = label; el.setAttribute('aria-label', label); }
+            }
+            function confirmSaved(form) {
+                form.querySelectorAll('input[type="number"]').forEach((i) => {
+                    i.style.borderColor = 'var(--pl-green)';
+                });
+            }
+            function trySave(form) {
+                const s = st(form);
+                clearTimeout(s.quiet); clearTimeout(s.max);
+                s.quiet = null; s.max = null;
+                if (!window.htmx || !form.checkValidity()) return;
+                const snap = snapshot(form);
+                if (snap === s.saved) return;                 // nothing changed
+                if (s.inflight && snap === s.pending) return; // identical save already on the wire
+                s.pending = snap; s.inflight = true;
+                setStatus(form, 'saving');
+                htmx.trigger(form, 'tipsave');
+            }
+            function schedule(form) {
+                const s = st(form);
+                clearTimeout(s.quiet);
+                s.quiet = setTimeout(() => trySave(form), QUIET);
+                if (!s.max) s.max = setTimeout(() => trySave(form), MAX_WAIT);
+            }
+            function initForm(form) {
+                const s = st(form);
+                if (s.saved !== undefined) return;
+                s.saved = snapshot(form);
+                const h = form.querySelector('[name="score_home"]');
+                const a = form.querySelector('[name="score_away"]');
+                if (h && a && h.value !== '' && a.value !== '') confirmSaved(form);
+            }
+
+            document.addEventListener('input', (e) => {
+                const input = e.target;
+                if (!(input instanceof HTMLInputElement) || input.type !== 'number') return;
+                const form = input.closest('[data-tip-autosave]');
+                if (!form) return;
+                if (input.value !== '') {
+                    const n = parseInt(input.value, 10);
+                    if (!Number.isNaN(n) && n > 20) input.value = '20';
+                }
+                // auto-advance: once the home score can't grow into a valid 2-digit
+                // value (only "1" and "2" can become 10-20), jump to the away field.
+                if (input.name === 'score_home') {
+                    const v = input.value;
+                    if (v.length >= 2 || (v.length === 1 && v !== '1' && v !== '2')) {
+                        const away = form.querySelector('[name="score_away"]');
+                        if (away) { away.focus(); away.select(); }
+                    }
+                }
+                schedule(form);
+            });
+
+            // Save immediately when focus leaves the form (snappier than the timer).
+            document.addEventListener('focusout', (e) => {
+                const form = e.target.closest && e.target.closest('[data-tip-autosave]');
+                if (!form) return;
+                setTimeout(() => { if (!form.contains(document.activeElement)) trySave(form); }, 0);
+            });
+
+            document.body.addEventListener('htmx:beforeRequest', (e) => {
+                const form = e.target.closest && e.target.closest('[data-tip-autosave]');
+                if (!form) return;
+                const s = st(form);
+                s.pending = snapshot(form); s.inflight = true;
+                setStatus(form, 'saving');
+            });
+            document.body.addEventListener('htmx:afterRequest', (e) => {
+                const form = e.target.closest && e.target.closest('[data-tip-autosave]');
+                if (!form) return;
+                const s = st(form);
+                s.inflight = false;
+                if (e.detail.successful) {
+                    s.saved = s.pending != null ? s.pending : snapshot(form);
+                    setStatus(form, 'saved');
+                    confirmSaved(form);
+                    clearTimeout(s.fade);
+                    s.fade = setTimeout(() => setStatus(form, ''), 1800);
+                } else {
+                    setStatus(form, 'error');
+                }
+            });
+
+            function initAll(root) {
+                (root || document).querySelectorAll('[data-tip-autosave]').forEach(initForm);
+            }
+            initAll();
+            document.body.addEventListener('htmx:load', (e) => initAll(e.target));
+        })();
+    </script>
 </body>
 </html>

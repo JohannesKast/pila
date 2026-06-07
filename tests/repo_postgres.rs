@@ -238,6 +238,8 @@ async fn special_prediction_repo_upsert_round_trip() {
     let users = PgUserRepo::new(pool.clone());
     let sp = PgSpecialPredictionRepo::new(pool.clone());
 
+    let teams = PgTeamRepo::new(pool.clone());
+
     let user_id = Uuid::new_v4();
     let token = format!("repo-test-{}", Uuid::new_v4());
     users
@@ -254,15 +256,21 @@ async fn special_prediction_repo_upsert_round_trip() {
         .await
         .unwrap();
 
-    let some_team: Option<i32> = sqlx::query_scalar("SELECT id FROM teams ORDER BY id LIMIT 1")
-        .fetch_optional(&pool)
+    // Own a dedicated team rather than borrowing an arbitrary existing one:
+    // other tests insert and delete synthetic teams concurrently, which would
+    // otherwise race the FK on special_predictions.champion_id. Use a base id
+    // distinct from the other ESPN-upsert tests so the ids never collide.
+    let team_id: i32 = 9_970_001 + (std::process::id() as i32 % 1000);
+    teams
+        .upsert_from_espn(EspnTeamUpsert {
+            espn_id: team_id,
+            name: "Champion FC",
+            short_name: Some("CFC"),
+            flag_code: Some("xx"),
+            group_letter: Some("Z"),
+        })
         .await
         .unwrap();
-
-    let Some(team_id) = some_team else {
-        users.delete(user_id).await.unwrap();
-        return;
-    };
 
     sp.upsert(user_id, Some(team_id)).await.unwrap();
     assert_eq!(sp.get_user_champion(user_id).await.unwrap(), Some(team_id));
@@ -276,6 +284,11 @@ async fn special_prediction_repo_upsert_round_trip() {
         .await
         .unwrap();
     users.delete(user_id).await.unwrap();
+    sqlx::query("DELETE FROM teams WHERE id = $1")
+        .bind(team_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

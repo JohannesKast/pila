@@ -35,6 +35,13 @@ status-no-tip = KEIN TIPP
 # Checkmark prefix before the user's saved tip score, e.g. "✓ TIPP 2:1"
 status-tip-saved = ✓ TIPP
 
+# Tooltip/aria-label on the inline auto-save indicator while the tip is being stored
+tip-autosave-saving = Speichern…
+# Tooltip/aria-label on the inline auto-save indicator after the tip was stored
+tip-autosave-saved = Gespeichert
+# Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
+tip-autosave-error = Nicht gespeichert
+
 # Points abbreviation shown after score in tags, e.g. "+3 PKT"
 points-abbr = PKT
 

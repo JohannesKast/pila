@@ -113,11 +113,11 @@
         <span class="pl-score pl-score--muted">– : –</span>
       {% else %}
         <div id="tip-shell-{{ m.id }}">
-        <form id="tip-form-{{ m.id }}" hx-post="/predict/{{ m.id }}" hx-swap="outerHTML" hx-target="#tip-shell-{{ m.id }}" style="display:flex; align-items:center; gap:6px;">
-          <input class="pl-num" type="number" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+        <form id="tip-form-{{ m.id }}" data-tip-autosave hx-post="/predict/{{ m.id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
+          <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
           <span class="pl-mono" style="color:var(--pl-mute);">:</span>
-          <input class="pl-num" type="number" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
-          <button type="submit" class="pl-btn pl-btn--primary" style="height:42px; padding:0 12px; font-size:11px;">OK</button>
+          <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+          <span class="tip-status" data-tip-status role="status" data-label-saving="{{ t.get("tip-autosave-saving") }}" data-label-saved="{{ t.get("tip-autosave-saved") }}" data-label-error="{{ t.get("tip-autosave-error") }}"></span>
         </form>
         </div>
       {% endif %}
