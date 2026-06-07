@@ -13,6 +13,7 @@
 
 pub mod bootstrap;
 pub mod fixture;
+pub mod invite;
 pub mod league;
 pub mod notification;
 pub mod prediction;
@@ -23,6 +24,7 @@ pub mod user;
 
 pub use bootstrap::{BootstrapRepo, FirstLeagueParams, MemoryBootstrapRepo, PgBootstrapRepo};
 pub use fixture::{MatchRepo, MemoryMatchRepo, PgMatchRepo};
+pub use invite::{InviteRepo, MemoryInviteRepo, PgInviteRepo};
 pub use league::{
     League, LeagueConfig, LeagueRepo, MemoryLeagueRepo, PgLeagueRepo, DEFAULT_LEAGUE_ID,
 };
@@ -46,6 +48,7 @@ pub struct Repos {
     pub bootstrap: Arc<dyn BootstrapRepo>,
     pub users: Arc<dyn UserRepo>,
     pub leagues: Arc<dyn LeagueRepo>,
+    pub invites: Arc<dyn InviteRepo>,
     pub matches: Arc<dyn MatchRepo>,
     pub predictions: Arc<dyn PredictionRepo>,
     pub special_predictions: Arc<dyn SpecialPredictionRepo>,
@@ -61,6 +64,7 @@ impl Repos {
             bootstrap: Arc::new(PgBootstrapRepo::new(pool.clone())),
             users: Arc::new(PgUserRepo::new(pool.clone())),
             leagues: Arc::new(PgLeagueRepo::new(pool.clone())),
+            invites: Arc::new(PgInviteRepo::new(pool.clone())),
             matches: Arc::new(PgMatchRepo::new(pool.clone())),
             predictions: Arc::new(PgPredictionRepo::new(pool.clone())),
             special_predictions: Arc::new(PgSpecialPredictionRepo::new(pool.clone())),

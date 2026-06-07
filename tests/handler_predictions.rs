@@ -21,8 +21,9 @@ use pila::repo::fixture::{FakeMatch, MemoryMatchRepo};
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::team::TeamOption;
 use pila::repo::{
-    MemoryBootstrapRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
-    MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
+    MemoryBootstrapRepo, MemoryInviteRepo, MemoryNotificationRepo, MemoryPredictionRepo,
+    MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
+    DEFAULT_LEAGUE_ID,
 };
 use pila::stage::Stage;
 use pila::AppState;
@@ -58,6 +59,7 @@ fn build_harness() -> Harness {
         special_predictions: special_predictions.clone(),
         teams: teams.clone(),
         settings,
+        invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
     };
 

@@ -48,6 +48,12 @@ pub fn build_magic_link(token: &str, base: &str) -> String {
     format!("{}/play/me/{}", base.trim_end_matches('/'), token)
 }
 
+/// Public self-registration URL for a shareable invite link. Anyone holding
+/// this URL can create their own user in the link's league.
+pub fn build_invite_link(token: &str, base: &str) -> String {
+    format!("{}/join/{}", base.trim_end_matches('/'), token)
+}
+
 /// Minimal HTML escaper for inline error fragments. We never trust an
 /// upstream `tower_http` impl here because the inline-fragment paths bypass
 /// Askama's auto-escaping.

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12 sm:mt-20">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">🎉</span>
+            <h1 class="text-lg font-black text-fifa-gold uppercase tracking-widest">{{ t.get("join-heading") }}</h1>
+        </div>
+        <p class="text-slate-300 text-sm mb-4">
+            {{ t.get("join-subtitle") }} <strong class="text-white">{{ league_name }}</strong>.
+        </p>
+
+        <div class="bg-amber-900/30 border border-amber-700/50 rounded-lg p-3 mb-5 text-amber-200 text-xs leading-relaxed">
+            ⚠️ {{ t.get("join-existing-hint") }}
+        </div>
+
+        <form action="/join/{{ token }}" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">{{ t.get("join-name-label") }}</label>
+                <input type="text" name="name" required maxlength="255" placeholder="{{ t.get("join-name-placeholder") }}"
+                       class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+            </div>
+            <button type="submit"
+                    class="w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg">
+                {{ t.get("join-submit") }}
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

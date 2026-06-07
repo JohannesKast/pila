@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-12 sm:mt-20">
+    <div class="bg-slate-800 rounded-xl border border-slate-700 border-t-2 border-t-fifa-gold shadow-xl p-6">
+        <div class="flex items-center gap-2 mb-1">
+            <span class="text-2xl">✅</span>
+            <h1 class="text-lg font-black text-fifa-gold uppercase tracking-widest">{{ t.get("join-done-heading") }}</h1>
+        </div>
+        <p class="text-slate-300 text-sm mb-5">
+            <strong class="text-white">{{ name }}</strong> — {{ t.get("join-done-body") }}
+        </p>
+
+        <div class="bg-slate-900 rounded-lg border border-slate-600 p-3 mb-4 break-all font-mono text-xs text-fifa-gold select-all">
+            {{ magic_link }}
+        </div>
+
+        <button type="button"
+                data-copy="{{ magic_link }}"
+                data-label-copy="{{ t.get("join-done-copy") }}"
+                data-label-copied="{{ t.get("join-done-copied") }}"
+                onclick="navigator.clipboard.writeText(this.dataset.copy).then(() => { this.textContent = this.dataset.labelCopied; setTimeout(() => this.textContent = this.dataset.labelCopy, 2000); })"
+                class="w-full bg-slate-700 hover:bg-slate-600 text-white text-sm font-bold py-2 rounded-lg transition-colors mb-3">
+            {{ t.get("join-done-copy") }}
+        </button>
+
+        <a href="/"
+           class="block w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg text-center">
+            {{ t.get("join-done-continue") }}
+        </a>
+    </div>
+</div>
+{% endblock %}

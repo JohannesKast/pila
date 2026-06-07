@@ -512,6 +512,7 @@ mod tests {
             special_predictions: Arc::new(MemorySpecialPredictionRepo::new()),
             teams: Arc::new(MemoryTeamRepo::new()),
             settings: Arc::new(MemorySettingsRepo::new()),
+            invites: Arc::new(crate::repo::MemoryInviteRepo::new()),
             notifications,
         }
     }
