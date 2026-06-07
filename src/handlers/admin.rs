@@ -627,7 +627,11 @@ pub async fn admin_create_invite(
 }
 
 /// Revokes (deletes) an invite link. The token stops working immediately.
-/// Returns an empty body so HTMX removes the row.
+/// Returns an empty `200` body so HTMX swaps out (removes) the row.
+///
+/// Idempotent: revoking an id that no longer exists still returns the empty
+/// `200` so the HTMX `outerHTML` swap removes the row. Returning a 404 here
+/// would make HTMX skip the swap and leave a dead row on screen.
 pub async fn admin_revoke_invite(
     State(state): State<AppState>,
     AdminUser(admin): AdminUser,
@@ -643,20 +647,16 @@ pub async fn admin_revoke_invite(
         )
     };
 
-    let invite = state
+    // Already gone (e.g. a double-click) — remove the row idempotently.
+    let Some(invite) = state
         .repos
         .invites
         .find_by_id(id)
         .await
         .map_err(|_| db_err())?
-        .ok_or_else(|| {
-            t_err(
-                &state,
-                lang,
-                StatusCode::NOT_FOUND,
-                "error-invite-not-found",
-            )
-        })?;
+    else {
+        return Ok(Html(String::new()));
+    };
     ensure_league_access(&state, &admin, invite.league_id)?;
 
     state.repos.invites.delete(id).await.map_err(|_| db_err())?;

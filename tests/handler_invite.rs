@@ -158,6 +158,75 @@ async fn admin_revoke_invite_refuses_foreign_league() {
     assert!(h.invites.find_by_id(id).await.unwrap().is_some());
 }
 
+#[tokio::test]
+async fn admin_revoke_invite_is_idempotent_for_unknown_id() {
+    // Revoking an id that no longer exists must still return an empty 200 so
+    // the HTMX `outerHTML` swap removes the row instead of leaving it on screen.
+    let h = build_harness();
+    let admin = admin_extractor(Uuid::new_v4(), false);
+    let res = admin_revoke_invite(State(h.state.clone()), admin, Path(Uuid::new_v4()))
+        .await
+        .expect("idempotent ok");
+    assert!(res.0.is_empty());
+}
+
+#[tokio::test]
+async fn revoked_invite_token_no_longer_lets_anyone_join() {
+    // End-to-end guarantee behind "revoke": a player holding the link can join
+    // before revoke and is rejected afterwards.
+    let h = build_harness();
+    let id = h
+        .invites
+        .create(DEFAULT_LEAGUE_ID, "share-token", None)
+        .await
+        .unwrap();
+
+    // Before revoke: the join page renders.
+    let ok = join_get(
+        State(h.state.clone()),
+        Path("share-token".into()),
+        HeaderMap::new(),
+    )
+    .await
+    .expect("join page renders before revoke");
+    assert_eq!(ok.into_parts().0.status, StatusCode::OK);
+
+    // Admin revokes the link.
+    let admin = admin_extractor(Uuid::new_v4(), false);
+    let _ = admin_revoke_invite(State(h.state.clone()), admin, Path(id))
+        .await
+        .expect("revoked");
+
+    // After revoke: both the form and the submit reject the dead token.
+    let get_after = join_get(
+        State(h.state.clone()),
+        Path("share-token".into()),
+        HeaderMap::new(),
+    )
+    .await;
+    assert_eq!(get_after.unwrap_err().0, StatusCode::NOT_FOUND);
+
+    let post_after = join_post(
+        State(h.state.clone()),
+        Path("share-token".into()),
+        HeaderMap::new(),
+        axum_extra::extract::CookieJar::new(),
+        Form(JoinForm {
+            name: "Too Late".into(),
+        }),
+    )
+    .await;
+    assert_eq!(post_after.unwrap_err().0, StatusCode::NOT_FOUND);
+
+    // And no user leaked through.
+    assert!(h
+        .users
+        .list_for_admin(DEFAULT_LEAGUE_ID)
+        .await
+        .unwrap()
+        .is_empty());
+}
+
 // ─── public join flow ─────────────────────────────────────────────────────────
 
 #[tokio::test]

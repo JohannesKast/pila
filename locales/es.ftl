@@ -528,5 +528,3 @@ join-done-continue = Continuar
 
 # Invite token in the join URL is unknown or was revoked.
 error-invalid-invite = Este enlace de invitación no es válido o ha sido revocado.
-# Admin revoke route: the invite id does not exist.
-error-invite-not-found = Enlace de invitación no encontrado.
