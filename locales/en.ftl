@@ -14,6 +14,12 @@ status-live = LIVE
 status-finished = FULL TIME
 status-no-tip = NO TIP
 status-tip-saved = ✓ TIP
+# Tooltip/aria-label on the inline auto-save indicator while the tip is being stored
+tip-autosave-saving = Saving…
+# Tooltip/aria-label on the inline auto-save indicator after the tip was stored
+tip-autosave-saved = Saved
+# Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
+tip-autosave-error = Not saved
 points-abbr = PTS
 your-tip-live = YOUR TIP
 your-tip-finished = YOUR TIP

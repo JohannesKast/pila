@@ -14,6 +14,12 @@ status-live = EN VIVO
 status-finished = FIN
 status-no-tip = SIN PRONÓST.
 status-tip-saved = ✓ PRONÓST.
+# Tooltip/aria-label on the inline auto-save indicator while the tip is being stored
+tip-autosave-saving = Guardando…
+# Tooltip/aria-label on the inline auto-save indicator after the tip was stored
+tip-autosave-saved = Guardado
+# Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
+tip-autosave-error = No guardado
 points-abbr = PTS
 your-tip-live = TU PRONÓST.
 your-tip-finished = TU PRONÓST.

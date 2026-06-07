@@ -21,6 +21,7 @@ use crate::AppState;
 #[derive(Template)]
 #[template(path = "predict_form.html")]
 struct PredictFormTemplate {
+    t: T,
     match_id: i32,
     score_home: i32,
     score_away: i32,
@@ -127,6 +128,7 @@ pub async fn predict_match(
         })?;
 
     let template = PredictFormTemplate {
+        t,
         match_id,
         score_home,
         score_away,
