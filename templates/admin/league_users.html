@@ -35,6 +35,24 @@
         </form>
     </div>
 
+    <div class="pl-card" style="padding:16px; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+            <span style="font-size:18px;">🔗</span>
+            <span class="pl-display" style="font-size:14px;">{{ t.get("invite-links-heading") }}</span>
+        </div>
+        <p class="pl-mono" style="font-size:10px; color:var(--pl-mute); letter-spacing:.04em; margin-bottom:12px;">{{ t.get("invite-links-explainer") }}</p>
+        <form hx-post="/admin/leagues/{{ league.id }}/invites" hx-target="#invite-list" hx-swap="afterbegin" hx-on::after-request="if(event.detail.successful) this.reset()" style="display:grid; grid-template-columns:1fr auto; gap:10px; margin-bottom:8px;">
+            <input type="text" name="label" placeholder="{{ t.get("invite-link-label-placeholder") }}" maxlength="255"
+                   style="background:var(--pl-bg-2); border:1.5px solid var(--pl-line); color:var(--pl-fg); font-size:13px; border-radius:6px; padding:8px 10px; outline:none;">
+            <button type="submit" class="pl-btn pl-btn--primary" style="padding:8px 16px;">{{ t.get("invite-link-create-btn") }}</button>
+        </form>
+        <div id="invite-list">
+            {% for inv in invites %}
+                {% include "admin/invite_row.html" %}
+            {% endfor %}
+        </div>
+    </div>
+
     <div class="pl-card" style="padding:0; overflow:hidden;">
         <div style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; gap:8px;">
             <span style="font-size:18px;">👥</span>

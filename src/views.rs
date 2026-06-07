@@ -24,6 +24,14 @@ pub struct AdminUserView {
     pub is_self: bool,
 }
 
+/// One shareable invite link as shown in the admin user-management page.
+pub struct InviteLinkView {
+    pub id: Uuid,
+    pub label: Option<String>,
+    pub invite_link: String,
+    pub created_display: String,
+}
+
 /// Match cell on the index page — the user's view of one fixture.
 pub struct MatchView {
     pub id: i32,

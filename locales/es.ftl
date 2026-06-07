@@ -483,3 +483,50 @@ badge-rank-delta-title = Cambio de rango
 badge-rank-delta-how-to-earn = Cambio de tu posición desde el último día de juego (positivo = subiste).
 badge-champion-pick-title = Pronóstico de campeón
 badge-champion-pick-how-to-earn = Tu pronóstico de campeón. 10 puntos si tu equipo gana el torneo.
+
+# ─── Invite links (admin user-management page) ───────────────────────────────
+# Heading of the shareable-invite-link section on the per-league user page.
+invite-links-heading = Enlaces de invitación
+# Explainer under the invite-links heading: who can use a link and what it does.
+invite-links-explainer = Comparte un enlace con tu grupo: cualquiera que lo tenga puede crear su propio jugador. Revocarlo lo desactiva de inmediato.
+# Placeholder of the optional label field when creating an invite link.
+invite-link-label-placeholder = Nota (opcional, p. ej. grupo de WhatsApp)
+# Button that generates a new invite link.
+invite-link-create-btn = Crear enlace
+# Shown in place of the label when an invite link has none.
+invite-link-no-label = Sin nota
+# Tooltip on the copy-to-clipboard button for an invite link.
+invite-link-copy = Copiar enlace
+# Button that revokes (deletes) an invite link.
+invite-link-revoke = Revocar
+# Confirmation prompt before an invite link is revoked.
+invite-link-revoke-confirm = ¿Revocar este enlace de invitación? Dejará de funcionar.
+
+# ─── Public self-registration (/join/{token}) ────────────────────────────────
+# Heading of the public registration page reached via an invite link.
+join-heading = ¡Únete!
+# Intro line on the registration page; followed by the league name in bold.
+join-subtitle = Te han invitado a la quiniela:
+# Hint warning players not to create a duplicate account.
+join-existing-hint = ¿Ya creaste un jugador aquí antes? Entonces usa tu enlace de acceso existente en lugar de crear uno nuevo. Si tienes dudas, pregunta al administrador: puede reenviarte tu enlace.
+# Label for the name input on the registration page.
+join-name-label = Tu nombre
+# Placeholder for the name input on the registration page.
+join-name-placeholder = p. ej. Alex
+# Submit button on the registration page.
+join-submit = Crear jugador
+# Heading of the confirmation page after self-registration succeeded.
+join-done-heading = ¡Bienvenido!
+# Body of the confirmation page: explains the personal login link.
+join-done-body = Este es tu enlace de acceso personal: guárdalo o márcalo ahora. Cualquiera que lo conozca entra como tú.
+# Label of the copy-link button on the confirmation page.
+join-done-copy = Copiar enlace
+# Transient label shown after the link was copied.
+join-done-copied = ¡Copiado!
+# Button continuing from the confirmation page to the game.
+join-done-continue = Continuar
+
+# Invite token in the join URL is unknown or was revoked.
+error-invalid-invite = Este enlace de invitación no es válido o ha sido revocado.
+# Admin revoke route: the invite id does not exist.
+error-invite-not-found = Enlace de invitación no encontrado.

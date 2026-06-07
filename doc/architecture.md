@@ -188,6 +188,7 @@ Migrations run automatically on startup.
 - `special_predictions`: one champion pick per user
 - `sent_notifications`: idempotency ledger for Signal and email sends
 - `settings`: global key/value settings for app-wide flags
+- `invite_links`: league-scoped shareable invite tokens for self-registration
 
 ### Important modeling choices
 
@@ -238,7 +239,25 @@ Auth is cookie-based and intentionally simple:
 
 State-changing POST routes are protected by the CSRF middleware in
 [`src/main.rs`](../src/main.rs) using the double-submit-cookie pattern.
-`/setup`, magic-link login, and `/dev/*` routes are exempt.
+`/setup`, magic-link login, `/join/*`, and `/dev/*` routes are exempt.
+
+### Invite links and self-registration
+
+To lower onboarding effort, an admin can generate shareable invite links instead
+of creating one user per player by hand:
+
+- an admin generates/revokes links on the per-league user page
+  (`POST /admin/leagues/:id/invites`, `POST /admin/invites/:id/revoke`)
+- a link is a league-scoped token persisted in `invite_links`; revoking deletes
+  the row so the token stops working
+- anyone holding `GET /join/:token` can self-register a user in that link's
+  league via `POST /join/:token` — the flow mirrors `/setup`: it sets the
+  login + CSRF cookies and shows the new personal magic link to bookmark
+- self-registered users are never admins and inherit the league's
+  `default_language`
+- the join page warns players who already have an account to reuse their
+  existing magic link; if unsure, the admin can resend it from the user list
+  (`POST /admin/users/:id/resend`)
 
 ## Worker and Notification Flow
 

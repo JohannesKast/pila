@@ -139,7 +139,11 @@ fn servedir_paths_are_declared_runtime_resources() {
         let rest = &search[idx + needle.len()..];
         let path = &rest[..rest.find('"').expect("unterminated ServeDir path literal")];
         // Only a top-level dir name maps cleanly to a Dockerfile COPY target.
-        let top = path.trim_start_matches("./").split('/').next().unwrap_or(path);
+        let top = path
+            .trim_start_matches("./")
+            .split('/')
+            .next()
+            .unwrap_or(path);
         assert!(
             RUNTIME_RESOURCE_DIRS.contains(&top),
             "ServeDir serves '{path}' but '{top}' is not in RUNTIME_RESOURCE_DIRS. \

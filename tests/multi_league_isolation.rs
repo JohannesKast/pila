@@ -20,9 +20,9 @@ use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::prediction::{FakeFinishedRow, FakeLeaderboardRow};
 use pila::repo::user::{NewUser, UserFull};
 use pila::repo::{
-    MemoryBootstrapRepo, MemoryMatchRepo, MemoryNotificationRepo, MemoryPredictionRepo,
-    MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
-    DEFAULT_LEAGUE_ID,
+    MemoryBootstrapRepo, MemoryInviteRepo, MemoryMatchRepo, MemoryNotificationRepo,
+    MemoryPredictionRepo, MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo,
+    MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
 };
 use pila::stage::Stage;
 
@@ -112,6 +112,7 @@ fn setup_two_leagues() -> Two {
         special_predictions: special_predictions.clone(),
         teams: Arc::new(MemoryTeamRepo::new()),
         settings: Arc::new(MemorySettingsRepo::new()),
+        invites: Arc::new(MemoryInviteRepo::new()),
         notifications: notifications.clone(),
     };
 

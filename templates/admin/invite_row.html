@@ -1,0 +1,25 @@
+<div id="invite-row-{{ inv.id }}" style="display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--pl-line);">
+    <div style="flex:1; min-width:0;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+            <span class="pl-display" style="font-size:12px;">
+                {% match inv.label %}{% when Some with (l) %}{{ l }}{% when None %}<span style="color:var(--pl-mute);">{{ t.get("invite-link-no-label") }}</span>{% endmatch %}
+            </span>
+            <span class="pl-mono" style="font-size:9px; color:var(--pl-mute); margin-left:auto;">{{ inv.created_display }}</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px;">
+            <input type="text" readonly value="{{ inv.invite_link }}" id="invite-link-{{ inv.id }}"
+                   style="flex:1; min-width:0; background:var(--pl-bg-2); border:1px solid var(--pl-line); color:var(--pl-mute); font-size:11px; font-family:monospace; border-radius:6px; padding:6px 8px; outline:none;">
+            <button type="button" title="{{ t.get("invite-link-copy") }}"
+                    onclick="navigator.clipboard.writeText(document.getElementById('invite-link-{{ inv.id }}').value); this.textContent='✓'; setTimeout(()=>this.textContent='📋',1500);"
+                    class="pl-btn" style="padding:6px 10px; font-size:12px;">📋</button>
+        </div>
+    </div>
+    <button type="button"
+            hx-post="/admin/invites/{{ inv.id }}/revoke"
+            hx-confirm="{{ t.get("invite-link-revoke-confirm") }}"
+            hx-target="#invite-row-{{ inv.id }}"
+            hx-swap="outerHTML"
+            class="pl-btn" style="padding:6px 12px; font-size:11px; color:var(--pl-red); border-color:var(--pl-red);">
+        {{ t.get("invite-link-revoke") }}
+    </button>
+</div>

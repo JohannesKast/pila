@@ -19,12 +19,13 @@ use uuid::Uuid;
 
 use crate::auth::AdminUser;
 use crate::handlers::util::{
-    build_magic_link, html_escape, render_template, t_err, t_for, HandlerError,
+    build_invite_link, build_magic_link, format_kickoff, html_escape, render_template, t_err,
+    t_for, HandlerError,
 };
 use crate::notifier::{self, signal_configured};
 use crate::repo;
 use crate::translations::T;
-use crate::views::AdminUserView;
+use crate::views::{AdminUserView, InviteLinkView};
 use crate::AppState;
 
 #[derive(Template)]
@@ -70,11 +71,33 @@ fn ensure_league_access(
 struct LeagueUsersTemplate {
     league: repo::league::League,
     users: Vec<AdminUserView>,
+    invites: Vec<InviteLinkView>,
     signal_enabled: bool,
     smtp_enabled: bool,
     is_super_admin: bool,
     t: T,
     lang_code: String,
+}
+
+#[derive(Template)]
+#[template(path = "admin/invite_row.html")]
+struct InviteRowTemplate {
+    inv: InviteLinkView,
+    t: T,
+}
+
+fn render_invite_row(inv: InviteLinkView, t: T) -> Html<String> {
+    let tpl = InviteRowTemplate { inv, t };
+    render_template(&tpl).unwrap_or_else(|_| Html("Internal error".to_string()))
+}
+
+fn invite_view(inv: repo::invite::InviteLink, base_url: &str) -> InviteLinkView {
+    InviteLinkView {
+        invite_link: build_invite_link(&inv.token, base_url),
+        created_display: format_kickoff(Some(inv.created_at)),
+        label: inv.label,
+        id: inv.id,
+    }
 }
 
 pub async fn league_users_page(
@@ -132,11 +155,22 @@ pub async fn league_users_page(
         })
         .collect();
 
+    let invites: Vec<InviteLinkView> = state
+        .repos
+        .invites
+        .list_for_league(league_id)
+        .await
+        .map_err(|_| db_err())?
+        .into_iter()
+        .map(|inv| invite_view(inv, base_url))
+        .collect();
+
     let smtp_enabled = state.smtp_config.is_some();
     let lang_code = admin.language.clone();
     let template = LeagueUsersTemplate {
         league,
         users,
+        invites,
         signal_enabled: signal_configured(sig_cfg.0, sig_cfg.1),
         smtp_enabled,
         is_super_admin: admin.can_create_league,
@@ -539,4 +573,92 @@ pub async fn admin_resend_invite(
         r#"<span class="text-amber-400 text-xs">{}</span>"#,
         html_escape(&t.get("admin-resend-no-channel"))
     ))
+}
+
+// ─── Invite links ─────────────────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct InviteCreateForm {
+    #[serde(default)]
+    pub label: String,
+}
+
+/// Generates a new shareable invite link for the league and returns the
+/// rendered row so HTMX can prepend it to the invite list.
+pub async fn admin_create_invite(
+    State(state): State<AppState>,
+    AdminUser(admin): AdminUser,
+    Path(league_id): Path<Uuid>,
+    Form(form): Form<InviteCreateForm>,
+) -> Result<Html<String>, HandlerError> {
+    ensure_league_access(&state, &admin, league_id)?;
+    let lang = &admin.language;
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
+
+    let label = form.label.trim();
+    let label_opt: Option<&str> = if label.is_empty() { None } else { Some(label) };
+    let token = Uuid::new_v4().to_string();
+
+    let id = state
+        .repos
+        .invites
+        .create(league_id, &token, label_opt)
+        .await
+        .map_err(|_| db_err())?;
+
+    let inv = repo::invite::InviteLink {
+        id,
+        league_id,
+        token,
+        label: label_opt.map(|s| s.to_string()),
+        created_at: chrono::Utc::now(),
+    };
+    Ok(render_invite_row(
+        invite_view(inv, &state.base_url),
+        t_for(&state, &admin.language),
+    ))
+}
+
+/// Revokes (deletes) an invite link. The token stops working immediately.
+/// Returns an empty body so HTMX removes the row.
+pub async fn admin_revoke_invite(
+    State(state): State<AppState>,
+    AdminUser(admin): AdminUser,
+    Path(id): Path<Uuid>,
+) -> Result<Html<String>, HandlerError> {
+    let lang = &admin.language;
+    let db_err = || {
+        t_err(
+            &state,
+            lang,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    };
+
+    let invite = state
+        .repos
+        .invites
+        .find_by_id(id)
+        .await
+        .map_err(|_| db_err())?
+        .ok_or_else(|| {
+            t_err(
+                &state,
+                lang,
+                StatusCode::NOT_FOUND,
+                "error-invite-not-found",
+            )
+        })?;
+    ensure_league_access(&state, &admin, invite.league_id)?;
+
+    state.repos.invites.delete(id).await.map_err(|_| db_err())?;
+    Ok(Html(String::new()))
 }

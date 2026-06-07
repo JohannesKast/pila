@@ -191,7 +191,11 @@ async fn csrf_middleware(
     }
 
     let path = request.uri().path();
-    if path == "/setup" || path.starts_with("/play/me/") || path.starts_with("/dev") {
+    if path == "/setup"
+        || path.starts_with("/play/me/")
+        || path.starts_with("/join/")
+        || path.starts_with("/dev")
+    {
         return Ok(next.run(request).await);
     }
 
@@ -270,6 +274,10 @@ fn build_router() -> Router<AppState> {
         .route("/healthz", get(handlers::healthz))
         .route("/play/me/{token}", get(handlers::login_magic_link))
         .route(
+            "/join/{token}",
+            get(handlers::join_get).post(handlers::join_post),
+        )
+        .route(
             "/setup",
             get(handlers::setup_get).post(handlers::setup_post),
         )
@@ -313,6 +321,14 @@ fn build_router() -> Router<AppState> {
         .route(
             "/admin/users/{id}/resend",
             axum::routing::post(handlers::admin_resend_invite),
+        )
+        .route(
+            "/admin/leagues/{id}/invites",
+            axum::routing::post(handlers::admin_create_invite),
+        )
+        .route(
+            "/admin/invites/{id}/revoke",
+            axum::routing::post(handlers::admin_revoke_invite),
         )
         .route(
             "/admin/leagues",

@@ -14,9 +14,9 @@ use pila::handlers::admin::{
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::{NewUser, UserFull};
 use pila::repo::{
-    MemoryBootstrapRepo, MemoryMatchRepo, MemoryNotificationRepo, MemoryPredictionRepo,
-    MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
-    UserRepo, DEFAULT_LEAGUE_ID,
+    MemoryBootstrapRepo, MemoryInviteRepo, MemoryMatchRepo, MemoryNotificationRepo,
+    MemoryPredictionRepo, MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo,
+    MemoryUserRepo, Repos, UserRepo, DEFAULT_LEAGUE_ID,
 };
 use pila::AppState;
 
@@ -43,6 +43,7 @@ fn build_harness() -> Harness {
         special_predictions: Arc::new(MemorySpecialPredictionRepo::new()),
         teams: Arc::new(MemoryTeamRepo::new()),
         settings: Arc::new(MemorySettingsRepo::new()),
+        invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
     };
 
