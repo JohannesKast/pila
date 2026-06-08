@@ -14,7 +14,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-r
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
 async-trait = "0.1"
-uuid = { version = "1.7", features = ["v4", "serde"] }
+uuid = { version = "1.23", features = ["v4", "serde"] }
 askama = "0.16"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 dotenvy = "0.15"
