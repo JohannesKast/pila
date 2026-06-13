@@ -14,6 +14,9 @@ use crate::repo::RepoResult;
 struct MemoryUserState {
     users: Vec<UserFull>,
     jerseys: std::collections::HashMap<Uuid, String>,
+    /// Colour theme per user; absence means the default `"dark"`. Kept out of
+    /// `UserFull` (like `jerseys`) so test fixtures need not construct it.
+    themes: std::collections::HashMap<Uuid, String>,
 }
 
 /// Lock-protected in-memory implementation for tests.
@@ -53,6 +56,11 @@ impl UserRepo for MemoryUserRepo {
                 .cloned()
                 .unwrap_or_else(|| "classic".to_string()),
             language: u.language.clone(),
+            theme: s
+                .themes
+                .get(&u.id)
+                .cloned()
+                .unwrap_or_else(|| "dark".to_string()),
             league_id: u.league_id,
         }))
     }
@@ -158,6 +166,7 @@ impl UserRepo for MemoryUserRepo {
         let mut s = self.inner.lock().unwrap();
         s.users.retain(|u| u.id != id);
         s.jerseys.remove(&id);
+        s.themes.remove(&id);
         Ok(())
     }
 
@@ -196,6 +205,12 @@ impl UserRepo for MemoryUserRepo {
         if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
             u.language = language.to_string();
         }
+        Ok(())
+    }
+
+    async fn set_theme(&self, id: Uuid, theme: &str) -> RepoResult<()> {
+        let mut s = self.inner.lock().unwrap();
+        s.themes.insert(id, theme.to_string());
         Ok(())
     }
 
@@ -346,6 +361,21 @@ mod memory_tests {
         repo.set_jersey(id, "brasilien").await.unwrap();
         let auth = repo.find_by_token("t").await.unwrap().unwrap();
         assert_eq!(auth.jersey_preset, "brasilien");
+    }
+
+    #[tokio::test]
+    async fn set_theme_defaults_to_dark_then_persists() {
+        let repo = MemoryUserRepo::new();
+        let u = user("X", "t", false);
+        let id = u.id;
+        repo.seed(u, "classic");
+        // Unseen user defaults to dark.
+        assert_eq!(repo.find_by_token("t").await.unwrap().unwrap().theme, "dark");
+        repo.set_theme(id, "light").await.unwrap();
+        assert_eq!(
+            repo.find_by_token("t").await.unwrap().unwrap().theme,
+            "light"
+        );
     }
 
     #[tokio::test]

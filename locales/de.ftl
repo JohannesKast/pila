@@ -3,6 +3,9 @@
 # Button to open the jersey customization sheet
 nav-jersey = Trikot
 
+# Accessible label / tooltip for the dark-vs-light theme toggle button
+nav-theme = Design wechseln
+
 # Tab: leaderboard and group standings
 tab-table = Tabelle
 

@@ -1,6 +1,8 @@
 ## Navegación
 
 nav-jersey = Camiseta
+# Accessible label / tooltip for the dark-vs-light theme toggle button
+nav-theme = Cambiar tema
 tab-table = Tabla
 tab-current = En curso
 tab-open = Abierto

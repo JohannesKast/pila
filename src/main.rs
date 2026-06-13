@@ -303,6 +303,10 @@ fn build_router() -> Router<AppState> {
             "/profile/language",
             axum::routing::post(handlers::set_language_post),
         )
+        .route(
+            "/profile/theme",
+            axum::routing::post(handlers::set_theme_post),
+        )
         // Convenience landing — redirects the admin to their own league's
         // user list. Kept so old bookmarks / scripts keep working.
         .route("/admin/users", get(handlers::admin_users_redirect))
