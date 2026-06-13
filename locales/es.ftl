@@ -7,6 +7,8 @@ tab-table = Tabla
 tab-current = En curso
 tab-open = Abierto
 tab-special = Especial
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Pronóstico de campeón aún sin enviar
 tab-admin = Admin
 
 ## Etiquetas de estado de partido
@@ -398,8 +400,8 @@ error-prediction-home-missing = Pronóstico no válido: falta el resultado local
 error-prediction-away-missing = Pronóstico no válido: falta el resultado visitante.
 # Exact-score predict POST: score outside the 0-20 acceptable range.
 error-prediction-out-of-range = Pronóstico no válido: los valores deben estar entre 0 y 20.
-# Champion-pick POST after the tournament has kicked off.
-error-champion-locked = El torneo ha comenzado. El pronóstico de campeón está bloqueado.
+# Champion-pick POST after the knockout stage has kicked off.
+error-champion-locked = La fase eliminatoria ha comenzado. El pronóstico de campeón está bloqueado.
 # Generic 403 when a non-admin hits an admin-only route.
 error-admin-required = Se requieren permisos de admin.
 # Generic 403 when a non-super-admin hits a super-admin-only route.
@@ -424,8 +426,8 @@ stage-group-prefix = Grupo { $letter }
 # ─── Signal-group notification messages ──────────────────────────────────────
 # Match-closing reminder posted to the Signal group <24h before kickoff.
 notify-match-closing-soon = ⚽ Recordatorio: { $home } – { $away } ({ $where }) empieza en <24h. Faltan: { $who }. Pronostica ya: { $base_url }
-# Champion-pick lock reminder, posted ~24h before the opening kickoff.
-notify-special-lock = ⏰ El pronóstico del campeón se bloquea en <24h (partido inaugural). Faltan: { $who }. { $base_url }
+# Champion-pick lock reminder, posted ~24h before the first knockout kickoff.
+notify-special-lock = ⏰ El pronóstico del campeón se bloquea en <24h (inicio de la fase eliminatoria). Faltan: { $who }. { $base_url }
 # Announcement that a new knockout bracket is now tippable.
 notify-knockout-ready = 🏆 { $stage }: { $match_count } emparejamientos fijados, ya puedes pronosticar. { $base_url }
 # Fallback when too many users are missing to enumerate by name.
@@ -461,7 +463,7 @@ mail-champion-subject = ⏰ El pronóstico del campeón se bloquea pronto
 # Body of the champion-pick reminder email.
 mail-champion-body = ¡Hola { $name }!
 
-El pronóstico del campeón se bloquea en menos de 24 horas (partido inaugural). ¡Envía tu pronóstico ahora!
+El pronóstico del campeón se bloquea en menos de 24 horas (inicio de la fase eliminatoria). ¡Envía tu pronóstico ahora!
 
 { $magic_link }
 

@@ -289,7 +289,9 @@
         <button type="button" data-tab="open" class="pl-tab" data-active="false">
             {{ t.get("tab-open") }}{% if open_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ open_count }})</span>{% endif %}
         </button>
-        <button type="button" data-tab="special" class="pl-tab" data-active="false">{{ t.get("tab-special") }}</button>
+        <button type="button" data-tab="special" class="pl-tab" data-active="false">
+            {{ t.get("tab-special") }}{% if special_open %} <span class="pl-special-alert" title='{{ t.get("tab-special-missing") }}' aria-label='{{ t.get("tab-special-missing") }}'>!</span>{% endif %}
+        </button>
         {% if is_admin %}
         <button type="button" data-tab="admin" class="pl-tab" data-active="false">⚙️ {{ t.get("tab-admin") }}</button>
         {% endif %}

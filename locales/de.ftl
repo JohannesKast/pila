@@ -17,6 +17,8 @@ tab-open = Offen
 
 # Tab: special bets (World Champion pick)
 tab-special = Spezial
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Weltmeister-Tipp noch nicht abgegeben
 
 # Tab: admin panel (admin users only)
 tab-admin = Admin
@@ -487,8 +489,8 @@ error-prediction-home-missing = Ungültiger Tipp: Heimtore fehlen.
 error-prediction-away-missing = Ungültiger Tipp: Auswärtstore fehlen.
 # Exact-score predict POST: score outside the 0-20 acceptable range.
 error-prediction-out-of-range = Ungültiger Tipp: Werte müssen zwischen 0 und 20 liegen.
-# Champion-pick POST after the tournament has kicked off.
-error-champion-locked = Turnier hat begonnen. Weltmeister-Tipp ist gesperrt.
+# Champion-pick POST after the knockout stage has kicked off.
+error-champion-locked = K.-o.-Phase hat begonnen. Weltmeister-Tipp ist gesperrt.
 # Generic 403 when a non-admin hits an admin-only route.
 error-admin-required = Admin-Rechte erforderlich.
 # Generic 403 when a non-super-admin hits a super-admin-only route.
@@ -513,8 +515,8 @@ stage-group-prefix = Gruppe { $letter }
 # ─── Signal-group notification messages ──────────────────────────────────────
 # Match-closing reminder posted to the Signal group <24h before kickoff.
 notify-match-closing-soon = ⚽ Tipp-Erinnerung: { $home } – { $away } ({ $where }) wird in <24h angepfiffen. Es fehlen noch: { $who }. Jetzt tippen: { $base_url }
-# Champion-pick lock reminder, posted ~24h before the opening kickoff.
-notify-special-lock = ⏰ Weltmeister-Tipp wird in <24h gesperrt (Anpfiff Eröffnungsspiel). Es fehlen: { $who }. { $base_url }
+# Champion-pick lock reminder, posted ~24h before the first knockout kickoff.
+notify-special-lock = ⏰ Weltmeister-Tipp wird in <24h gesperrt (Anpfiff K.-o.-Runde). Es fehlen: { $who }. { $base_url }
 # Announcement that a new knockout bracket is now tippable.
 notify-knockout-ready = 🏆 { $stage }: { $match_count } Paarungen stehen fest, Tipps jetzt möglich. { $base_url }
 # Fallback when too many users are missing to enumerate by name.
@@ -550,7 +552,7 @@ mail-champion-subject = ⏰ Weltmeister-Tipp wird bald gesperrt
 # Body of the champion-pick reminder email.
 mail-champion-body = Hallo { $name }!
 
-Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt (Anpfiff Eröffnungsspiel). Gib jetzt deinen Tipp ab!
+Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt (Anpfiff K.-o.-Runde). Gib jetzt deinen Tipp ab!
 
 { $magic_link }
 

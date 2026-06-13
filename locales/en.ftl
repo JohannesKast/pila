@@ -7,6 +7,8 @@ tab-table = Table
 tab-current = Current
 tab-open = Open
 tab-special = Special
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Champion pick not submitted yet
 tab-admin = Admin
 
 ## Match status tags
@@ -398,8 +400,8 @@ error-prediction-home-missing = Invalid tip: home score missing.
 error-prediction-away-missing = Invalid tip: away score missing.
 # Exact-score predict POST: score outside the 0-20 acceptable range.
 error-prediction-out-of-range = Invalid tip: values must be between 0 and 20.
-# Champion-pick POST after the tournament has kicked off.
-error-champion-locked = Tournament has begun. Champion pick is locked.
+# Champion-pick POST after the knockout stage has kicked off.
+error-champion-locked = Knockout stage has begun. Champion pick is locked.
 # Generic 403 when a non-admin hits an admin-only route.
 error-admin-required = Admin rights required.
 # Generic 403 when a non-super-admin hits a super-admin-only route.
@@ -424,8 +426,8 @@ stage-group-prefix = Group { $letter }
 # ─── Signal-group notification messages ──────────────────────────────────────
 # Match-closing reminder posted to the Signal group <24h before kickoff.
 notify-match-closing-soon = ⚽ Tip reminder: { $home } – { $away } ({ $where }) kicks off in <24h. Still missing: { $who }. Tip now: { $base_url }
-# Champion-pick lock reminder, posted ~24h before the opening kickoff.
-notify-special-lock = ⏰ Champion pick locks in <24h (opening kickoff). Missing: { $who }. { $base_url }
+# Champion-pick lock reminder, posted ~24h before the first knockout kickoff.
+notify-special-lock = ⏰ Champion pick locks in <24h (knockout kickoff). Missing: { $who }. { $base_url }
 # Announcement that a new knockout bracket is now tippable.
 notify-knockout-ready = 🏆 { $stage }: { $match_count } fixtures are set, tips are open. { $base_url }
 # Fallback when too many users are missing to enumerate by name.
@@ -461,7 +463,7 @@ mail-champion-subject = ⏰ Champion pick locks soon
 # Body of the champion-pick reminder email.
 mail-champion-body = Hi { $name }!
 
-The champion pick locks in less than 24 hours (opening kickoff). Get your tip in now!
+The champion pick locks in less than 24 hours (knockout kickoff). Get your tip in now!
 
 { $magic_link }
 
