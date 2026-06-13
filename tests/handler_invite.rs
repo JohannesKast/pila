@@ -326,7 +326,11 @@ async fn join_post_rejects_duplicate_name_case_insensitively() {
 
     // No duplicate leaked through.
     let listed = h.users.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
-    assert_eq!(listed.len(), 1, "duplicate name must not create a second user");
+    assert_eq!(
+        listed.len(),
+        1,
+        "duplicate name must not create a second user"
+    );
     assert_eq!(listed[0].name, "Freiheitskämpfer");
 }
 

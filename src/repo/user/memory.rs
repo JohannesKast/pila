@@ -156,10 +156,9 @@ impl UserRepo for MemoryUserRepo {
         let mut s = self.inner.lock().unwrap();
         // Mirror the DB's unique index on (league_id, lower(name)) so the
         // in-memory repo rejects duplicate names the same way Postgres does.
-        if s.users
-            .iter()
-            .any(|u| u.league_id == new_user.league_id && u.name.eq_ignore_ascii_case(new_user.name))
-        {
+        if s.users.iter().any(|u| {
+            u.league_id == new_user.league_id && u.name.eq_ignore_ascii_case(new_user.name)
+        }) {
             return Err(RepoError::Conflict);
         }
         s.jerseys.insert(new_user.id, "classic".to_string());
