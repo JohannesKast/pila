@@ -37,7 +37,12 @@ struct AdminRowTemplate {
     t: T,
 }
 
-fn render_admin_row(u: AdminUserView, signal_enabled: bool, smtp_enabled: bool, t: T) -> Html<String> {
+fn render_admin_row(
+    u: AdminUserView,
+    signal_enabled: bool,
+    smtp_enabled: bool,
+    t: T,
+) -> Html<String> {
     let tpl = AdminRowTemplate {
         u,
         signal_enabled,
