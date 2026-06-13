@@ -47,6 +47,9 @@ struct IndexTemplate {
     group_standings: Vec<GroupStandingsTable>,
     team_options: Vec<TeamView>,
     special_preds: SpecialPredictionsView,
+    /// Champion tip is still editable and not yet filled in — drives the
+    /// "needs attention" marker on the special tab.
+    special_open: bool,
     tournament_locked: bool,
     champ_preds: Vec<ChampPrediction>,
     is_admin: bool,
@@ -389,6 +392,7 @@ pub async fn index(
         group_standings,
         team_options,
         special_preds,
+        special_open,
         tournament_locked,
         champ_preds,
         is_admin: user.is_admin,

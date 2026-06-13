@@ -7,6 +7,8 @@ tab-table = Table
 tab-current = Current
 tab-open = Open
 tab-special = Special
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Champion pick not submitted yet
 tab-admin = Admin
 
 ## Match status tags

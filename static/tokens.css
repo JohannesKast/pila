@@ -262,6 +262,15 @@ body.pl-app {
   color: var(--pl-mute);
   cursor: pointer; position: relative;
 }
+/* "Champion tip not yet filled in" marker on the special tab. */
+.pl-special-alert {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--pl-yellow); color: #0a0f0c;
+  font-family: var(--pl-font-mono); font-size: 10px; font-weight: 700;
+  line-height: 1; vertical-align: middle;
+  animation: pl-pulse 1.2s infinite;
+}
 .pl-tab[data-active="true"] { color: var(--pl-fg); }
 .pl-tab[data-active="true"]::after {
   content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;

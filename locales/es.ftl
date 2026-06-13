@@ -7,6 +7,8 @@ tab-table = Tabla
 tab-current = En curso
 tab-open = Abierto
 tab-special = Especial
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Pronóstico de campeón aún sin enviar
 tab-admin = Admin
 
 ## Etiquetas de estado de partido

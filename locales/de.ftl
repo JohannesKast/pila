@@ -17,6 +17,8 @@ tab-open = Offen
 
 # Tab: special bets (World Champion pick)
 tab-special = Spezial
+# Tooltip on the "!" marker shown on the special tab when the champion pick is still missing
+tab-special-missing = Weltmeister-Tipp noch nicht abgegeben
 
 # Tab: admin panel (admin users only)
 tab-admin = Admin
