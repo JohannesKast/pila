@@ -24,7 +24,7 @@ impl PgUserRepo {
 impl UserRepo for PgUserRepo {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>> {
         let row = sqlx::query!(
-            "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, league_id \
+            "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, theme, league_id \
              FROM users WHERE token = $1",
             token
         )
@@ -41,6 +41,7 @@ impl UserRepo for PgUserRepo {
             email: r.email,
             jersey_preset: r.jersey_preset,
             language: r.language,
+            theme: r.theme,
             league_id: r.league_id,
         }))
     }
@@ -212,6 +213,14 @@ impl UserRepo for PgUserRepo {
 
     async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()> {
         sqlx::query!("UPDATE users SET language = $1 WHERE id = $2", language, id)
+            .execute(&self.pool)
+            .await
+            .map_err(RepoError::from)?;
+        Ok(())
+    }
+
+    async fn set_theme(&self, id: Uuid, theme: &str) -> RepoResult<()> {
+        sqlx::query!("UPDATE users SET theme = $1 WHERE id = $2", theme, id)
             .execute(&self.pool)
             .await
             .map_err(RepoError::from)?;

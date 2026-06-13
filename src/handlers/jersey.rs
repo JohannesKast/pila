@@ -11,11 +11,12 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse},
 };
+use axum_extra::extract::CookieJar;
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::{html_escape, render_template, t_err, HandlerError};
+use crate::handlers::util::{html_escape, make_theme_cookie, render_template, t_err, HandlerError};
 use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;
@@ -191,4 +192,32 @@ pub async fn set_language_post(
     let mut headers = HeaderMap::new();
     headers.insert("HX-Location", axum::http::HeaderValue::from_static("/"));
     (StatusCode::OK, headers).into_response()
+}
+
+const VALID_THEMES: &[&str] = &["dark", "light"];
+
+#[derive(Deserialize)]
+pub struct SetThemeForm {
+    pub theme: String,
+}
+
+/// `POST /profile/theme` — persist the user's colour theme.
+///
+/// The topbar toggle already flips the theme and the `pila_theme` cookie
+/// client-side for instant, flash-free feedback; this request mirrors the
+/// choice into the database so it follows the user across devices. We also
+/// (re)set the cookie server-side so it stays authoritative. No body is
+/// returned — the page does not need to re-render.
+pub async fn set_theme_post(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    jar: CookieJar,
+    Form(form): Form<SetThemeForm>,
+) -> impl IntoResponse {
+    if !VALID_THEMES.contains(&form.theme.as_str()) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    state.repos.users.set_theme(user.id, &form.theme).await.ok();
+    let jar = jar.add(make_theme_cookie(form.theme));
+    (jar, StatusCode::OK).into_response()
 }

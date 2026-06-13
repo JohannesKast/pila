@@ -8,6 +8,7 @@
   --pl-bg:        #0a0f0c;   /* App background — almost-black with green tint */
   --pl-bg-2:      #131a16;   /* Card background */
   --pl-bg-3:      #1c2521;   /* Elevated card */
+  --pl-bg-input:  #06090a;   /* Number-field background (score inputs) */
   --pl-line:      #283130;   /* Hairline borders */
   --pl-line-2:    #3a4541;   /* Stronger borders */
 
@@ -42,6 +43,64 @@
   --pl-shadow-glow-yellow: 0 0 0 1px var(--pl-yellow), 0 0 18px rgba(255,230,0,.35);
   --pl-shadow-glow-green:  0 0 0 1px var(--pl-green),  0 0 18px rgba(116,255,140,.35);
 }
+
+/* ============================================================
+   LIGHT THEME — opt-in via `<html class="light">` (set from the
+   `pila_theme` cookie before first paint; see templates/base.html).
+   Only the palette tokens flip; every `.pl-*` component class and the
+   Tailwind colour utilities (bg-pl-*, text-pl-*, …) read these vars,
+   so overriding them here re-themes the whole app. Brand green/yellow
+   are darkened so they stay legible as text/borders on light surfaces;
+   the primary button keeps a saturated "action" feel as a deep gold.
+   ============================================================ */
+:root.light {
+  /* Surfaces — daytime stadium: warm off-white with a faint green tint */
+  --pl-bg:        #f3f6f3;
+  --pl-bg-2:      #ffffff;
+  --pl-bg-3:      #eaeeea;
+  --pl-bg-input:  #ffffff;
+  --pl-line:      #d8e0db;
+  --pl-line-2:    #bcc7c0;
+
+  /* Foreground */
+  --pl-fg:        #0f1512;
+  --pl-fg-2:      #38433d;
+  --pl-mute:      #5f6b65;
+  --pl-mute-2:    #9aa69f;
+
+  /* Brand — darkened for contrast on light surfaces */
+  --pl-green:     #1f9d3a;
+  --pl-green-2:   #15803d;
+  --pl-yellow:    #caa200;
+  --pl-yellow-2:  #a98700;
+  --pl-red:       #d92d2d;
+  --pl-blue:      #1f7ed0;
+
+  /* Shadows — softer, no inner highlight on a light card */
+  --pl-shadow-card: 0 1px 2px rgba(16,21,18,.04), 0 6px 16px rgba(16,21,18,.10);
+}
+
+/* Decorative surfaces that hardcode the dark palette need light variants. */
+:root.light .pl-tag        { background: rgba(16,21,18,.04); }
+:root.light .pl-btn--primary { color: #ffffff; }
+:root.light .pl-btn--danger  { color: #ffffff; }
+:root.light .pl-score        { text-shadow: none; }
+:root.light .pl-pitch {
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(31,157,58,.14) 0%, transparent 60%),
+    repeating-linear-gradient(180deg, #e9efe9 0 28px, #eef3ee 28px 56px),
+    #eef3ee;
+}
+:root.light .pl-pitch-hero {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(31,157,58,.14) 0%, transparent 60%),
+    repeating-linear-gradient(90deg, rgba(31,157,58,.05) 0 16px, transparent 16px 32px),
+    #eef3ee;
+}
+:root.light .pl-deadline-stripe {
+  background: repeating-linear-gradient(135deg, var(--pl-yellow) 0 12px, #ffffff 12px 24px);
+}
+:root.light .pl-sheet-backdrop { background: rgba(16,21,18,.45); }
 
 /* ----- Body bootstrap ----- */
 .pl,

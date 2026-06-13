@@ -1,6 +1,8 @@
 ## Navigation
 
 nav-jersey = Jersey
+# Accessible label / tooltip for the dark-vs-light theme toggle button
+nav-theme = Switch theme
 tab-table = Table
 tab-current = Current
 tab-open = Open
