@@ -364,6 +364,10 @@ error-league-not-found = Liga no encontrada.
 error-user-not-found = Usuario no encontrado.
 # Form validation: the name field was empty.
 error-name-empty = El nombre no puede estar vacío.
+# Form validation: another player in this league already uses this name
+# (case-insensitive). Shown when joining via invite link or when an admin
+# adds a user.
+error-name-taken = Este nombre ya está en uso en esta liga. Elige otro.
 # Form validation: the league-name field was empty.
 error-league-name-empty = El nombre de la liga no puede estar vacío.
 # Form validation: league name exceeded 255 characters.

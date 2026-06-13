@@ -141,6 +141,20 @@ pub async fn join_post(
         return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
     }
 
+    // Reject duplicate display names up front so re-opening the invite link,
+    // a lost magic link, or a double submit no longer spawns a second account
+    // with the same name. The unique index on (league_id, lower(name)) is the
+    // race-safe backstop and surfaces below as RepoError::Conflict.
+    if state
+        .repos
+        .users
+        .name_exists(league_id, name)
+        .await
+        .map_err(|_| db_err())?
+    {
+        return Err(err(StatusCode::CONFLICT, "error-name-taken"));
+    }
+
     let cfg = state
         .repos
         .leagues
@@ -164,7 +178,10 @@ pub async fn join_post(
             language: &cfg.default_language,
         })
         .await
-        .map_err(|_| db_err())?;
+        .map_err(|e| match e {
+            repo::RepoError::Conflict => err(StatusCode::CONFLICT, "error-name-taken"),
+            _ => db_err(),
+        })?;
 
     let magic_link = build_magic_link(&user_token, &state.base_url);
     let updated_jar = jar

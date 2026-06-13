@@ -81,6 +81,11 @@ impl Repos {
 pub enum RepoError {
     #[error("database error: {0}")]
     Db(#[from] sqlx::Error),
+    /// A uniqueness constraint rejected the write — e.g. a duplicate display
+    /// name in a league. Handlers surface this as a user-facing conflict
+    /// instead of a generic 500.
+    #[error("conflict: unique constraint violated")]
+    Conflict,
 }
 
 pub type RepoResult<T> = Result<T, RepoError>;

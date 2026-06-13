@@ -100,7 +100,12 @@ pub trait UserRepo: Send + Sync {
     /// All user ids across every league — used by the worker's per-league
     /// notification dispatch loop.
     async fn list_all_ids(&self) -> RepoResult<Vec<Uuid>>;
-    /// Inserts a new user. Fails if the id or token already exist.
+    /// Case-insensitive check whether a display name is already taken inside
+    /// the league. Used to reject duplicate self-registrations before insert;
+    /// the unique index on `(league_id, lower(name))` is the race-safe backstop.
+    async fn name_exists(&self, league_id: Uuid, name: &str) -> RepoResult<bool>;
+    /// Inserts a new user. Fails with `RepoError::Conflict` if the display
+    /// name is already taken in the league, or if the id or token collide.
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()>;
     /// Deletes the user and all dependent rows (predictions, special_predictions).
     async fn delete(&self, id: Uuid) -> RepoResult<()>;
