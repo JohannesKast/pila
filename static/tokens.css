@@ -286,6 +286,51 @@ body.pl-app {
   height: 4px;
 }
 
+/* ----- Admin: responsive tables / forms -----
+   Wide admin tables and multi-column forms are unusable on a phone, so below
+   640px the tables collapse into stacked cards (column headers move into a
+   per-cell label) and multi-column form grids drop to a single column. Desktop
+   layout is unchanged. */
+@media (max-width: 640px) {
+  .pl-table-stack thead { display: none; }
+  .pl-table-stack,
+  .pl-table-stack tbody,
+  .pl-table-stack tr,
+  .pl-table-stack td { display: block; width: 100%; }
+  .pl-table-stack tr {
+    border: 1px solid var(--pl-line);
+    border-radius: var(--pl-r-md);
+    background: var(--pl-bg-2);
+    margin-bottom: 10px;
+    padding: 4px 2px;
+  }
+  .pl-table-stack tr:last-child { margin-bottom: 0; }
+  .pl-table-stack td { border: 0 !important; padding: 7px 14px !important; }
+  .pl-table-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--pl-mute);
+    font-family: var(--pl-font-mono);
+    font-size: 9px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  /* Outer list card sits flush on the page background on mobile; drop its chrome
+     so the per-row cards above don't double up on borders. */
+  .pl-card--bare-mobile {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  /* Gutter around the per-row cards when they live inside another card. */
+  .pl-table-stack-pad { padding: 10px !important; }
+  /* Multi-column admin form grids collapse to a single column. */
+  .pl-form-grid { grid-template-columns: 1fr !important; }
+}
+
 /* ----- Bottom sheet ----- */
 .pl-sheet-backdrop {
   position: fixed; inset: 0;
