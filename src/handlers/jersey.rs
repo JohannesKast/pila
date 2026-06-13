@@ -16,9 +16,7 @@ use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::{
-    html_escape, make_theme_cookie, render_template, t_err, HandlerError,
-};
+use crate::handlers::util::{html_escape, make_theme_cookie, render_template, t_err, HandlerError};
 use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;

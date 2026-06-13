@@ -370,7 +370,10 @@ mod memory_tests {
         let id = u.id;
         repo.seed(u, "classic");
         // Unseen user defaults to dark.
-        assert_eq!(repo.find_by_token("t").await.unwrap().unwrap().theme, "dark");
+        assert_eq!(
+            repo.find_by_token("t").await.unwrap().unwrap().theme,
+            "dark"
+        );
         repo.set_theme(id, "light").await.unwrap();
         assert_eq!(
             repo.find_by_token("t").await.unwrap().unwrap().theme,

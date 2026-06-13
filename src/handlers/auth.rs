@@ -22,19 +22,14 @@ pub async fn login_magic_link(
     headers: HeaderMap,
     jar: CookieJar,
 ) -> Result<(CookieJar, Redirect), HandlerError> {
-    let user = state
-        .repos
-        .users
-        .find_by_token(&token)
-        .await
-        .map_err(|_| {
-            t_err_from_headers(
-                &state,
-                &headers,
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error-database",
-            )
-        })?;
+    let user = state.repos.users.find_by_token(&token).await.map_err(|_| {
+        t_err_from_headers(
+            &state,
+            &headers,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    })?;
 
     if let Some(user) = user {
         // Seed the theme cookie from the stored preference so the chosen
