@@ -367,7 +367,7 @@ error-name-empty = El nombre no puede estar vacío.
 # Form validation: another player in this league already uses this name
 # (case-insensitive). Shown when joining via invite link or when an admin
 # adds a user.
-error-name-taken = Este nombre ya está en uso en esta liga. Elige otro.
+error-name-taken = Este nombre ya está en uso en esta liga. Elige otro o, si es tu cuenta, pídele al administrador que te reenvíe tu enlace de acceso.
 # Form validation: the league-name field was empty.
 error-league-name-empty = El nombre de la liga no puede estar vacío.
 # Form validation: league name exceeded 255 characters.
