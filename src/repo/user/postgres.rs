@@ -144,6 +144,18 @@ impl UserRepo for PgUserRepo {
         Ok(ids)
     }
 
+    async fn name_exists(&self, league_id: Uuid, name: &str) -> RepoResult<bool> {
+        let exists = sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM users WHERE league_id = $1 AND lower(name) = lower($2))",
+            league_id,
+            name
+        )
+        .fetch_one(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+        Ok(exists.unwrap_or(false))
+    }
+
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()> {
         sqlx::query!(
             "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
@@ -159,7 +171,7 @@ impl UserRepo for PgUserRepo {
         )
         .execute(&self.pool)
         .await
-        .map_err(RepoError::from)?;
+        .map_err(map_insert_err)?;
         Ok(())
     }
 
@@ -292,4 +304,17 @@ impl UserRepo for PgUserRepo {
             .map(|r| (r.id, r.name, r.email, r.token))
             .collect())
     }
+}
+
+/// Maps the `users` insert failure modes. A unique-constraint violation —
+/// today only the per-league display-name index — becomes
+/// [`RepoError::Conflict`] so handlers can answer "name taken" instead of a
+/// generic 500. Everything else stays a plain database error.
+fn map_insert_err(err: sqlx::Error) -> RepoError {
+    if let sqlx::Error::Database(ref db) = err {
+        if db.is_unique_violation() {
+            return RepoError::Conflict;
+        }
+    }
+    RepoError::from(err)
 }

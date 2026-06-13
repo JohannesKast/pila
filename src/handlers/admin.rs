@@ -227,6 +227,23 @@ pub async fn admin_create_user(
     let email = form.email.trim();
     let email_opt: Option<&str> = if email.is_empty() { None } else { Some(email) };
 
+    // Same per-league name uniqueness the public join flow enforces, so an
+    // admin can't accidentally create a second account under an existing name.
+    if state
+        .repos
+        .users
+        .name_exists(league_id, name)
+        .await
+        .map_err(|_| db_err())?
+    {
+        return Err(t_err(
+            &state,
+            lang,
+            StatusCode::CONFLICT,
+            "error-name-taken",
+        ));
+    }
+
     let id = Uuid::new_v4();
     let token = Uuid::new_v4().to_string();
 
@@ -251,7 +268,12 @@ pub async fn admin_create_user(
             language: &cfg.default_language,
         })
         .await
-        .map_err(|_| db_err())?;
+        .map_err(|e| match e {
+            repo::RepoError::Conflict => {
+                t_err(&state, lang, StatusCode::CONFLICT, "error-name-taken")
+            }
+            _ => db_err(),
+        })?;
 
     let signal_enabled = signal_configured(&state.signal_api_url, &state.signal_from_number);
     let link = build_magic_link(&token, &state.base_url);

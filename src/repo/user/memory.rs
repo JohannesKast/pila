@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use uuid::Uuid;
 
 use super::{AdminUserRow, NewUser, UserAuth, UserBasic, UserFull, UserRepo};
-use crate::repo::RepoResult;
+use crate::repo::{RepoError, RepoResult};
 
 #[derive(Default)]
 struct MemoryUserState {
@@ -145,8 +145,22 @@ impl UserRepo for MemoryUserRepo {
             .collect())
     }
 
+    async fn name_exists(&self, league_id: Uuid, name: &str) -> RepoResult<bool> {
+        let s = self.inner.lock().unwrap();
+        Ok(s.users
+            .iter()
+            .any(|u| u.league_id == league_id && u.name.eq_ignore_ascii_case(name)))
+    }
+
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()> {
         let mut s = self.inner.lock().unwrap();
+        // Mirror the DB's unique index on (league_id, lower(name)) so the
+        // in-memory repo rejects duplicate names the same way Postgres does.
+        if s.users.iter().any(|u| {
+            u.league_id == new_user.league_id && u.name.eq_ignore_ascii_case(new_user.name)
+        }) {
+            return Err(RepoError::Conflict);
+        }
         s.jerseys.insert(new_user.id, "classic".to_string());
         s.users.push(UserFull {
             id: new_user.id,

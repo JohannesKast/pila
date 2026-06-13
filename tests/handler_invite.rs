@@ -289,6 +289,52 @@ async fn join_post_creates_user_in_invite_league() {
 }
 
 #[tokio::test]
+async fn join_post_rejects_duplicate_name_case_insensitively() {
+    // Regression guard for the production bug where re-opening the invite link
+    // (or a double submit) spawned a second account with the same display name.
+    // The second join must be rejected with 409 and leave exactly one user.
+    let h = build_harness();
+    h.invites
+        .create(DEFAULT_LEAGUE_ID, "valid-token", None)
+        .await
+        .unwrap();
+
+    let _ = join_post(
+        State(h.state.clone()),
+        Path("valid-token".into()),
+        HeaderMap::new(),
+        axum_extra::extract::CookieJar::new(),
+        Form(JoinForm {
+            name: "Freiheitskämpfer".into(),
+        }),
+    )
+    .await
+    .expect("first registration succeeds");
+
+    // Different casing, same person trying again — must be refused.
+    let dup = join_post(
+        State(h.state.clone()),
+        Path("valid-token".into()),
+        HeaderMap::new(),
+        axum_extra::extract::CookieJar::new(),
+        Form(JoinForm {
+            name: "freiheitskämpfer".into(),
+        }),
+    )
+    .await;
+    assert_eq!(dup.unwrap_err().0, StatusCode::CONFLICT);
+
+    // No duplicate leaked through.
+    let listed = h.users.list_for_admin(DEFAULT_LEAGUE_ID).await.unwrap();
+    assert_eq!(
+        listed.len(),
+        1,
+        "duplicate name must not create a second user"
+    );
+    assert_eq!(listed[0].name, "Freiheitskämpfer");
+}
+
+#[tokio::test]
 async fn join_post_rejects_blank_name() {
     let h = build_harness();
     h.invites
