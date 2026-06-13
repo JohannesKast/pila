@@ -1,25 +1,25 @@
 <tr id="admin-row-{{ u.id }}" class="border-t border-slate-700/40 align-top">
-    <td class="px-2 py-2 align-top">
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-name") }}">
         <form hx-post="/admin/users/{{ u.id }}/rename" hx-swap="outerHTML" hx-target="#admin-row-{{ u.id }}" class="flex items-center gap-1">
             <input type="text" name="name" value="{{ u.name }}" required maxlength="255"
                    class="flex-1 min-w-0 bg-slate-900 border border-slate-600 focus:border-fifa-blue rounded px-2 py-1 text-xs text-white outline-none">
             <button type="submit" title="Speichern" class="text-emerald-400 hover:text-emerald-300 text-xs px-1">💾</button>
         </form>
     </td>
-    <td class="px-2 py-2 align-top">
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-phone") }}">
         <span class="text-xs text-slate-300">{% match u.phone_number %}{% when Some with (p) %}{{ p }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
     </td>
-    <td class="px-2 py-2 align-top">
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-email") }}">
         <span class="text-xs text-slate-300">{% match u.email %}{% when Some with (e) %}{{ e }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
     </td>
-    <td class="px-2 py-2 align-top">
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-role") }}">
         {% if u.is_admin %}
         <span class="inline-flex items-center gap-1 text-fifa-gold text-[11px] font-bold uppercase tracking-wider">★ Admin</span>
         {% else %}
         <span class="text-slate-500 text-[11px]">User</span>
         {% endif %}
     </td>
-    <td class="px-2 py-2 align-top">
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-magic-link") }}">
         <div class="flex items-center gap-1">
             <input type="text" readonly value="{{ u.magic_link }}" id="magic-link-{{ u.id }}"
                    class="flex-1 min-w-0 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-slate-300 font-mono outline-none">
@@ -28,7 +28,7 @@
                     class="text-slate-300 hover:text-white text-xs px-1.5 py-1 bg-slate-700/60 rounded">📋</button>
         </div>
     </td>
-    <td class="px-2 py-2 align-top whitespace-nowrap">
+    <td class="px-2 py-2 align-top whitespace-nowrap" data-label="{{ t.get("col-actions") }}">
         <div class="flex flex-wrap items-center gap-1">
             {% if !u.is_self %}
             <button type="button"

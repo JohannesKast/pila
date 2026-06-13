@@ -12,7 +12,7 @@ use axum::{
 use axum_extra::extract::CookieJar;
 
 use crate::handlers::util::{
-    make_csrf_cookie, make_login_cookie, t_err_from_headers, HandlerError,
+    make_csrf_cookie, make_login_cookie, make_theme_cookie, t_err_from_headers, HandlerError,
 };
 use crate::AppState;
 
@@ -22,25 +22,22 @@ pub async fn login_magic_link(
     headers: HeaderMap,
     jar: CookieJar,
 ) -> Result<(CookieJar, Redirect), HandlerError> {
-    let exists = state
-        .repos
-        .users
-        .find_by_token(&token)
-        .await
-        .map_err(|_| {
-            t_err_from_headers(
-                &state,
-                &headers,
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "error-database",
-            )
-        })?
-        .is_some();
+    let user = state.repos.users.find_by_token(&token).await.map_err(|_| {
+        t_err_from_headers(
+            &state,
+            &headers,
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "error-database",
+        )
+    })?;
 
-    if exists {
+    if let Some(user) = user {
+        // Seed the theme cookie from the stored preference so the chosen
+        // theme follows the user onto a freshly logged-in device.
         let updated_jar = jar
             .add(make_login_cookie(token.clone()))
-            .add(make_csrf_cookie(token));
+            .add(make_csrf_cookie(token))
+            .add(make_theme_cookie(user.theme));
         Ok((updated_jar, Redirect::to("/")))
     } else {
         Err(t_err_from_headers(

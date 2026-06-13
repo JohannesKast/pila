@@ -46,6 +46,17 @@ impl FakeMatch {
             ..Default::default()
         }
     }
+
+    /// Like [`locked_unfinished`](Self::locked_unfinished) but in the knockout
+    /// stage — useful for the champion-tip lock, which is anchored on the first
+    /// knockout kickoff.
+    pub fn knockout_unfinished(id: i32, kickoff: DateTime<Utc>) -> Self {
+        Self {
+            stage: Stage::RoundOf16,
+            group_letter: None,
+            ..Self::locked_unfinished(id, kickoff)
+        }
+    }
 }
 
 #[derive(Default)]

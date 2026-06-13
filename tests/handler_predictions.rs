@@ -505,10 +505,39 @@ async fn predict_special_allows_champion_pick_until_first_ko_for_ko_only_league(
 }
 
 #[tokio::test]
-async fn predict_special_rejects_after_tournament_kickoff() {
+async fn predict_special_allows_champion_pick_after_group_kickoff() {
+    let h = build_harness();
+    // Group stage has already kicked off, but no knockout match has started yet.
+    let mut group = FakeMatch::locked_unfinished(1, Utc::now() - Duration::hours(1));
+    group.stage = Stage::Group;
+    h.matches.seed(group);
+    let mut ko = FakeMatch::locked_unfinished(2, Utc::now() + Duration::hours(2));
+    ko.stage = Stage::RoundOf16;
+    h.matches.seed(ko);
+    h.teams.seed(TeamOption {
+        id: 11,
+        name: "Germany".into(),
+        flag_code: Some("de".into()),
+    });
+    let res = predict_special(
+        State(h.state.clone()),
+        fake_user(),
+        Form(SpecialPredictionForm {
+            champion_id: Some(11),
+        }),
+    )
+    .await;
+    assert!(
+        res.is_ok(),
+        "champion pick should stay editable until the knockout stage begins"
+    );
+}
+
+#[tokio::test]
+async fn predict_special_rejects_after_knockout_kickoff() {
     let h = build_harness();
     let mut m = FakeMatch::locked_unfinished(1, Utc::now() - Duration::hours(1));
-    m.stage = Stage::Group;
+    m.stage = Stage::RoundOf16;
     h.matches.seed(m);
     let user = fake_user();
     let res = predict_special(

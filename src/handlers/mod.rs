@@ -34,7 +34,9 @@ pub use dev::{
     dev_reset_time, dev_set_time, dev_simulate_next_matchday, dev_switch_user,
 };
 pub use index::index;
-pub use jersey::{jersey_picker_close, jersey_picker_get, jersey_post, set_language_post};
+pub use jersey::{
+    jersey_picker_close, jersey_picker_get, jersey_post, set_language_post, set_theme_post,
+};
 pub use join::{join_get, join_post};
 pub use leaderboard::leaderboard;
 pub use leagues::{

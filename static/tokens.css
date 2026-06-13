@@ -8,6 +8,7 @@
   --pl-bg:        #0a0f0c;   /* App background — almost-black with green tint */
   --pl-bg-2:      #131a16;   /* Card background */
   --pl-bg-3:      #1c2521;   /* Elevated card */
+  --pl-bg-input:  #06090a;   /* Number-field background (score inputs) */
   --pl-line:      #283130;   /* Hairline borders */
   --pl-line-2:    #3a4541;   /* Stronger borders */
 
@@ -42,6 +43,64 @@
   --pl-shadow-glow-yellow: 0 0 0 1px var(--pl-yellow), 0 0 18px rgba(255,230,0,.35);
   --pl-shadow-glow-green:  0 0 0 1px var(--pl-green),  0 0 18px rgba(116,255,140,.35);
 }
+
+/* ============================================================
+   LIGHT THEME — opt-in via `<html class="light">` (set from the
+   `pila_theme` cookie before first paint; see templates/base.html).
+   Only the palette tokens flip; every `.pl-*` component class and the
+   Tailwind colour utilities (bg-pl-*, text-pl-*, …) read these vars,
+   so overriding them here re-themes the whole app. Brand green/yellow
+   are darkened so they stay legible as text/borders on light surfaces;
+   the primary button keeps a saturated "action" feel as a deep gold.
+   ============================================================ */
+:root.light {
+  /* Surfaces — daytime stadium: warm off-white with a faint green tint */
+  --pl-bg:        #f3f6f3;
+  --pl-bg-2:      #ffffff;
+  --pl-bg-3:      #eaeeea;
+  --pl-bg-input:  #ffffff;
+  --pl-line:      #d8e0db;
+  --pl-line-2:    #bcc7c0;
+
+  /* Foreground */
+  --pl-fg:        #0f1512;
+  --pl-fg-2:      #38433d;
+  --pl-mute:      #5f6b65;
+  --pl-mute-2:    #9aa69f;
+
+  /* Brand — darkened for contrast on light surfaces */
+  --pl-green:     #1f9d3a;
+  --pl-green-2:   #15803d;
+  --pl-yellow:    #caa200;
+  --pl-yellow-2:  #a98700;
+  --pl-red:       #d92d2d;
+  --pl-blue:      #1f7ed0;
+
+  /* Shadows — softer, no inner highlight on a light card */
+  --pl-shadow-card: 0 1px 2px rgba(16,21,18,.04), 0 6px 16px rgba(16,21,18,.10);
+}
+
+/* Decorative surfaces that hardcode the dark palette need light variants. */
+:root.light .pl-tag        { background: rgba(16,21,18,.04); }
+:root.light .pl-btn--primary { color: #ffffff; }
+:root.light .pl-btn--danger  { color: #ffffff; }
+:root.light .pl-score        { text-shadow: none; }
+:root.light .pl-pitch {
+  background:
+    radial-gradient(120% 60% at 50% 0%, rgba(31,157,58,.14) 0%, transparent 60%),
+    repeating-linear-gradient(180deg, #e9efe9 0 28px, #eef3ee 28px 56px),
+    #eef3ee;
+}
+:root.light .pl-pitch-hero {
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgba(31,157,58,.14) 0%, transparent 60%),
+    repeating-linear-gradient(90deg, rgba(31,157,58,.05) 0 16px, transparent 16px 32px),
+    #eef3ee;
+}
+:root.light .pl-deadline-stripe {
+  background: repeating-linear-gradient(135deg, var(--pl-yellow) 0 12px, #ffffff 12px 24px);
+}
+:root.light .pl-sheet-backdrop { background: rgba(16,21,18,.45); }
 
 /* ----- Body bootstrap ----- */
 .pl,
@@ -203,6 +262,15 @@ body.pl-app {
   color: var(--pl-mute);
   cursor: pointer; position: relative;
 }
+/* "Champion tip not yet filled in" marker on the special tab. */
+.pl-special-alert {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--pl-yellow); color: #0a0f0c;
+  font-family: var(--pl-font-mono); font-size: 10px; font-weight: 700;
+  line-height: 1; vertical-align: middle;
+  animation: pl-pulse 1.2s infinite;
+}
 .pl-tab[data-active="true"] { color: var(--pl-fg); }
 .pl-tab[data-active="true"]::after {
   content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
@@ -216,6 +284,51 @@ body.pl-app {
       var(--pl-yellow) 0 12px,
       #0a0f0c 12px 24px);
   height: 4px;
+}
+
+/* ----- Admin: responsive tables / forms -----
+   Wide admin tables and multi-column forms are unusable on a phone, so below
+   640px the tables collapse into stacked cards (column headers move into a
+   per-cell label) and multi-column form grids drop to a single column. Desktop
+   layout is unchanged. */
+@media (max-width: 640px) {
+  .pl-table-stack thead { display: none; }
+  .pl-table-stack,
+  .pl-table-stack tbody,
+  .pl-table-stack tr,
+  .pl-table-stack td { display: block; width: 100%; }
+  .pl-table-stack tr {
+    border: 1px solid var(--pl-line);
+    border-radius: var(--pl-r-md);
+    background: var(--pl-bg-2);
+    margin-bottom: 10px;
+    padding: 4px 2px;
+  }
+  .pl-table-stack tr:last-child { margin-bottom: 0; }
+  .pl-table-stack td { border: 0 !important; padding: 7px 14px !important; }
+  .pl-table-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    color: var(--pl-mute);
+    font-family: var(--pl-font-mono);
+    font-size: 9px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  /* Outer list card sits flush on the page background on mobile; drop its chrome
+     so the per-row cards above don't double up on borders. */
+  .pl-card--bare-mobile {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+  /* Gutter around the per-row cards when they live inside another card. */
+  .pl-table-stack-pad { padding: 10px !important; }
+  /* Multi-column admin form grids collapse to a single column. */
+  .pl-form-grid { grid-template-columns: 1fr !important; }
 }
 
 /* ----- Bottom sheet ----- */

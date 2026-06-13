@@ -1,7 +1,17 @@
 <!DOCTYPE html>
-<html lang="{{ lang_code }}" class="dark">
+<html lang="{{ lang_code }}">
 <head>
     <meta charset="UTF-8">
+    <script>
+        // Apply the saved colour theme before first paint to avoid a flash.
+        // The `pila_theme` cookie is the single source of truth (see the
+        // theme toggle in the topbar); default is the dark "floodlight" theme.
+        try {
+            if (document.cookie.split('; ').indexOf('pila_theme=light') !== -1) {
+                document.documentElement.classList.add('light');
+            }
+        } catch (e) {}
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://flagcdn.com; connect-src 'self';">
     <title>Pila — WM Tippspiel</title>
