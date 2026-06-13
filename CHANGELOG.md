@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Super-admin `can_create_league` permission; first user created via `/setup` receives it
 - Magic-link cookie auth (`pila_token`)
 - ESPN `soccer/fifa.world` scoreboard sync worker (30-min poll window over configurable date range)
-- Idempotent notification dispatch: `match_closing_soon` (< 24 h before kickoff) and `special_lock_soon` (< 24 h before first kickoff)
+- Idempotent notification dispatch: `match_closing_soon` (< 24 h before kickoff) and `special_lock_soon` (< 24 h before the first knockout kickoff)
 - Bootstrap silence: first worker tick after deploy does not flood the Signal group with past matches
 - Quiet-hour gate (22:00–08:00 Europe/Berlin) for notifications
 - Two scoring systems: `ExactScore` (4/3/2/0 → 11/8/6/0 by phase) and `WinnerOnly` (1/0 → 7/0 by phase); champion pick worth flat 10 pts
@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Champion (Weltmeister) pick now stays editable until the knockout stage begins, in every league — previously it locked at the first match kickoff unless the league was knockout-only
 - All user-facing strings moved from hardcoded German to Fluent FTL locale files
 - Repository layer split into trait / Postgres impl / in-memory fake per module
 - `AppState.db: Option<PgPool>` replaced by typed `Repos` bundle; `BootstrapRepo` encapsulates setup transaction

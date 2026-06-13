@@ -37,10 +37,44 @@
                 </form>
             </div>
         </div>
+        {# Theme toggle — flips between the dark "floodlight" and light themes.
+           Pure client-side: persists to the `pila_theme` cookie, which
+           base.html reads before first paint. #}
+        <button type="button" id="theme-toggle" onclick="pilaToggleTheme()"
+                class="pl-btn pl-btn--ghost" aria-label="{{ t.get("nav-theme") }}"
+                title="{{ t.get("nav-theme") }}"
+                style="height:36px; padding:0 10px; font-size:14px;">🌓</button>
         <button hx-get="/profile/jersey-picker" hx-target="#sheet" hx-swap="innerHTML" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px;">{{ t.get("nav-jersey") }}</button>
     </div>
 </header>
 <script>
+    function pilaThemeIcon() {
+        var b = document.getElementById('theme-toggle');
+        if (b) b.textContent = document.documentElement.classList.contains('light') ? '☀️' : '🌙';
+    }
+    function pilaCsrfToken() {
+        var row = document.cookie.split('; ').find(function (r) { return r.indexOf('pila_csrf=') === 0; });
+        return row ? row.split('=')[1] : '';
+    }
+    function pilaToggleTheme() {
+        var theme = document.documentElement.classList.toggle('light') ? 'light' : 'dark';
+        // Instant client-side feedback...
+        document.cookie = 'pila_theme=' + theme + ';path=/;max-age=31536000;samesite=lax';
+        pilaThemeIcon();
+        // ...then persist to the account so the choice follows the user across
+        // devices. Fire-and-forget; the cookie above already rendered the page.
+        try {
+            fetch('/profile/theme', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-Token': pilaCsrfToken()
+                },
+                body: 'theme=' + theme
+            });
+        } catch (e) {}
+    }
+    pilaThemeIcon();
     document.addEventListener('click', function(e) {
         var menu = document.getElementById('lang-menu');
         if (menu && !menu.contains(e.target)) {
@@ -114,9 +148,9 @@
       {% else %}
         <div id="tip-shell-{{ m.id }}">
         <form id="tip-form-{{ m.id }}" data-tip-autosave hx-post="/predict/{{ m.id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
-          <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+          <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
           <span class="pl-mono" style="color:var(--pl-mute);">:</span>
-          <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
+          <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
           <span class="tip-status" data-tip-status role="status" data-label-saving="{{ t.get("tip-autosave-saving") }}" data-label-saved="{{ t.get("tip-autosave-saved") }}" data-label-error="{{ t.get("tip-autosave-error") }}"></span>
         </form>
         </div>
@@ -174,8 +208,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-group") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.groups.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.groups.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">
         {% for m in sg.groups %}{% call match_card(m, t) %}{% endcall %}{% endfor %}
@@ -186,8 +220,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-32") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_32.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_32.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -196,8 +230,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-16") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.round_of_16.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_16.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -206,8 +240,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-quarter-final") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.quarter_final.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.quarter_final.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -216,8 +250,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-semi-final") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.semi_final.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.semi_final.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -226,8 +260,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-amber-500 uppercase tracking-widest">{{ t.get("stage-third-place") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.third_place.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.third_place.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -236,8 +270,8 @@
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
         <span class="text-sm font-black text-fifa-gold uppercase tracking-widest">{{ t.get("stage-final") }}</span>
-        <span class="text-[10px] text-slate-500 font-mono">{{ sg.final_.len() }}</span>
-        <span class="flex-1 h-px bg-slate-700/50"></span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ sg.final_.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t) %}{% endcall %}{% endfor %}</div>
 </div>
@@ -255,7 +289,9 @@
         <button type="button" data-tab="open" class="pl-tab" data-active="false">
             {{ t.get("tab-open") }}{% if open_count > 0 %} <span style="font-size:9px; color:var(--pl-mute);">({{ open_count }})</span>{% endif %}
         </button>
-        <button type="button" data-tab="special" class="pl-tab" data-active="false">{{ t.get("tab-special") }}</button>
+        <button type="button" data-tab="special" class="pl-tab" data-active="false">
+            {{ t.get("tab-special") }}{% if special_open %} <span class="pl-special-alert" title='{{ t.get("tab-special-missing") }}' aria-label='{{ t.get("tab-special-missing") }}'>!</span>{% endif %}
+        </button>
         {% if is_admin %}
         <button type="button" data-tab="admin" class="pl-tab" data-active="false">⚙️ {{ t.get("tab-admin") }}</button>
         {% endif %}
@@ -335,11 +371,11 @@
         <h3 class="text-xs font-bold text-fifa-blue uppercase tracking-widest mb-2 px-1">{{ t.get("group-tables-heading") }}</h3>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {% for gt in group_standings %}
-            <div class="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden">
-                <div class="px-3 py-2 border-b border-slate-700 bg-slate-900/40 text-xs font-bold text-fifa-blue uppercase tracking-wider">{{ t.get("group-prefix-full") }} {{ gt.letter }}</div>
+            <div class="bg-pl-bg-2 rounded-lg border border-pl-line overflow-hidden">
+                <div class="px-3 py-2 border-b border-pl-line bg-pl-bg text-xs font-bold text-fifa-blue uppercase tracking-wider">{{ t.get("group-prefix-full") }} {{ gt.letter }}</div>
                 <table class="w-full text-[11px] border-collapse">
                     <thead>
-                        <tr class="bg-slate-700/30 text-slate-400 text-[10px]">
+                        <tr class="bg-pl-bg-3 text-pl-mute text-[10px]">
                             <th class="px-2 py-1 text-left font-semibold">Team</th>
                             <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-played") }}</th>
                             <th class="px-1 py-1 text-right font-semibold">{{ t.get("col-wins") }}</th>
@@ -351,17 +387,17 @@
                     </thead>
                     <tbody>
                         {% for r in gt.rows %}
-                        <tr class="border-t border-slate-700/30">
+                        <tr class="border-t border-pl-line">
                             <td class="px-2 py-1 truncate flex items-center gap-1">
                                 {% if r.flag.is_empty() == false %}<img src="{{ r.flag }}" class="w-4 h-3 object-cover rounded" alt="" onerror="this.style.display='none'">{% endif %}
                                 <span class="truncate">{{ r.team_name }}</span>
                             </td>
-                            <td class="px-1 py-1 text-right text-slate-400">{{ r.played }}</td>
-                            <td class="px-1 py-1 text-right text-slate-400">{{ r.wins }}</td>
-                            <td class="px-1 py-1 text-right text-slate-400">{{ r.draws }}</td>
-                            <td class="px-1 py-1 text-right text-slate-400">{{ r.losses }}</td>
-                            <td class="px-1 py-1 text-right text-slate-400">{{ r.goal_diff }}</td>
-                            <td class="px-2 py-1 text-right font-bold text-white">{{ r.points }}</td>
+                            <td class="px-1 py-1 text-right text-pl-mute">{{ r.played }}</td>
+                            <td class="px-1 py-1 text-right text-pl-mute">{{ r.wins }}</td>
+                            <td class="px-1 py-1 text-right text-pl-mute">{{ r.draws }}</td>
+                            <td class="px-1 py-1 text-right text-pl-mute">{{ r.losses }}</td>
+                            <td class="px-1 py-1 text-right text-pl-mute">{{ r.goal_diff }}</td>
+                            <td class="px-2 py-1 text-right font-bold text-pl-fg">{{ r.points }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -375,15 +411,15 @@
     {# ===== TAB: AKTUELL ===== #}
     <section data-panel="started" class="tab-panel mt-3 hidden">
         {% if started_in_progress.is_empty() && started_finished.is_empty() %}
-        <p class="text-slate-500 text-sm text-center py-12">{{ t.get("no-match-started") }}</p>
+        <p class="text-pl-mute text-sm text-center py-12">{{ t.get("no-match-started") }}</p>
         {% else %}
             {% if !started_in_progress.is_empty() %}
-            <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
+            <h3 class="text-xs font-bold text-pl-green uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
             {% call stage_section(started_in_progress, t) %}{% endcall %}
             {% endif %}
 
             {% if !started_finished.is_empty() %}
-            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
+            <h3 class="text-xs font-bold text-pl-mute uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
             {% call stage_section(started_finished, t) %}{% endcall %}
             {% endif %}
         {% endif %}
@@ -412,7 +448,7 @@
         </div>
         {% endif %}
         {% if open_matches.is_empty() %}
-        <p class="text-slate-500 text-sm text-center py-12">{{ t.get("no-open-tips") }}</p>
+        <p class="text-pl-mute text-sm text-center py-12">{{ t.get("no-open-tips") }}</p>
         {% else %}
         {% call stage_section(open_matches, t) %}{% endcall %}
         {% endif %}

@@ -317,12 +317,9 @@ pub(crate) async fn dispatch_pending_for_league(
             .await?;
     }
 
-    // 2) Champion-tip lock approaching — anchored on the first match (or first KO match for KO-only leagues).
-    let first_match_lock = if cfg.predict_knockout_only {
-        repos.matches.first_knockout_kickoff().await?
-    } else {
-        repos.matches.first_kickoff().await?
-    };
+    // 2) Champion-tip lock approaching — anchored on the first knockout match,
+    //    since the champion tip stays editable until the knockout stage begins.
+    let first_match_lock = repos.matches.first_knockout_kickoff().await?;
     if let Some(lock_at) = first_match_lock {
         if lock_at > now && lock_at <= now + chrono::Duration::hours(24) {
             let already = repos
@@ -756,13 +753,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn process_notifications_dispatches_special_lock_when_first_kickoff_is_soon() {
+    async fn process_notifications_dispatches_special_lock_when_first_knockout_is_soon() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
         notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
         notifications.seed_user_with_champion(DEFAULT_LEAGUE_ID, "Ben");
 
         let matches = Arc::new(MemoryMatchRepo::new());
-        matches.seed(FakeMatch::locked_unfinished(
+        matches.seed(FakeMatch::knockout_unfinished(
             1,
             Utc::now() + chrono::Duration::hours(6),
         ));
@@ -799,12 +796,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn process_notifications_skips_special_lock_when_kickoff_is_far_away() {
+    async fn process_notifications_skips_special_lock_when_knockout_is_far_away() {
         let notifications = Arc::new(MemoryNotificationRepo::new());
         notifications.seed_user(DEFAULT_LEAGUE_ID, "Anna");
 
         let matches = Arc::new(MemoryMatchRepo::new());
-        matches.seed(FakeMatch::locked_unfinished(
+        matches.seed(FakeMatch::knockout_unfinished(
             1,
             Utc::now() + chrono::Duration::hours(48),
         ));
@@ -837,7 +834,7 @@ mod tests {
         notifications.seed_user_with_champion(DEFAULT_LEAGUE_ID, "Ben");
 
         let matches = Arc::new(MemoryMatchRepo::new());
-        matches.seed(FakeMatch::locked_unfinished(
+        matches.seed(FakeMatch::knockout_unfinished(
             1,
             Utc::now() + chrono::Duration::hours(6),
         ));

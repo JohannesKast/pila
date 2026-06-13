@@ -25,6 +25,8 @@ pub struct UserAuth {
     pub email: Option<String>,
     pub jersey_preset: String,
     pub language: String,
+    /// Colour theme preference: `"dark"` (default) or `"light"`.
+    pub theme: String,
     pub league_id: Uuid,
 }
 
@@ -113,6 +115,8 @@ pub trait UserRepo: Send + Sync {
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
     /// Persists the user's preferred locale code.
     async fn set_language(&self, id: Uuid, language: &str) -> RepoResult<()>;
+    /// Persists the user's colour theme (`"dark"` or `"light"`).
+    async fn set_theme(&self, id: Uuid, theme: &str) -> RepoResult<()>;
     /// Sets or clears the user's email address. Pass `None` to remove.
     async fn set_email(&self, id: Uuid, email: Option<&str>) -> RepoResult<()>;
     /// Users in a league who have an email address and are missing a

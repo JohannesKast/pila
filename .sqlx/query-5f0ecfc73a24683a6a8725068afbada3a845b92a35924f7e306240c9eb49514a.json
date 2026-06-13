@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, league_id FROM users WHERE token = $1",
+  "query": "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, theme, league_id FROM users WHERE token = $1",
   "describe": {
     "columns": [
       {
@@ -45,6 +45,11 @@
       },
       {
         "ordinal": 8,
+        "name": "theme",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 9,
         "name": "league_id",
         "type_info": "Uuid"
       }
@@ -63,8 +68,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "af2c95bf723d6fb2e9f339569f8d9904c9d45687f3ace482973bcef90e0baa22"
+  "hash": "5f0ecfc73a24683a6a8725068afbada3a845b92a35924f7e306240c9eb49514a"
 }

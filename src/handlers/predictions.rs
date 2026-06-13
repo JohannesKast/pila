@@ -211,30 +211,16 @@ pub async fn predict_special(
         )
     };
 
-    let config = state
+    // The champion tip stays editable until the knockout stage begins, even in
+    // leagues that also predict group matches.
+    let lock_at = state
         .repos
-        .leagues
-        .get_config(user.league_id)
+        .matches
+        .first_knockout_kickoff()
         .await
         .map_err(|_| db_err())?;
 
-    let first_kickoff = if config.predict_knockout_only {
-        state
-            .repos
-            .matches
-            .first_knockout_kickoff()
-            .await
-            .map_err(|_| db_err())?
-    } else {
-        state
-            .repos
-            .matches
-            .first_kickoff()
-            .await
-            .map_err(|_| db_err())?
-    };
-
-    if first_kickoff.is_some_and(|dt| dt < now) {
+    if lock_at.is_some_and(|dt| dt < now) {
         return Err(t_err(
             &state,
             lang,

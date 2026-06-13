@@ -37,6 +37,21 @@ pub fn make_csrf_cookie(token: String) -> Cookie<'static> {
         .build()
 }
 
+/// Colour-theme cookie. Non-HttpOnly so the inline `<head>` script in
+/// `base.html` can read it and set the theme class before first paint, and so
+/// the topbar toggle can update it from JS. It is the render source of truth;
+/// the matching `users.theme` column mirrors it for cross-device sync (the
+/// login handler seeds this cookie from the column).
+pub fn make_theme_cookie(theme: String) -> Cookie<'static> {
+    Cookie::build(("pila_theme", theme))
+        .path("/")
+        .http_only(false)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
+        .build()
+}
+
 /// Public origin for outbound links (Signal invites, magic-link mailouts).
 /// Reads from `AppState` — cached at startup, never calls `env::var` at
 /// request time.

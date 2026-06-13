@@ -122,6 +122,37 @@ async fn user_repo_set_jersey_persists() {
 }
 
 #[tokio::test]
+async fn user_repo_set_theme_defaults_to_dark_then_persists() {
+    let pool = pool().await;
+    let repo = PgUserRepo::new(pool.clone());
+
+    let id = Uuid::new_v4();
+    let token = format!("repo-test-{}", Uuid::new_v4());
+    repo.create(NewUser {
+        id,
+        name: "Theme",
+        token: &token,
+        is_admin: false,
+        phone_number: None,
+        league_id: DEFAULT_LEAGUE_ID,
+        email: None,
+        language: "de",
+    })
+    .await
+    .unwrap();
+
+    // New users start on the dark theme (column default).
+    let auth = repo.find_by_token(&token).await.unwrap().unwrap();
+    assert_eq!(auth.theme, "dark");
+
+    repo.set_theme(id, "light").await.unwrap();
+    let auth = repo.find_by_token(&token).await.unwrap().unwrap();
+    assert_eq!(auth.theme, "light");
+
+    repo.delete(id).await.unwrap();
+}
+
+#[tokio::test]
 async fn user_repo_list_for_admin_returns_alphabetical() {
     let pool = pool().await;
     let repo = PgUserRepo::new(pool.clone());
