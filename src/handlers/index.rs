@@ -115,22 +115,15 @@ pub async fn index(
         .await
         .unwrap_or_default();
 
-    let first_kickoff = if league_config.predict_knockout_only {
-        state
-            .repos
-            .matches
-            .first_knockout_kickoff()
-            .await
-            .unwrap_or_default()
-    } else {
-        state
-            .repos
-            .matches
-            .first_kickoff()
-            .await
-            .unwrap_or_default()
-    };
-    let tournament_locked = first_kickoff.is_some_and(|dt| dt < now);
+    // The champion tip stays editable until the knockout stage begins, even in
+    // leagues that also predict group matches.
+    let champion_lock = state
+        .repos
+        .matches
+        .first_knockout_kickoff()
+        .await
+        .unwrap_or_default();
+    let tournament_locked = champion_lock.is_some_and(|dt| dt < now);
 
     let special_preds = SpecialPredictionsView {
         champion_id: state

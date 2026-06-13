@@ -398,8 +398,8 @@ error-prediction-home-missing = Pronostic invalide : score domicile manquant.
 error-prediction-away-missing = Pronostic invalide : score extérieur manquant.
 # Exact-score predict POST: score outside the 0-20 acceptable range.
 error-prediction-out-of-range = Pronostic invalide : valeurs entre 0 et 20 attendues.
-# Champion-pick POST after the tournament has kicked off.
-error-champion-locked = Le tournoi a commencé. Le pronostic de champion est verrouillé.
+# Champion-pick POST after the knockout stage has kicked off.
+error-champion-locked = La phase à élimination directe a commencé. Le pronostic de champion est verrouillé.
 # Generic 403 when a non-admin hits an admin-only route.
 error-admin-required = Droits d'administration requis.
 # Generic 403 when a non-super-admin hits a super-admin-only route.
@@ -424,8 +424,8 @@ stage-group-prefix = Groupe { $letter }
 # ─── Signal-group notification messages ──────────────────────────────────────
 # Match-closing reminder posted to the Signal group <24h before kickoff.
 notify-match-closing-soon = ⚽ Rappel pronostic : { $home } – { $away } ({ $where }) débute dans <24h. Manquent encore : { $who }. Pronostique : { $base_url }
-# Champion-pick lock reminder, posted ~24h before the opening kickoff.
-notify-special-lock = ⏰ Le pronostic du champion se verrouille dans <24h (coup d'envoi inaugural). Manquent : { $who }. { $base_url }
+# Champion-pick lock reminder, posted ~24h before the first knockout kickoff.
+notify-special-lock = ⏰ Le pronostic du champion se verrouille dans <24h (coup d'envoi de la phase à élimination directe). Manquent : { $who }. { $base_url }
 # Announcement that a new knockout bracket is now tippable.
 notify-knockout-ready = 🏆 { $stage } : { $match_count } affiches fixées, pronostics ouverts. { $base_url }
 # Fallback when too many users are missing to enumerate by name.
@@ -461,7 +461,7 @@ mail-champion-subject = ⏰ Le pronostic du champion se verrouille bientôt
 # Body of the champion-pick reminder email.
 mail-champion-body = Salut { $name } !
 
-Le pronostic du champion se verrouille dans moins de 24 heures (coup d'envoi inaugural). Envoie ton pronostic maintenant !
+Le pronostic du champion se verrouille dans moins de 24 heures (coup d'envoi de la phase à élimination directe). Envoie ton pronostic maintenant !
 
 { $magic_link }
 
