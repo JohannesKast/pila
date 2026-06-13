@@ -17,9 +17,9 @@
   </form>
   {% else %}
   <form id="tip-form-{{ match_id }}" data-tip-autosave hx-post="/predict/{{ match_id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
-    <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{{ score_home }}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+    <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{{ score_home }}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
     <span class="pl-mono" style="color:var(--pl-mute);">:</span>
-    <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{{ score_away }}" required style="width:42px; height:42px; text-align:center; background:#06090a; border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
+    <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{{ score_away }}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
     <span class="tip-status" data-tip-status role="status" data-label-saving="{{ t.get("tip-autosave-saving") }}" data-label-saved="{{ t.get("tip-autosave-saved") }}" data-label-error="{{ t.get("tip-autosave-error") }}"></span>
   </form>
   {% endif %}
