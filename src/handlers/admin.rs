@@ -34,13 +34,20 @@ struct AdminRowTemplate {
     u: AdminUserView,
     signal_enabled: bool,
     smtp_enabled: bool,
+    t: T,
 }
 
-fn render_admin_row(u: AdminUserView, signal_enabled: bool, smtp_enabled: bool) -> Html<String> {
+fn render_admin_row(
+    u: AdminUserView,
+    signal_enabled: bool,
+    smtp_enabled: bool,
+    t: T,
+) -> Html<String> {
     let tpl = AdminRowTemplate {
         u,
         signal_enabled,
         smtp_enabled,
+        t,
     };
     render_template(&tpl).unwrap_or_else(|_| Html("Internal error".to_string()))
 }
@@ -289,6 +296,7 @@ pub async fn admin_create_user(
         view,
         signal_enabled,
         state.smtp_config.is_some(),
+        t_for(&state, lang),
     ))
 }
 
@@ -419,6 +427,7 @@ pub async fn admin_toggle_admin(
         view,
         signal_configured(&state.signal_api_url, &state.signal_from_number),
         state.smtp_config.is_some(),
+        t_for(&state, lang),
     ))
 }
 
@@ -497,6 +506,7 @@ pub async fn admin_rename_user(
         view,
         signal_configured(&state.signal_api_url, &state.signal_from_number),
         state.smtp_config.is_some(),
+        t_for(&state, lang),
     ))
 }
 
