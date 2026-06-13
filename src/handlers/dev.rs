@@ -21,7 +21,7 @@ use axum::{
 };
 use chrono::{DateTime, NaiveDateTime, TimeZone, Utc};
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -44,7 +44,7 @@ fn htmx_refresh() -> impl IntoResponse {
 /// Random goals per team, weighted to resemble real soccer scoring (rough
 /// Poisson(λ≈1.4) approximation). A uniform 0..=5 made 0:0 and other
 /// low-spread draws far too common.
-fn random_goals(rng: &mut impl Rng) -> i32 {
+fn random_goals(rng: &mut impl RngExt) -> i32 {
     let r: f64 = rng.random();
     if r < 0.24 {
         0
@@ -61,7 +61,7 @@ fn random_goals(rng: &mut impl Rng) -> i32 {
     }
 }
 
-fn random_result(rng: &mut impl Rng) -> (i32, i32) {
+fn random_result(rng: &mut impl RngExt) -> (i32, i32) {
     (random_goals(rng), random_goals(rng))
 }
 
@@ -272,7 +272,7 @@ pub async fn dev_random_tips(
         })?;
 
     let now = time::now(&state.mock_now);
-    let mut rng = StdRng::from_os_rng();
+    let mut rng = rand::make_rng::<StdRng>();
 
     // Tip all matches that haven't started yet and don't have a tip yet
     for m in matches {
@@ -332,7 +332,7 @@ pub async fn dev_random_tips_all_users(
         })?;
 
     let now = time::now(&state.mock_now);
-    let mut rng = StdRng::from_os_rng();
+    let mut rng = rand::make_rng::<StdRng>();
 
     for uid in user_ids {
         let matches = state.repos.matches.list_for_index(uid).await.map_err(|_| {
@@ -394,7 +394,7 @@ pub async fn dev_random_results(
         })?;
 
     let now = time::now(&state.mock_now);
-    let mut rng = StdRng::from_os_rng();
+    let mut rng = rand::make_rng::<StdRng>();
 
     for m in matches {
         if m.kickoff_time.is_none() || m.kickoff_time.is_some_and(|k| k > now) {
@@ -469,7 +469,7 @@ pub async fn dev_simulate_next_matchday(
         .list_ids(user.league_id)
         .await
         .map_err(|_| db_err())?;
-    let mut rng = StdRng::from_os_rng();
+    let mut rng = rand::make_rng::<StdRng>();
 
     for m in &matchday {
         for uid in &user_ids {
