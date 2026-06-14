@@ -1,6 +1,7 @@
 /target
 /backups
 /handoff
+/assets
 /.agents
 /.claude
 .env
