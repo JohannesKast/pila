@@ -111,6 +111,8 @@ pub async fn join_get(
 #[derive(Deserialize)]
 pub struct JoinForm {
     pub name: String,
+    #[serde(default)]
+    pub real_name: String,
 }
 
 /// Creates the self-registered user in the invite's league, logs them in via
@@ -140,6 +142,16 @@ pub async fn join_post(
         return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
     }
     if name.chars().count() > 255 {
+        return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
+    }
+    // Private real name; blank falls back to the tip name (production default).
+    let real_name = form.real_name.trim();
+    let real_name = if real_name.is_empty() {
+        name
+    } else {
+        real_name
+    };
+    if real_name.chars().count() > 255 {
         return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
     }
 
@@ -172,6 +184,7 @@ pub async fn join_post(
         .create(repo::user::NewUser {
             id,
             name,
+            real_name,
             token: &user_token,
             is_admin: false,
             phone_number: None,

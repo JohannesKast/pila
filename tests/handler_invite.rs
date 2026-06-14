@@ -77,6 +77,7 @@ fn admin_extractor(id: Uuid, can_create_league: bool) -> AdminUser {
     AdminUser(AuthenticatedUser {
         id,
         name: "Admin".into(),
+        real_name: "Admin".into(),
         is_admin: true,
         can_create_league,
         phone_number: None,
@@ -214,6 +215,7 @@ async fn revoked_invite_token_no_longer_lets_anyone_join() {
         axum_extra::extract::CookieJar::new(),
         Form(JoinForm {
             name: "Too Late".into(),
+            real_name: String::new(),
         }),
     )
     .await;
@@ -275,6 +277,7 @@ async fn join_post_creates_user_in_invite_league() {
         axum_extra::extract::CookieJar::new(),
         Form(JoinForm {
             name: "Newcomer".into(),
+            real_name: String::new(),
         }),
     )
     .await
@@ -317,6 +320,7 @@ async fn join_post_rejects_duplicate_name_case_insensitively() {
         axum_extra::extract::CookieJar::new(),
         Form(JoinForm {
             name: "Freiheitskämpfer".into(),
+            real_name: String::new(),
         }),
     )
     .await
@@ -330,6 +334,7 @@ async fn join_post_rejects_duplicate_name_case_insensitively() {
         axum_extra::extract::CookieJar::new(),
         Form(JoinForm {
             name: "freiheitskämpfer".into(),
+            real_name: String::new(),
         }),
     )
     .await;
@@ -357,7 +362,10 @@ async fn join_post_rejects_blank_name() {
         Path("valid-token".into()),
         HeaderMap::new(),
         axum_extra::extract::CookieJar::new(),
-        Form(JoinForm { name: "   ".into() }),
+        Form(JoinForm {
+            name: "   ".into(),
+            real_name: String::new(),
+        }),
     )
     .await;
     assert_eq!(res.unwrap_err().0, StatusCode::BAD_REQUEST);
@@ -379,6 +387,7 @@ async fn join_post_rejects_revoked_token() {
         axum_extra::extract::CookieJar::new(),
         Form(JoinForm {
             name: "Too Late".into(),
+            real_name: String::new(),
         }),
     )
     .await;

@@ -16,6 +16,8 @@ use uuid::Uuid;
 pub struct AdminUserView {
     pub id: Uuid,
     pub name: String,
+    /// Private real first name, shown only in the admin user list.
+    pub real_name: String,
     pub phone_number: Option<String>,
     pub email: Option<String>,
     pub is_admin: bool,

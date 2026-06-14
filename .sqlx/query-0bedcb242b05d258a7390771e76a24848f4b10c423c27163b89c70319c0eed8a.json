@@ -1,11 +1,12 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+  "query": "INSERT INTO users (id, name, real_name, token, is_admin, phone_number, email, league_id, language) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
   "describe": {
     "columns": [],
     "parameters": {
       "Left": [
         "Uuid",
+        "Varchar",
         "Varchar",
         "Varchar",
         "Bool",
@@ -17,5 +18,5 @@
     },
     "nullable": []
   },
-  "hash": "b086a776a4a4ece6950bd76bb39500988c58ff35d231ccdf4cdd8ad4b8c68169"
+  "hash": "0bedcb242b05d258a7390771e76a24848f4b10c423c27163b89c70319c0eed8a"
 }

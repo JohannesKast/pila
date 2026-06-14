@@ -46,6 +46,7 @@ impl UserRepo for MemoryUserRepo {
         Ok(s.users.iter().find(|u| u.token == token).map(|u| UserAuth {
             id: u.id,
             name: u.name.clone(),
+            real_name: u.real_name.clone(),
             is_admin: u.is_admin,
             can_create_league: u.can_create_league,
             phone_number: u.phone_number.clone(),
@@ -94,6 +95,7 @@ impl UserRepo for MemoryUserRepo {
             .map(|u| AdminUserRow {
                 id: u.id,
                 name: u.name.clone(),
+                real_name: u.real_name.clone(),
                 token: u.token.clone(),
                 phone_number: u.phone_number.clone(),
                 email: u.email.clone(),
@@ -165,6 +167,7 @@ impl UserRepo for MemoryUserRepo {
         s.users.push(UserFull {
             id: new_user.id,
             name: new_user.name.to_string(),
+            real_name: new_user.real_name.to_string(),
             token: new_user.token.to_string(),
             phone_number: new_user.phone_number.map(|p| p.to_string()),
             email: new_user.email.map(|e| e.to_string()),
@@ -202,8 +205,26 @@ impl UserRepo for MemoryUserRepo {
 
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()> {
         let mut s = self.inner.lock().unwrap();
+        // Mirror the DB unique index on (league_id, lower(name)): reject a
+        // rename that collides with another user in the same league.
+        let target_league = s.users.iter().find(|u| u.id == id).map(|u| u.league_id);
+        if let Some(league_id) = target_league {
+            if s.users.iter().any(|u| {
+                u.id != id && u.league_id == league_id && u.name.eq_ignore_ascii_case(name)
+            }) {
+                return Err(RepoError::Conflict);
+            }
+        }
         if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
             u.name = name.to_string();
+        }
+        Ok(())
+    }
+
+    async fn set_real_name(&self, id: Uuid, real_name: &str) -> RepoResult<()> {
+        let mut s = self.inner.lock().unwrap();
+        if let Some(u) = s.users.iter_mut().find(|u| u.id == id) {
+            u.real_name = real_name.to_string();
         }
         Ok(())
     }
@@ -288,6 +309,7 @@ mod memory_tests {
         UserFull {
             id: Uuid::new_v4(),
             name: name.to_string(),
+            real_name: name.to_string(),
             token: token.to_string(),
             phone_number: None,
             email: None,
@@ -305,6 +327,7 @@ mod memory_tests {
         repo.create(NewUser {
             id,
             name: "Alice",
+            real_name: "Alice",
             token: "tkn-a",
             is_admin: true,
             phone_number: Some("+491"),
@@ -354,6 +377,32 @@ mod memory_tests {
         repo.rename(id, "New").await.unwrap();
         let after = repo.find_full_by_id(id).await.unwrap().unwrap();
         assert_eq!(after.name, "New");
+    }
+
+    #[tokio::test]
+    async fn rename_to_existing_name_in_league_conflicts() {
+        let repo = MemoryUserRepo::new();
+        repo.seed(user("Alice", "t1", false), "classic");
+        let bob = user("Bob", "t2", false);
+        let bob_id = bob.id;
+        repo.seed(bob, "classic");
+        // Case-insensitive collision with another user's tip name is rejected.
+        let err = repo.rename(bob_id, "alice").await.unwrap_err();
+        assert!(matches!(err, RepoError::Conflict));
+        // Renaming to the user's own current name is a no-op, not a conflict.
+        repo.rename(bob_id, "Bob").await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn set_real_name_persists_without_touching_tip_name() {
+        let repo = MemoryUserRepo::new();
+        let u = user("tippname", "t", false);
+        let id = u.id;
+        repo.seed(u, "classic");
+        repo.set_real_name(id, "Maximilian").await.unwrap();
+        let after = repo.find_full_by_id(id).await.unwrap().unwrap();
+        assert_eq!(after.real_name, "Maximilian");
+        assert_eq!(after.name, "tippname");
     }
 
     #[tokio::test]

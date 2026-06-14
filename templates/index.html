@@ -4,7 +4,7 @@
 {% block topbar %}
 <header style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; background:var(--pl-bg);">
     <div style="display:flex; align-items:center; gap:9px; min-width:0;">
-        <img src="/static/pila-logo.svg" width="32" height="32" alt="Pila" style="flex-shrink:0;">
+        <img src="/static/pila-mark.svg" width="32" height="32" alt="Pila" style="flex-shrink:0;">
         <div style="min-width:0;">
             <div class="pl-display" style="font-size:16px; line-height:.95; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ tipprunden_name }} - {{ league_name }}</div>
             <div class="pl-mono" style="font-size:9px; color:var(--pl-mute); letter-spacing:.12em; margin-top:2px;">PILA · {{ user_name|upper }}</div>
@@ -45,6 +45,7 @@
                 title="{{ t.get("nav-theme") }}"
                 style="height:36px; padding:0 10px; font-size:14px;">🌓</button>
         <button hx-get="{{ scope_path }}/profile/jersey-picker" hx-target="#sheet" hx-swap="innerHTML" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px;">{{ t.get("nav-jersey") }}</button>
+        <button hx-get="{{ scope_path }}/profile/name-editor" hx-target="#sheet" hx-swap="innerHTML" aria-label="{{ t.get("nav-profile") }}" title="{{ t.get("nav-profile") }}" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 10px; font-size:14px;">👤</button>
     </div>
 </header>
 <script>
@@ -81,7 +82,7 @@
 </script>
 {% endblock %}
 
-{% macro match_card(m, t, scope_path) %}
+{% macro match_card(m, t, scope_path, user_id, league_id) %}
 <div class="pl-card{% if m.is_live %} pl-card--live{% endif %}" style="padding:14px; margin-bottom:10px;">
   {# top tag row #}
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px;">
@@ -112,6 +113,8 @@
   {% if m.winner_only_mode && !m.is_finished && !m.is_live && !m.locked %}
   <div id="tip-shell-{{ m.id }}">
     <form hx-post="{{ scope_path }}/predict/{{ m.id }}" hx-swap="outerHTML" hx-target="#tip-shell-{{ m.id }}" style="display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:8px;">
+      <input type="hidden" name="user_id" value="{{ user_id }}">
+      <input type="hidden" name="league_id" value="{{ league_id }}">
       <button type="submit" name="outcome" value="home" class="pl-btn" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:52px; padding:10px 12px; border:1.5px solid {% if m.predicts_home_win() %}var(--pl-green){% else %}var(--pl-line){% endif %}; background:{% if m.predicts_home_win() %}rgba(116,255,140,.12){% else %}rgba(255,255,255,.02){% endif %}; color:var(--pl-fg);">
         <span class="pl-display" style="font-size:13px; line-height:1.1; text-align:right;">{{ m.home_name }}</span>
         {% if m.home_flag.is_empty() == false %}<img src="{{ m.home_flag }}" alt="" style="width:24px; height:18px; object-fit:cover; border-radius:3px; flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
@@ -144,6 +147,8 @@
       {% else %}
         <div id="tip-shell-{{ m.id }}">
         <form id="tip-form-{{ m.id }}" data-tip-autosave hx-post="{{ scope_path }}/predict/{{ m.id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
+          <input type="hidden" name="user_id" value="{{ user_id }}">
+          <input type="hidden" name="league_id" value="{{ league_id }}">
           <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{% match m.predicted_home %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
           <span class="pl-mono" style="color:var(--pl-mute);">:</span>
           <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{% match m.predicted_away %}{% when Some with (v) %}{{ v }}{% when None %}{% endmatch %}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-line); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none;">
@@ -199,7 +204,7 @@
 </div>
 {% endmacro %}
 
-{% macro stage_section(sg, t, scope_path) %}
+{% macro stage_section(sg, t, scope_path, user_id, league_id) %}
 {% if sg.groups.len() > 0 %}
 <div class="mb-5">
     <div class="flex items-center gap-2 mb-2 px-1">
@@ -208,7 +213,7 @@
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
     <div class="pl-2 border-l-2 border-fifa-blue/30">
-        {% for m in sg.groups %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}
+        {% for m in sg.groups %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}
     </div>
 </div>
 {% endif %}
@@ -219,7 +224,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_32.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.round_of_16.len() > 0 %}
@@ -229,7 +234,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_16.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.quarter_final.len() > 0 %}
@@ -239,7 +244,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.quarter_final.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.semi_final.len() > 0 %}
@@ -249,7 +254,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.semi_final.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.third_place.len() > 0 %}
@@ -259,7 +264,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.third_place.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% if sg.final_.len() > 0 %}
@@ -269,7 +274,7 @@
         <span class="text-[10px] text-pl-mute font-mono">{{ sg.final_.len() }}</span>
         <span class="flex-1 h-px bg-pl-line"></span>
     </div>
-    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t, scope_path) %}{% endcall %}{% endfor %}</div>
+    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
 </div>
 {% endif %}
 {% endmacro %}
@@ -411,12 +416,12 @@
         {% else %}
             {% if !started_in_progress.is_empty() %}
             <h3 class="text-xs font-bold text-pl-green uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
-            {% call stage_section(started_in_progress, t, scope_path) %}{% endcall %}
+            {% call stage_section(started_in_progress, t, scope_path, user_id, league_id) %}{% endcall %}
             {% endif %}
 
             {% if !started_finished.is_empty() %}
             <h3 class="text-xs font-bold text-pl-mute uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
-            {% call stage_section(started_finished, t, scope_path) %}{% endcall %}
+            {% call stage_section(started_finished, t, scope_path, user_id, league_id) %}{% endcall %}
             {% endif %}
         {% endif %}
     </section>
@@ -446,7 +451,7 @@
         {% if open_matches.is_empty() %}
         <p class="text-pl-mute text-sm text-center py-12">{{ t.get("no-open-tips") }}</p>
         {% else %}
-        {% call stage_section(open_matches, t, scope_path) %}{% endcall %}
+        {% call stage_section(open_matches, t, scope_path, user_id, league_id) %}{% endcall %}
         {% endif %}
     </section>
 
@@ -518,6 +523,8 @@
             </div>
             {% else %}
             <form action="{{ scope_path }}/predict_special" method="POST" hx-post="{{ scope_path }}/predict_special" hx-swap="none" hx-on::after-request="if(event.detail.successful) window.location.href='{{ scope_path }}#special'" style="display:flex; flex-direction:column; gap:12px;">
+                <input type="hidden" name="user_id" value="{{ user_id }}">
+                <input type="hidden" name="league_id" value="{{ league_id }}">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <span style="font-size:18px;">🏆</span>
                     <span class="pl-display" style="font-size:14px;">{{ t.get("champion-question") }}</span>

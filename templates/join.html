@@ -20,6 +20,13 @@
                 <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">{{ t.get("join-name-label") }}</label>
                 <input type="text" name="name" required maxlength="255" placeholder="{{ t.get("join-name-placeholder") }}"
                        class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+                <p class="text-[11px] text-slate-500 mt-1">{{ t.get("join-name-help") }}</p>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">{{ t.get("join-real-name-label") }}</label>
+                <input type="text" name="real_name" maxlength="255" placeholder="{{ t.get("join-real-name-placeholder") }}"
+                       class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+                <p class="text-[11px] text-slate-500 mt-1">🔒 {{ t.get("join-real-name-help") }}</p>
             </div>
             <button type="submit"
                     class="w-full bg-fifa-blue hover:opacity-90 text-white font-bold py-2.5 rounded-lg transition-colors shadow-lg">

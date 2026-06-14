@@ -358,6 +358,8 @@ error-not-authenticated = No autenticado. Usa tu enlace mágico (p. ej. /play/me
 error-invalid-or-expired-link = Enlace no válido o caducado.
 # Returned when a regular admin tries to act on a different league.
 error-cross-league-forbidden = Las acciones entre ligas requieren can_create_league.
+# Returned when an old tab posts after another league/user login changed the browser session.
+error-session-changed = Tu sesión activa ha cambiado. Vuelve a abrir esta liga con tu enlace mágico.
 # Generic "league does not exist" response for admin routes.
 error-league-not-found = Liga no encontrada.
 # Generic "user does not exist" response for admin routes.
@@ -542,3 +544,35 @@ join-done-continue = Continuar
 
 # Invite token in the join URL is unknown or was revoked.
 error-invalid-invite = Este enlace de invitación no es válido o ha sido revocado.
+
+# ─── Profile editor & private real name ──────────────────────────────────────
+# Topbar button (👤) that opens the self-service profile editor.
+nav-profile = Perfil
+# Title of the profile editor sheet.
+profile-title = Tu perfil
+# Sub-title under the profile editor title.
+profile-subtitle = CAMBIA TUS NOMBRES CUANDO QUIERAS
+# Button that closes the profile editor sheet.
+profile-done = LISTO ✓
+# Label for the public tip-name input in the profile editor.
+profile-tip-name-label = Nombre de juego
+# Help text under the tip-name input: where it is shown.
+profile-tip-name-help = Público — se muestra en la tabla y en los comentarios. Cambiable en cualquier momento.
+# Label for the private real-name input in the profile editor.
+profile-real-name-label = Nombre real
+# Help text under the real-name input: who can see it.
+profile-real-name-help = Privado — solo lo ven los administradores, nunca otros jugadores.
+# Save button in the profile editor.
+profile-save = Guardar
+# Admin user-list column header for the private real name.
+col-real-name = Nombre real
+# Placeholder for the real-name field in the admin create-user form.
+admin-real-name-placeholder = Nombre real opcional
+# Help text under the tip-name input on the public join form.
+join-name-help = Público — se muestra en la tabla y en los comentarios.
+# Label for the private real-name input on the public join form.
+join-real-name-label = Nombre real
+# Placeholder for the real-name input on the public join form.
+join-real-name-placeholder = p. ej. Maximilian
+# Help text under the real-name input on the join form: who can see it.
+join-real-name-help = Privado — solo lo ven los administradores. Vacío = igual que el nombre de juego.

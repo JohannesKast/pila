@@ -76,6 +76,8 @@ const VALID_LOCALES: &[&str] = &["de", "en", "es", "fr"];
 pub struct SetupForm {
     pub name: String,
     #[serde(default)]
+    pub real_name: String,
+    #[serde(default)]
     pub phone_number: String,
     #[serde(default)]
     pub email: String,
@@ -106,6 +108,14 @@ pub async fn setup_post(
     if name.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "error-name-empty"));
     }
+    // The real name is private and optional on the form: when left blank it
+    // defaults to the tip name, matching the production backfill default.
+    let real_name = form.real_name.trim();
+    let real_name = if real_name.is_empty() {
+        name.clone()
+    } else {
+        real_name.to_string()
+    };
     let league_name = form.league_name.trim().to_string();
     if league_name.is_empty() {
         return Err(err(StatusCode::BAD_REQUEST, "error-league-name-empty"));
@@ -146,6 +156,7 @@ pub async fn setup_post(
         .create_first_league_and_admin(FirstLeagueParams {
             user_id: id,
             user_name: &name,
+            user_real_name: &real_name,
             token: &token,
             phone_number: phone_opt,
             email: email_opt,

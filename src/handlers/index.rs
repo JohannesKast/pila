@@ -33,6 +33,7 @@ use crate::AppState;
 #[template(path = "index.html")]
 struct IndexTemplate {
     scope_path: String,
+    user_id: Uuid,
     user_name: String,
     user_total_points: i32,
     user_rank: usize,
@@ -379,6 +380,7 @@ pub async fn index(
 
     let template = IndexTemplate {
         scope_path: league_scope_path(user.league_id),
+        user_id: user.id,
         user_name: user.name,
         user_total_points,
         user_rank,

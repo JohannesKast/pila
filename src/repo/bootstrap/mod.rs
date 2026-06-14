@@ -19,6 +19,9 @@ pub use postgres::PgBootstrapRepo;
 pub struct FirstLeagueParams<'a> {
     pub user_id: Uuid,
     pub user_name: &'a str,
+    /// Private real first name of the first admin. The `/setup` form lets the
+    /// admin enter it; if left blank it defaults to `user_name`.
+    pub user_real_name: &'a str,
     pub token: &'a str,
     pub phone_number: Option<&'a str>,
     pub email: Option<&'a str>,

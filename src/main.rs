@@ -348,6 +348,19 @@ fn build_router() -> Router<AppState> {
             "/l/{league_id}/profile/theme",
             axum::routing::post(handlers::set_theme_post),
         )
+        .route("/profile/name-editor", get(handlers::profile_editor_get))
+        .route(
+            "/l/{league_id}/profile/name-editor",
+            get(handlers::profile_editor_get),
+        )
+        .route(
+            "/profile/name",
+            axum::routing::post(handlers::profile_name_post),
+        )
+        .route(
+            "/l/{league_id}/profile/name",
+            axum::routing::post(handlers::profile_name_post),
+        )
         // Convenience landing — redirects the admin to their own league's
         // user list. Kept so old bookmarks / scripts keep working.
         .route("/admin/users", get(handlers::admin_users_redirect))
