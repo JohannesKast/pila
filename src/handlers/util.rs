@@ -11,11 +11,34 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Html,
 };
+use uuid::Uuid;
+
+pub const LEGACY_LOGIN_COOKIE: &str = "pila_token";
+pub const LEGACY_CSRF_COOKIE: &str = "pila_csrf";
+
+pub fn league_scope_path(league_id: Uuid) -> String {
+    format!("/l/{league_id}")
+}
+
+pub fn league_id_from_path(path: &str) -> Option<Uuid> {
+    let rest = path.strip_prefix("/l/")?;
+    let id = rest.split('/').next().unwrap_or("");
+    Uuid::parse_str(id).ok()
+}
+
+pub fn scoped_login_cookie_name(league_id: Uuid) -> String {
+    format!("pila_token_{}", league_id.simple())
+}
+
+pub fn scoped_csrf_cookie_name(league_id: Uuid) -> String {
+    format!("pila_csrf_{}", league_id.simple())
+}
+
 /// Construct the login cookie that pins a magic-link token to the browser.
 /// Centralised so cookie attributes stay consistent across login + setup.
 pub fn make_login_cookie(token: String) -> Cookie<'static> {
     // 1 year in seconds; persistent so the admin survives browser restarts
-    Cookie::build(("pila_token", token))
+    Cookie::build((LEGACY_LOGIN_COOKIE, token))
         .path("/")
         .http_only(true)
         .secure(true)
@@ -28,8 +51,28 @@ pub fn make_login_cookie(token: String) -> Cookie<'static> {
 /// send it as a `X-CSRF-Token` header. Part of a double-submit-cookie
 /// CSRF defence that works with `SameSite=Lax`.
 pub fn make_csrf_cookie(token: String) -> Cookie<'static> {
-    Cookie::build(("pila_csrf", token))
+    Cookie::build((LEGACY_CSRF_COOKIE, token))
         .path("/")
+        .http_only(false)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
+        .build()
+}
+
+pub fn make_scoped_login_cookie(token: String, league_id: Uuid) -> Cookie<'static> {
+    Cookie::build((scoped_login_cookie_name(league_id), token))
+        .path(league_scope_path(league_id))
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
+        .build()
+}
+
+pub fn make_scoped_csrf_cookie(token: String, league_id: Uuid) -> Cookie<'static> {
+    Cookie::build((scoped_csrf_cookie_name(league_id), token))
+        .path(league_scope_path(league_id))
         .http_only(false)
         .secure(true)
         .same_site(SameSite::Lax)
@@ -171,4 +214,78 @@ pub fn preferred_lang(headers: &HeaderMap) -> String {
         }
     }
     "de".into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const LEAGUE: Uuid = Uuid::from_u128(0x12345678123456781234567812345678);
+
+    #[test]
+    fn league_scope_path_round_trips_into_path_parser() {
+        let path = league_scope_path(LEAGUE);
+
+        assert_eq!(path, "/l/12345678-1234-5678-1234-567812345678");
+        assert_eq!(league_id_from_path(&path), Some(LEAGUE));
+        assert_eq!(
+            league_id_from_path("/l/12345678-1234-5678-1234-567812345678/profile/theme"),
+            Some(LEAGUE)
+        );
+    }
+
+    #[test]
+    fn league_id_from_path_ignores_non_scoped_or_invalid_paths() {
+        assert_eq!(league_id_from_path("/"), None);
+        assert_eq!(league_id_from_path("/profile/theme"), None);
+        assert_eq!(league_id_from_path("/l/not-a-uuid"), None);
+        assert_eq!(
+            league_id_from_path("/league/12345678-1234-5678-1234-567812345678"),
+            None
+        );
+    }
+
+    #[test]
+    fn scoped_cookie_names_use_simple_uuid_suffixes() {
+        assert_eq!(
+            scoped_login_cookie_name(LEAGUE),
+            "pila_token_12345678123456781234567812345678"
+        );
+        assert_eq!(
+            scoped_csrf_cookie_name(LEAGUE),
+            "pila_csrf_12345678123456781234567812345678"
+        );
+    }
+
+    #[test]
+    fn scoped_login_cookie_is_http_only_and_path_limited() {
+        let cookie = make_scoped_login_cookie("secret-token".to_string(), LEAGUE);
+
+        assert_eq!(cookie.name(), scoped_login_cookie_name(LEAGUE));
+        assert_eq!(cookie.value(), "secret-token");
+        assert_eq!(
+            cookie.path(),
+            Some("/l/12345678-1234-5678-1234-567812345678")
+        );
+        assert_eq!(cookie.http_only(), Some(true));
+        assert_eq!(cookie.secure(), Some(true));
+        assert_eq!(cookie.same_site(), Some(SameSite::Lax));
+        assert!(cookie.max_age().is_some());
+    }
+
+    #[test]
+    fn scoped_csrf_cookie_is_readable_by_javascript_and_path_limited() {
+        let cookie = make_scoped_csrf_cookie("csrf-token".to_string(), LEAGUE);
+
+        assert_eq!(cookie.name(), scoped_csrf_cookie_name(LEAGUE));
+        assert_eq!(cookie.value(), "csrf-token");
+        assert_eq!(
+            cookie.path(),
+            Some("/l/12345678-1234-5678-1234-567812345678")
+        );
+        assert_eq!(cookie.http_only(), Some(false));
+        assert_eq!(cookie.secure(), Some(true));
+        assert_eq!(cookie.same_site(), Some(SameSite::Lax));
+        assert!(cookie.max_age().is_some());
+    }
 }

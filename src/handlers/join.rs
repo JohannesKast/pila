@@ -24,7 +24,8 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::handlers::util::{
-    build_magic_link, make_csrf_cookie, make_login_cookie, preferred_lang, render_template, t_err,
+    build_magic_link, league_scope_path, make_csrf_cookie, make_login_cookie,
+    make_scoped_csrf_cookie, make_scoped_login_cookie, preferred_lang, render_template, t_err,
     t_err_from_headers, t_for, HandlerError,
 };
 use crate::repo;
@@ -46,6 +47,7 @@ struct JoinDoneTemplate {
     lang_code: String,
     name: String,
     magic_link: String,
+    continue_path: String,
     t: T,
 }
 
@@ -199,12 +201,15 @@ pub async fn join_post(
     let magic_link = build_magic_link(&user_token, &state.base_url);
     let updated_jar = jar
         .add(make_login_cookie(user_token.clone()))
-        .add(make_csrf_cookie(user_token));
+        .add(make_csrf_cookie(user_token.clone()))
+        .add(make_scoped_login_cookie(user_token.clone(), league_id))
+        .add(make_scoped_csrf_cookie(user_token, league_id));
 
     let page = JoinDoneTemplate {
         lang_code: cfg.default_language.clone(),
         name: name.to_string(),
         magic_link,
+        continue_path: league_scope_path(league_id),
         t: t_for(&state, &cfg.default_language),
     };
     Ok((updated_jar, render_template(&page)?.into_response()))

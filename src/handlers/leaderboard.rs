@@ -8,7 +8,7 @@ use axum::{extract::State, response::Html};
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::render_template;
+use crate::handlers::util::{league_scope_path, render_template};
 use crate::translations::T;
 use crate::views::LeaderboardEntry;
 use crate::AppState;
@@ -17,6 +17,7 @@ use crate::AppState;
 #[template(path = "leaderboard.html")]
 struct LeaderboardTemplate {
     entries: Vec<LeaderboardEntry>,
+    scope_path: String,
     t: T,
     lang_code: String,
     dev_mode: bool,
@@ -29,6 +30,7 @@ pub async fn leaderboard(State(state): State<AppState>, user: AuthenticatedUser)
     let t = crate::handlers::util::t_for(&state, &user.language);
     let template = LeaderboardTemplate {
         entries,
+        scope_path: league_scope_path(user.league_id),
         t,
         lang_code,
         dev_mode: state.dev_mode,

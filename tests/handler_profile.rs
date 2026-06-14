@@ -16,6 +16,7 @@ use uuid::Uuid;
 
 use pila::auth::AuthenticatedUser;
 use pila::handlers::profile::{profile_editor_get, profile_name_post, ProfileNameForm};
+use pila::handlers::util::league_scope_path;
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::NewUser;
 use pila::repo::UserRepo;
@@ -133,7 +134,10 @@ async fn saving_both_names_persists_and_navigates_home() {
     let h = build_harness().await;
     let res = post(&h, "TippKing", "Maximilian").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        &league_scope_path(DEFAULT_LEAGUE_ID)
+    );
 
     let user = h.users.find_by_token(&h.token).await.unwrap().unwrap();
     assert_eq!(user.name, "TippKing");
@@ -145,7 +149,10 @@ async fn blank_real_name_defaults_to_tip_name() {
     let h = build_harness().await;
     let res = post(&h, "SoloTipper", "   ").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        &league_scope_path(DEFAULT_LEAGUE_ID)
+    );
 
     let user = h.users.find_by_token(&h.token).await.unwrap().unwrap();
     assert_eq!(user.name, "SoloTipper");
@@ -178,6 +185,13 @@ async fn opening_editor_prefills_both_current_names() {
     // starts from what they already have.
     assert!(res.0.contains("PublicTip"), "tip name not prefilled");
     assert!(res.0.contains("SecretReal"), "real name not prefilled");
+    assert!(
+        res.0.contains(&format!(
+            "hx-post=\"{}/profile/name\"",
+            league_scope_path(DEFAULT_LEAGUE_ID)
+        )),
+        "profile form should post through scoped route"
+    );
 }
 
 #[tokio::test]

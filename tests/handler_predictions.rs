@@ -17,6 +17,7 @@ use pila::auth::AuthenticatedUser;
 use pila::handlers::predictions::{
     predict_match, predict_special, PredictionForm, SpecialPredictionForm,
 };
+use pila::handlers::util::league_scope_path;
 use pila::repo::fixture::{FakeMatch, MemoryMatchRepo};
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::team::TeamOption;
@@ -249,6 +250,13 @@ async fn predict_match_persists_valid_tip() {
     assert!(
         body.contains("score_home"),
         "response should be inline form"
+    );
+    assert!(
+        body.contains(&format!(
+            r#"hx-post="{}/predict/7""#,
+            league_scope_path(DEFAULT_LEAGUE_ID)
+        )),
+        "response should keep subsequent saves inside the league scope"
     );
     assert!(body.contains("value=\"3\""));
     assert!(body.contains("value=\"1\""));

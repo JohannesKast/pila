@@ -8,7 +8,10 @@ use axum::{
 use axum_extra::extract::CookieJar;
 use uuid::Uuid;
 
-use crate::handlers::util::{t_err_from_headers, HandlerError};
+use crate::handlers::util::{
+    league_id_from_path, scoped_login_cookie_name, t_err_from_headers, HandlerError,
+    LEGACY_LOGIN_COOKIE,
+};
 use crate::AppState;
 
 pub struct AuthenticatedUser {
@@ -51,6 +54,47 @@ async fn lookup_user(
     }))
 }
 
+async fn lookup_scoped_user(
+    state: &AppState,
+    parts: &Parts,
+) -> Result<Option<AuthenticatedUser>, crate::repo::RepoError> {
+    let cookie_jar = CookieJar::from_headers(&parts.headers);
+    let path = parts.uri.path();
+    let scoped_league_id = league_id_from_path(path);
+
+    if let Some(league_id) = scoped_league_id {
+        let scoped_name = scoped_login_cookie_name(league_id);
+        for token in [
+            cookie_jar.get(&scoped_name).map(|c| c.value().to_string()),
+            cookie_jar
+                .get(LEGACY_LOGIN_COOKIE)
+                .map(|c| c.value().to_string()),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if let Some(user) = lookup_user(state, &token).await? {
+                if user.league_id == league_id {
+                    return Ok(Some(user));
+                }
+            }
+        }
+        return Ok(None);
+    }
+
+    if path.starts_with("/l/") {
+        return Ok(None);
+    }
+
+    let token = cookie_jar
+        .get(LEGACY_LOGIN_COOKIE)
+        .map(|c| c.value().to_string());
+    match token {
+        Some(token) => lookup_user(state, &token).await,
+        None => Ok(None),
+    }
+}
+
 impl FromRequestParts<AppState> for AuthenticatedUser {
     type Rejection = HandlerError;
 
@@ -58,21 +102,16 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let cookie_jar = CookieJar::from_headers(&parts.headers);
-        let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
-
-        if let Some(token) = token {
-            let user = lookup_user(state, &token).await.map_err(|_| {
-                t_err_from_headers(
-                    state,
-                    &parts.headers,
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "error-database",
-                )
-            })?;
-            if let Some(u) = user {
-                return Ok(u);
-            }
+        let user = lookup_scoped_user(state, parts).await.map_err(|_| {
+            t_err_from_headers(
+                state,
+                &parts.headers,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?;
+        if let Some(u) = user {
+            return Ok(u);
         }
 
         Err(t_err_from_headers(
@@ -93,21 +132,15 @@ impl FromRequestParts<AppState> for MaybeAuthenticatedUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        let cookie_jar = CookieJar::from_headers(&parts.headers);
-        let token = cookie_jar.get("pila_token").map(|c| c.value().to_string());
-
-        if let Some(token) = token {
-            let user = lookup_user(state, &token).await.map_err(|_| {
-                t_err_from_headers(
-                    state,
-                    &parts.headers,
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "error-database",
-                )
-            })?;
-            return Ok(MaybeAuthenticatedUser(user));
-        }
-        Ok(MaybeAuthenticatedUser(None))
+        let user = lookup_scoped_user(state, parts).await.map_err(|_| {
+            t_err_from_headers(
+                state,
+                &parts.headers,
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "error-database",
+            )
+        })?;
+        Ok(MaybeAuthenticatedUser(user))
     }
 }
 

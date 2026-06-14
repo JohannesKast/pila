@@ -43,7 +43,7 @@ pub use leaderboard::leaderboard;
 pub use leagues::{
     league_settings_form, league_settings_save, leagues_create, leagues_list, leagues_new_form,
 };
-pub use predictions::{predict_match, predict_special};
+pub use predictions::{predict_match, predict_match_scoped, predict_special};
 pub use profile::{profile_editor_get, profile_name_post};
 pub use setup::{setup_get, setup_post};
 

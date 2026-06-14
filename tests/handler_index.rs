@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use pila::auth::MaybeAuthenticatedUser;
 use pila::handlers::index;
+use pila::handlers::util::league_scope_path;
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::UserFull;
 use pila::repo::{
@@ -116,6 +117,11 @@ async fn index_renders_with_valid_csp_and_without_document_body_in_head() {
     assert!(
         html.contains(r#"id="tab-container""#),
         "index page must render tab container"
+    );
+    let scope_path = league_scope_path(DEFAULT_LEAGUE_ID);
+    assert!(
+        html.contains(&format!(r#"hx-get="{scope_path}/profile/jersey-picker""#)),
+        "profile controls must stay within the league scope"
     );
 
     // Regression guard: <head> scripts must not touch document.body

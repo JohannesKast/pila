@@ -20,7 +20,9 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::handlers::util::{
-    build_magic_link, make_login_cookie, render_template, t_err_from_headers, HandlerError,
+    build_magic_link, league_scope_path, make_csrf_cookie, make_login_cookie,
+    make_scoped_csrf_cookie, make_scoped_login_cookie, render_template, t_err_from_headers,
+    HandlerError,
 };
 use crate::notifier::{self, signal_configured};
 use crate::repo::league::LeagueConfig;
@@ -39,6 +41,7 @@ struct SetupDoneTemplate {
     lang_code: &'static str,
     name: String,
     magic_link: String,
+    continue_path: String,
 }
 
 async fn user_count(
@@ -147,7 +150,7 @@ pub async fn setup_post(
         ),
         (LeagueConfig::KEY_RSS_FEED_URL, form.rss_feed_url.trim()),
     ];
-    state
+    let league_id = state
         .repos
         .bootstrap
         .create_first_league_and_admin(FirstLeagueParams {
@@ -196,10 +199,15 @@ pub async fn setup_post(
         }
     }
 
-    let updated_jar = jar.add(make_login_cookie(token));
+    let updated_jar = jar
+        .add(make_login_cookie(token.clone()))
+        .add(make_csrf_cookie(token.clone()))
+        .add(make_scoped_login_cookie(token.clone(), league_id))
+        .add(make_scoped_csrf_cookie(token, league_id));
     let page = SetupDoneTemplate {
         lang_code: lang_static(lang),
         magic_link,
+        continue_path: league_scope_path(league_id),
         name,
     };
     Ok((updated_jar, render_template(&page)?.into_response()))

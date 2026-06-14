@@ -13,7 +13,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::auth::AuthenticatedUser;
-use crate::handlers::util::{flag_url, render_template, t_err, HandlerError};
+use crate::handlers::util::{flag_url, league_scope_path, render_template, t_err, HandlerError};
 use crate::scoring::{self, MatchScoringSystem};
 use crate::stage::Stage;
 use crate::translations::T;
@@ -23,6 +23,7 @@ use crate::AppState;
 #[template(path = "predict_form.html")]
 struct PredictFormTemplate {
     t: T,
+    scope_path: String,
     user_id: Uuid,
     league_id: Uuid,
     match_id: i32,
@@ -51,6 +52,24 @@ pub async fn predict_match(
     user: AuthenticatedUser,
     Path(match_id): Path<i32>,
     Form(form): Form<PredictionForm>,
+) -> Result<Html<String>, HandlerError> {
+    predict_match_inner(state, user, match_id, form).await
+}
+
+pub async fn predict_match_scoped(
+    State(state): State<AppState>,
+    user: AuthenticatedUser,
+    Path((_league_id, match_id)): Path<(Uuid, i32)>,
+    Form(form): Form<PredictionForm>,
+) -> Result<Html<String>, HandlerError> {
+    predict_match_inner(state, user, match_id, form).await
+}
+
+async fn predict_match_inner(
+    state: AppState,
+    user: AuthenticatedUser,
+    match_id: i32,
+    form: PredictionForm,
 ) -> Result<Html<String>, HandlerError> {
     let lang = &user.language;
     let t = crate::handlers::util::t_for(&state, lang);
@@ -136,6 +155,7 @@ pub async fn predict_match(
 
     let template = PredictFormTemplate {
         t,
+        scope_path: league_scope_path(user.league_id),
         user_id: user.id,
         league_id: user.league_id,
         match_id,
@@ -299,5 +319,5 @@ pub async fn predict_special(
         .await
         .map_err(|_| db_err())?;
 
-    Ok(Redirect::to("/"))
+    Ok(Redirect::to(&league_scope_path(user.league_id)))
 }
