@@ -18,7 +18,7 @@ use crate::badges;
 use crate::handlers::services::{
     build_badge_context, fetch_actual_champion, fetch_group_standings, fetch_leaderboard,
 };
-use crate::handlers::util::{flag_url, format_kickoff, render_template};
+use crate::handlers::util::{flag_url, format_kickoff, league_scope_path, render_template};
 use crate::news;
 use crate::scoring;
 use crate::scoring::MatchScoringSystem;
@@ -32,6 +32,7 @@ use crate::AppState;
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexTemplate {
+    scope_path: String,
     user_name: String,
     user_total_points: i32,
     user_rank: usize,
@@ -377,6 +378,7 @@ pub async fn index(
         .unwrap_or_else(|| "WM 2026".to_string());
 
     let template = IndexTemplate {
+        scope_path: league_scope_path(user.league_id),
         user_name: user.name,
         user_total_points,
         user_rank,

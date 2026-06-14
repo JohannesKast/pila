@@ -34,9 +34,23 @@
     <meta name="csrf-token-name" content="pila_csrf">
     <meta name="csrf-header-name" content="X-CSRF-Token">
     <script>
+        function pilaScopedLeagueId() {
+            var match = window.location.pathname.match(/^\/l\/([0-9a-fA-F-]{36})(?:\/|$)/);
+            return match ? match[1].replace(/-/g, '').toLowerCase() : '';
+        }
+        function pilaCookieValue(name) {
+            var row = document.cookie.split('; ').find(function (r) {
+                return r.indexOf(name + '=') === 0;
+            });
+            return row ? row.split('=').slice(1).join('=') : '';
+        }
+        function pilaCsrfToken() {
+            var leagueId = pilaScopedLeagueId();
+            var scoped = leagueId ? pilaCookieValue('pila_csrf_' + leagueId) : '';
+            return scoped || pilaCookieValue('pila_csrf');
+        }
         document.addEventListener('htmx:configRequest', (event) => {
-            const cookies = document.cookie.split('; ');
-            const token = cookies.find(row => row.startsWith('pila_csrf='))?.split('=')[1];
+            const token = pilaCsrfToken();
             if (token) {
                 event.detail.headers['X-CSRF-Token'] = token;
             }

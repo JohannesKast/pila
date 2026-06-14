@@ -11,11 +11,34 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::Html,
 };
+use uuid::Uuid;
+
+pub const LEGACY_LOGIN_COOKIE: &str = "pila_token";
+pub const LEGACY_CSRF_COOKIE: &str = "pila_csrf";
+
+pub fn league_scope_path(league_id: Uuid) -> String {
+    format!("/l/{league_id}")
+}
+
+pub fn league_id_from_path(path: &str) -> Option<Uuid> {
+    let rest = path.strip_prefix("/l/")?;
+    let id = rest.split('/').next().unwrap_or("");
+    Uuid::parse_str(id).ok()
+}
+
+pub fn scoped_login_cookie_name(league_id: Uuid) -> String {
+    format!("pila_token_{}", league_id.simple())
+}
+
+pub fn scoped_csrf_cookie_name(league_id: Uuid) -> String {
+    format!("pila_csrf_{}", league_id.simple())
+}
+
 /// Construct the login cookie that pins a magic-link token to the browser.
 /// Centralised so cookie attributes stay consistent across login + setup.
 pub fn make_login_cookie(token: String) -> Cookie<'static> {
     // 1 year in seconds; persistent so the admin survives browser restarts
-    Cookie::build(("pila_token", token))
+    Cookie::build((LEGACY_LOGIN_COOKIE, token))
         .path("/")
         .http_only(true)
         .secure(true)
@@ -28,8 +51,28 @@ pub fn make_login_cookie(token: String) -> Cookie<'static> {
 /// send it as a `X-CSRF-Token` header. Part of a double-submit-cookie
 /// CSRF defence that works with `SameSite=Lax`.
 pub fn make_csrf_cookie(token: String) -> Cookie<'static> {
-    Cookie::build(("pila_csrf", token))
+    Cookie::build((LEGACY_CSRF_COOKIE, token))
         .path("/")
+        .http_only(false)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
+        .build()
+}
+
+pub fn make_scoped_login_cookie(token: String, league_id: Uuid) -> Cookie<'static> {
+    Cookie::build((scoped_login_cookie_name(league_id), token))
+        .path(league_scope_path(league_id))
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Lax)
+        .max_age(time::Duration::days(365))
+        .build()
+}
+
+pub fn make_scoped_csrf_cookie(token: String, league_id: Uuid) -> Cookie<'static> {
+    Cookie::build((scoped_csrf_cookie_name(league_id), token))
+        .path(league_scope_path(league_id))
         .http_only(false)
         .secure(true)
         .same_site(SameSite::Lax)

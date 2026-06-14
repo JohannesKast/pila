@@ -14,6 +14,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use std::sync::Arc;
 
 use pila::handlers;
+use pila::handlers::util::{league_id_from_path, scoped_csrf_cookie_name, LEGACY_CSRF_COOKIE};
 use pila::news;
 use pila::repo::Repos;
 use pila::scoreboard::EspnClient;
@@ -200,7 +201,17 @@ async fn csrf_middleware(
     }
 
     let jar = axum_extra::extract::CookieJar::from_headers(request.headers());
-    let cookie_token = jar.get("pila_csrf").map(|c| c.value().to_owned());
+    let scoped_league_id = league_id_from_path(path);
+    let cookie_token = if let Some(league_id) = scoped_league_id {
+        let name = scoped_csrf_cookie_name(league_id);
+        jar.get(&name)
+            .map(|c| c.value().to_owned())
+            .or_else(|| jar.get(LEGACY_CSRF_COOKIE).map(|c| c.value().to_owned()))
+    } else if path.starts_with("/l/") {
+        None
+    } else {
+        jar.get(LEGACY_CSRF_COOKIE).map(|c| c.value().to_owned())
+    };
 
     let header_token = request
         .headers()
@@ -271,6 +282,7 @@ fn build_router() -> Router<AppState> {
         .layer(middleware::from_fn(security_headers_middleware))
         .layer(middleware::from_fn(csrf_middleware))
         .route("/", get(handlers::index))
+        .route("/l/{league_id}", get(handlers::index))
         .route("/healthz", get(handlers::healthz))
         .route("/play/me/{token}", get(handlers::login_magic_link))
         .route(
@@ -286,13 +298,30 @@ fn build_router() -> Router<AppState> {
             axum::routing::post(handlers::predict_match),
         )
         .route(
+            "/l/{league_id}/predict/{match_id}",
+            axum::routing::post(handlers::predict_match_scoped),
+        )
+        .route(
             "/predict_special",
             axum::routing::post(handlers::predict_special),
         )
+        .route(
+            "/l/{league_id}/predict_special",
+            axum::routing::post(handlers::predict_special),
+        )
         .route("/leaderboard", get(handlers::leaderboard))
+        .route("/l/{league_id}/leaderboard", get(handlers::leaderboard))
         .route("/profile/jersey-picker", get(handlers::jersey_picker_get))
         .route(
+            "/l/{league_id}/profile/jersey-picker",
+            get(handlers::jersey_picker_get),
+        )
+        .route(
             "/profile/jersey-picker/close",
+            get(handlers::jersey_picker_close),
+        )
+        .route(
+            "/l/{league_id}/profile/jersey-picker/close",
             get(handlers::jersey_picker_close),
         )
         .route(
@@ -300,11 +329,23 @@ fn build_router() -> Router<AppState> {
             axum::routing::post(handlers::jersey_post),
         )
         .route(
+            "/l/{league_id}/profile/jersey",
+            axum::routing::post(handlers::jersey_post),
+        )
+        .route(
             "/profile/language",
             axum::routing::post(handlers::set_language_post),
         )
         .route(
+            "/l/{league_id}/profile/language",
+            axum::routing::post(handlers::set_language_post),
+        )
+        .route(
             "/profile/theme",
+            axum::routing::post(handlers::set_theme_post),
+        )
+        .route(
+            "/l/{league_id}/profile/theme",
             axum::routing::post(handlers::set_theme_post),
         )
         // Convenience landing — redirects the admin to their own league's

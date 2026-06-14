@@ -16,7 +16,9 @@ use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::services::fetch_leaderboard;
-use crate::handlers::util::{html_escape, make_theme_cookie, render_template, t_err, HandlerError};
+use crate::handlers::util::{
+    html_escape, league_scope_path, make_theme_cookie, render_template, t_err, HandlerError,
+};
 use crate::translations::T;
 use crate::views::{JerseyOption, LeaderboardEntry};
 use crate::AppState;
@@ -26,6 +28,7 @@ use crate::AppState;
 struct JerseyPickerTemplate {
     grouped_options: Vec<(String, Vec<JerseyOption>)>, // (variant_label, options)
     current: String,
+    scope_path: String,
     t: T,
 }
 
@@ -85,6 +88,7 @@ pub async fn jersey_picker_get(
     let template = JerseyPickerTemplate {
         grouped_options,
         current: user.jersey_preset,
+        scope_path: league_scope_path(user.league_id),
         t,
     };
     render_template(&template).unwrap_or_else(|_| Html("Internal error".to_string()))
@@ -172,7 +176,7 @@ pub struct SetLanguageForm {
 }
 
 /// `POST /profile/language` — persist user's language preference.
-/// Responds with `HX-Location: /` so HTMX performs a client-side navigation
+/// Responds with `HX-Location` so HTMX performs a client-side navigation
 /// (full re-render in the chosen language, no browser reload flash).
 pub async fn set_language_post(
     State(state): State<AppState>,
@@ -190,7 +194,9 @@ pub async fn set_language_post(
         .ok();
 
     let mut headers = HeaderMap::new();
-    headers.insert("HX-Location", axum::http::HeaderValue::from_static("/"));
+    if let Ok(value) = axum::http::HeaderValue::from_str(&league_scope_path(user.league_id)) {
+        headers.insert("HX-Location", value);
+    }
     (StatusCode::OK, headers).into_response()
 }
 

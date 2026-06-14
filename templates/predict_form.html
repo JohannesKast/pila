@@ -1,6 +1,6 @@
 <div id="tip-shell-{{ match_id }}">
   {% if winner_only_mode %}
-  <form hx-post="/predict/{{ match_id }}" hx-swap="outerHTML" hx-target="#tip-shell-{{ match_id }}" style="display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:8px;">
+  <form hx-post="{{ scope_path }}/predict/{{ match_id }}" hx-swap="outerHTML" hx-target="#tip-shell-{{ match_id }}" style="display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:8px;">
     <button type="submit" name="outcome" value="home" class="pl-btn" style="display:flex; align-items:center; justify-content:flex-end; gap:8px; min-height:52px; padding:10px 12px; border:1.5px solid {% if score_home > score_away %}var(--pl-green){% else %}var(--pl-line){% endif %}; background:{% if score_home > score_away %}rgba(116,255,140,.12){% else %}rgba(255,255,255,.02){% endif %}; color:var(--pl-fg);">
       <span class="pl-display" style="font-size:13px; line-height:1.1; text-align:right;">{{ home_name }}</span>
       {% if home_flag.is_empty() == false %}<img src="{{ home_flag }}" alt="" style="width:24px; height:18px; object-fit:cover; border-radius:3px; flex-shrink:0;" onerror="this.style.display='none'">{% endif %}
@@ -16,7 +16,7 @@
     </button>
   </form>
   {% else %}
-  <form id="tip-form-{{ match_id }}" data-tip-autosave hx-post="/predict/{{ match_id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
+  <form id="tip-form-{{ match_id }}" data-tip-autosave hx-post="{{ scope_path }}/predict/{{ match_id }}" hx-trigger="tipsave, submit" hx-swap="none" style="display:flex; align-items:center; gap:6px;">
     <input class="pl-num" type="number" inputmode="numeric" name="score_home" min="0" max="20" value="{{ score_home }}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">
     <span class="pl-mono" style="color:var(--pl-mute);">:</span>
     <input class="pl-num" type="number" inputmode="numeric" name="score_away" min="0" max="20" value="{{ score_away }}" required style="width:42px; height:42px; text-align:center; background:var(--pl-bg-input); border:1.5px solid var(--pl-green); border-radius:8px; color:var(--pl-fg); font-size:18px; outline:none; box-shadow:0 0 12px rgba(116,255,140,.3);">

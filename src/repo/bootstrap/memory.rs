@@ -4,7 +4,7 @@
 use async_trait::async_trait;
 
 use super::{BootstrapRepo, FirstLeagueParams};
-use crate::repo::RepoResult;
+use crate::repo::{RepoResult, DEFAULT_LEAGUE_ID};
 
 #[derive(Default)]
 pub struct MemoryBootstrapRepo;
@@ -20,7 +20,7 @@ impl BootstrapRepo for MemoryBootstrapRepo {
     async fn create_first_league_and_admin(
         &self,
         _params: FirstLeagueParams<'_>,
-    ) -> RepoResult<()> {
-        Ok(())
+    ) -> RepoResult<uuid::Uuid> {
+        Ok(DEFAULT_LEAGUE_ID)
     }
 }

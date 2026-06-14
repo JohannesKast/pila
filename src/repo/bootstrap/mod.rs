@@ -33,5 +33,8 @@ pub trait BootstrapRepo: Send + Sync {
     /// Creates the first league, its settings, and the super-admin user in one
     /// atomic transaction. Rolls back on any failure — no half-created state
     /// can exist after an error.
-    async fn create_first_league_and_admin(&self, params: FirstLeagueParams<'_>) -> RepoResult<()>;
+    async fn create_first_league_and_admin(
+        &self,
+        params: FirstLeagueParams<'_>,
+    ) -> RepoResult<Uuid>;
 }

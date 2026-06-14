@@ -12,7 +12,8 @@ use axum::{
 use axum_extra::extract::CookieJar;
 
 use crate::handlers::util::{
-    make_csrf_cookie, make_login_cookie, make_theme_cookie, t_err_from_headers, HandlerError,
+    league_scope_path, make_csrf_cookie, make_login_cookie, make_scoped_csrf_cookie,
+    make_scoped_login_cookie, make_theme_cookie, t_err_from_headers, HandlerError,
 };
 use crate::AppState;
 
@@ -32,13 +33,16 @@ pub async fn login_magic_link(
     })?;
 
     if let Some(user) = user {
+        let league_id = user.league_id;
         // Seed the theme cookie from the stored preference so the chosen
         // theme follows the user onto a freshly logged-in device.
         let updated_jar = jar
             .add(make_login_cookie(token.clone()))
-            .add(make_csrf_cookie(token))
+            .add(make_csrf_cookie(token.clone()))
+            .add(make_scoped_login_cookie(token.clone(), league_id))
+            .add(make_scoped_csrf_cookie(token, league_id))
             .add(make_theme_cookie(user.theme));
-        Ok((updated_jar, Redirect::to("/")))
+        Ok((updated_jar, Redirect::to(&league_scope_path(league_id))))
     } else {
         Err(t_err_from_headers(
             &state,

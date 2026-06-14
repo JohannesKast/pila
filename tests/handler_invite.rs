@@ -10,6 +10,7 @@ use uuid::Uuid;
 use pila::auth::{AdminUser, AuthenticatedUser};
 use pila::handlers::admin::{admin_create_invite, admin_revoke_invite, InviteCreateForm};
 use pila::handlers::join::{join_get, join_post, JoinForm};
+use pila::handlers::util::{scoped_csrf_cookie_name, scoped_login_cookie_name};
 use pila::repo::invite::InviteRepo;
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::UserRepo;
@@ -267,7 +268,7 @@ async fn join_post_creates_user_in_invite_league() {
         .await
         .unwrap();
 
-    let (_jar, _resp) = join_post(
+    let (jar, _resp) = join_post(
         State(h.state.clone()),
         Path("valid-token".into()),
         HeaderMap::new(),
@@ -285,6 +286,16 @@ async fn join_post_creates_user_in_invite_league() {
     assert!(
         !listed[0].is_admin,
         "self-registered users are never admins"
+    );
+    assert!(
+        jar.get(&scoped_login_cookie_name(DEFAULT_LEAGUE_ID))
+            .is_some(),
+        "join should set a scoped login cookie"
+    );
+    assert!(
+        jar.get(&scoped_csrf_cookie_name(DEFAULT_LEAGUE_ID))
+            .is_some(),
+        "join should set a scoped CSRF cookie"
     );
 }
 

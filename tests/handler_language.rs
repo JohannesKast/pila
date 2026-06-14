@@ -9,6 +9,7 @@ use uuid::Uuid;
 
 use pila::auth::AuthenticatedUser;
 use pila::handlers::jersey::{set_language_post, SetLanguageForm};
+use pila::handlers::util::league_scope_path;
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::NewUser;
 use pila::repo::UserRepo;
@@ -114,6 +115,10 @@ async fn call_set_language(h: &Harness, lang: &str) -> axum::response::Response 
     .into_response()
 }
 
+fn expected_location() -> String {
+    league_scope_path(DEFAULT_LEAGUE_ID)
+}
+
 // ─── Accepted locales ─────────────────────────────────────────────────────────
 
 #[tokio::test]
@@ -121,7 +126,10 @@ async fn set_language_de_returns_ok_with_hx_location() {
     let h = build_harness().await;
     let res = call_set_language(&h, "de").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        expected_location().as_str()
+    );
 }
 
 #[tokio::test]
@@ -129,7 +137,10 @@ async fn set_language_en_returns_ok_with_hx_location() {
     let h = build_harness().await;
     let res = call_set_language(&h, "en").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        expected_location().as_str()
+    );
 }
 
 #[tokio::test]
@@ -137,7 +148,10 @@ async fn set_language_es_returns_ok_with_hx_location() {
     let h = build_harness().await;
     let res = call_set_language(&h, "es").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        expected_location().as_str()
+    );
 }
 
 #[tokio::test]
@@ -145,7 +159,10 @@ async fn set_language_fr_returns_ok_with_hx_location() {
     let h = build_harness().await;
     let res = call_set_language(&h, "fr").await;
     assert_eq!(res.status(), StatusCode::OK);
-    assert_eq!(res.headers().get("HX-Location").unwrap(), "/");
+    assert_eq!(
+        res.headers().get("HX-Location").unwrap(),
+        expected_location().as_str()
+    );
 }
 
 // ─── Rejected locales ─────────────────────────────────────────────────────────

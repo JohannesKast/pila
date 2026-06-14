@@ -12,6 +12,7 @@ use axum_extra::extract::CookieJar;
 use uuid::Uuid;
 
 use pila::handlers::setup::{setup_get, setup_post, SetupForm};
+use pila::handlers::util::{scoped_csrf_cookie_name, scoped_login_cookie_name};
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::user::NewUser;
 use pila::repo::UserRepo;
@@ -131,6 +132,16 @@ async fn setup_post_happy_path_sets_pila_token_cookie() {
     assert!(
         jar.get("pila_token").is_some(),
         "pila_token cookie must be set after setup"
+    );
+    assert!(
+        jar.get(&scoped_login_cookie_name(DEFAULT_LEAGUE_ID))
+            .is_some(),
+        "scoped login cookie must be set after setup"
+    );
+    assert!(
+        jar.get(&scoped_csrf_cookie_name(DEFAULT_LEAGUE_ID))
+            .is_some(),
+        "scoped CSRF cookie must be set after setup"
     );
 }
 
