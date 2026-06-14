@@ -259,3 +259,28 @@ async fn admin_rename_user_updates_name_and_returns_row() {
     let after = h.users.find_full_by_id(target_id).await.unwrap().unwrap();
     assert_eq!(after.name, "New");
 }
+
+#[tokio::test]
+async fn admin_rename_user_into_existing_name_conflicts() {
+    let h = build_harness();
+    h.users
+        .seed(user_full(Uuid::new_v4(), "Alice", "tk-a", false), "classic");
+    let target_id = Uuid::new_v4();
+    h.users
+        .seed(user_full(target_id, "Bob", "tk-b", false), "classic");
+    let admin = admin_extractor(Uuid::new_v4());
+    // Renaming Bob onto Alice's tip name (case-insensitive) surfaces as a 409,
+    // not a generic 500, and leaves Bob's name untouched.
+    let res = admin_rename_user(
+        State(h.state.clone()),
+        admin,
+        Path(target_id),
+        Form(AdminRenameForm {
+            name: "alice".into(),
+        }),
+    )
+    .await;
+    assert_eq!(res.unwrap_err().0, StatusCode::CONFLICT);
+    let after = h.users.find_full_by_id(target_id).await.unwrap().unwrap();
+    assert_eq!(after.name, "Bob");
+}
