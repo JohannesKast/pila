@@ -32,9 +32,10 @@ async fn test_jersey_post_returns_updated_leaderboard_with_oob() {
         .await
         .unwrap();
     sqlx::query(
-        "INSERT INTO users (id, name, token, jersey_preset, league_id) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO users (id, name, real_name, token, jersey_preset, league_id) VALUES ($1, $2, $3, $4, $5, $6)",
     )
     .bind(user_id)
+    .bind("Test User")
     .bind("Test User")
     .bind(&token)
     .bind("classic")

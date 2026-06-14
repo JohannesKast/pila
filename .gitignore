@@ -7,3 +7,4 @@
 .env
 docker-compose.override.yml
 skills-lock.json
+pila_db_*.sql.gz

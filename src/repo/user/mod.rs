@@ -19,6 +19,9 @@ pub use postgres::PgUserRepo;
 pub struct UserAuth {
     pub id: Uuid,
     pub name: String,
+    /// Private real first name. Only ever shown back to the user themselves
+    /// (in the profile editor) and to league admins — never to other players.
+    pub real_name: String,
     pub is_admin: bool,
     pub can_create_league: bool,
     pub phone_number: Option<String>,
@@ -35,6 +38,8 @@ pub struct UserAuth {
 pub struct UserFull {
     pub id: Uuid,
     pub name: String,
+    /// Private real first name (admin-visible only). See [`UserAuth::real_name`].
+    pub real_name: String,
     pub token: String,
     pub phone_number: Option<String>,
     pub email: Option<String>,
@@ -49,6 +54,9 @@ pub struct UserFull {
 pub struct AdminUserRow {
     pub id: Uuid,
     pub name: String,
+    /// Private real first name — surfaced in the admin user list so an admin
+    /// can tell who is behind a playful tip name.
+    pub real_name: String,
     pub token: String,
     pub phone_number: Option<String>,
     pub email: Option<String>,
@@ -69,6 +77,9 @@ pub struct UserBasic {
 pub struct NewUser<'a> {
     pub id: Uuid,
     pub name: &'a str,
+    /// Private real first name. Callers that have no separate value pass the
+    /// tip name here, matching the production default of `real_name = name`.
+    pub real_name: &'a str,
     pub token: &'a str,
     pub is_admin: bool,
     pub phone_number: Option<&'a str>,
@@ -114,8 +125,13 @@ pub trait UserRepo: Send + Sync {
     async fn set_admin(&self, id: Uuid, is_admin: bool) -> RepoResult<()>;
     /// Grants or revokes the super-admin `can_create_league` permission.
     async fn set_can_create_league(&self, id: Uuid, can: bool) -> RepoResult<()>;
-    /// Updates the user's display name.
+    /// Updates the user's public tip name. Fails with `RepoError::Conflict`
+    /// if another user in the same league already uses the name (the unique
+    /// index on `(league_id, lower(name))` is the race-safe backstop).
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()>;
+    /// Updates the user's private real name. No uniqueness constraint —
+    /// two players may legitimately share a first name.
+    async fn set_real_name(&self, id: Uuid, real_name: &str) -> RepoResult<()>;
     /// Persists the user's chosen jersey preset key.
     async fn set_jersey(&self, id: Uuid, preset: &str) -> RepoResult<()>;
     /// Persists the user's preferred locale code.

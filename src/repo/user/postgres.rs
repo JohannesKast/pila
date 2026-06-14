@@ -24,7 +24,7 @@ impl PgUserRepo {
 impl UserRepo for PgUserRepo {
     async fn find_by_token(&self, token: &str) -> RepoResult<Option<UserAuth>> {
         let row = sqlx::query!(
-            "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, theme, league_id \
+            "SELECT id, name, real_name, is_admin, can_create_league, phone_number, email, jersey_preset, language, theme, league_id \
              FROM users WHERE token = $1",
             token
         )
@@ -35,6 +35,7 @@ impl UserRepo for PgUserRepo {
         Ok(row.map(|r| UserAuth {
             id: r.id,
             name: r.name,
+            real_name: r.real_name,
             is_admin: r.is_admin,
             can_create_league: r.can_create_league,
             phone_number: r.phone_number,
@@ -48,7 +49,7 @@ impl UserRepo for PgUserRepo {
 
     async fn find_full_by_id(&self, id: Uuid) -> RepoResult<Option<UserFull>> {
         let row = sqlx::query!(
-            "SELECT id, name, token, phone_number, email, is_admin, can_create_league, league_id, language \
+            "SELECT id, name, real_name, token, phone_number, email, is_admin, can_create_league, league_id, language \
              FROM users WHERE id = $1",
             id
         )
@@ -59,6 +60,7 @@ impl UserRepo for PgUserRepo {
         Ok(row.map(|r| UserFull {
             id: r.id,
             name: r.name,
+            real_name: r.real_name,
             token: r.token,
             phone_number: r.phone_number,
             email: r.email,
@@ -87,7 +89,7 @@ impl UserRepo for PgUserRepo {
 
     async fn list_for_admin(&self, league_id: Uuid) -> RepoResult<Vec<AdminUserRow>> {
         let rows = sqlx::query!(
-            "SELECT id, name, token, phone_number, email, is_admin, can_create_league \
+            "SELECT id, name, real_name, token, phone_number, email, is_admin, can_create_league \
              FROM users WHERE league_id = $1 ORDER BY name",
             league_id
         )
@@ -100,6 +102,7 @@ impl UserRepo for PgUserRepo {
             .map(|r| AdminUserRow {
                 id: r.id,
                 name: r.name,
+                real_name: r.real_name,
                 token: r.token,
                 phone_number: r.phone_number,
                 email: r.email,
@@ -158,10 +161,11 @@ impl UserRepo for PgUserRepo {
 
     async fn create(&self, new_user: NewUser<'_>) -> RepoResult<()> {
         sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            "INSERT INTO users (id, name, real_name, token, is_admin, phone_number, email, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             new_user.id,
             new_user.name,
+            new_user.real_name,
             new_user.token,
             new_user.is_admin,
             new_user.phone_number,
@@ -204,10 +208,25 @@ impl UserRepo for PgUserRepo {
     }
 
     async fn rename(&self, id: Uuid, name: &str) -> RepoResult<()> {
+        // Same per-league name uniqueness the create path enforces — a rename
+        // into an existing name surfaces as `RepoError::Conflict` instead of a
+        // generic 500.
         sqlx::query!("UPDATE users SET name = $1 WHERE id = $2", name, id)
             .execute(&self.pool)
             .await
-            .map_err(RepoError::from)?;
+            .map_err(map_insert_err)?;
+        Ok(())
+    }
+
+    async fn set_real_name(&self, id: Uuid, real_name: &str) -> RepoResult<()> {
+        sqlx::query!(
+            "UPDATE users SET real_name = $1 WHERE id = $2",
+            real_name,
+            id
+        )
+        .execute(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
         Ok(())
     }
 
@@ -306,10 +325,10 @@ impl UserRepo for PgUserRepo {
     }
 }
 
-/// Maps the `users` insert failure modes. A unique-constraint violation —
-/// today only the per-league display-name index — becomes
-/// [`RepoError::Conflict`] so handlers can answer "name taken" instead of a
-/// generic 500. Everything else stays a plain database error.
+/// Maps `users` insert/update failure modes. A unique-constraint violation —
+/// today only the per-league tip-name index — becomes [`RepoError::Conflict`]
+/// so handlers can answer "name taken" instead of a generic 500. Used by both
+/// `create` and `rename`. Everything else stays a plain database error.
 fn map_insert_err(err: sqlx::Error) -> RepoError {
     if let sqlx::Error::Database(ref db) = err {
         if db.is_unique_violation() {

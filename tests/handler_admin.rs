@@ -70,6 +70,7 @@ fn admin_extractor(id: Uuid) -> AdminUser {
     AdminUser(AuthenticatedUser {
         id,
         name: "Admin".into(),
+        real_name: "Admin".into(),
         is_admin: true,
         can_create_league: false,
         phone_number: None,
@@ -84,6 +85,7 @@ fn user_full(id: Uuid, name: &str, token: &str, is_admin: bool) -> UserFull {
     UserFull {
         id,
         name: name.into(),
+        real_name: name.into(),
         token: token.into(),
         phone_number: None,
         email: None,
@@ -106,6 +108,7 @@ async fn admin_create_user_rejects_blank_name() {
         Path(DEFAULT_LEAGUE_ID),
         Form(AdminCreateForm {
             name: "   ".into(),
+            real_name: String::new(),
             phone_number: String::new(),
             email: "".to_string(),
         }),
@@ -124,6 +127,7 @@ async fn admin_create_user_persists_new_user_and_returns_row_html() {
         Path(DEFAULT_LEAGUE_ID),
         Form(AdminCreateForm {
             name: "Bob".into(),
+            real_name: String::new(),
             phone_number: String::new(),
             email: "".to_string(),
         }),
@@ -161,6 +165,7 @@ async fn admin_delete_user_removes_target() {
         .create(NewUser {
             id: target_id,
             name: "Target",
+            real_name: "Target",
             token: "tk",
             is_admin: false,
             phone_number: None,
@@ -253,4 +258,29 @@ async fn admin_rename_user_updates_name_and_returns_row() {
     assert!(res.0.contains("New"));
     let after = h.users.find_full_by_id(target_id).await.unwrap().unwrap();
     assert_eq!(after.name, "New");
+}
+
+#[tokio::test]
+async fn admin_rename_user_into_existing_name_conflicts() {
+    let h = build_harness();
+    h.users
+        .seed(user_full(Uuid::new_v4(), "Alice", "tk-a", false), "classic");
+    let target_id = Uuid::new_v4();
+    h.users
+        .seed(user_full(target_id, "Bob", "tk-b", false), "classic");
+    let admin = admin_extractor(Uuid::new_v4());
+    // Renaming Bob onto Alice's tip name (case-insensitive) surfaces as a 409,
+    // not a generic 500, and leaves Bob's name untouched.
+    let res = admin_rename_user(
+        State(h.state.clone()),
+        admin,
+        Path(target_id),
+        Form(AdminRenameForm {
+            name: "alice".into(),
+        }),
+    )
+    .await;
+    assert_eq!(res.unwrap_err().0, StatusCode::CONFLICT);
+    let after = h.users.find_full_by_id(target_id).await.unwrap().unwrap();
+    assert_eq!(after.name, "Bob");
 }

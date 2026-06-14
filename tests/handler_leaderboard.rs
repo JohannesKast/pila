@@ -81,6 +81,7 @@ async fn seed_user(users: &MemoryUserRepo, name: &str, league_id: Uuid) -> Uuid 
         .create(NewUser {
             id,
             name,
+            real_name: name,
             token: &Uuid::new_v4().to_string(),
             is_admin: false,
             phone_number: None,
@@ -97,6 +98,7 @@ fn caller(id: Uuid, league_id: Uuid) -> AuthenticatedUser {
     AuthenticatedUser {
         id,
         name: "Caller".into(),
+        real_name: "Caller".into(),
         is_admin: false,
         can_create_league: false,
         phone_number: None,

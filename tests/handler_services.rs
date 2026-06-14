@@ -76,6 +76,7 @@ fn seed_user(repo: &MemoryUserRepo, name: &str) -> Uuid {
         UserFull {
             id,
             name: name.into(),
+            real_name: name.into(),
             token: name.to_lowercase(),
             phone_number: None,
             email: None,

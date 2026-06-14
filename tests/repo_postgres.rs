@@ -61,6 +61,7 @@ async fn user_repo_create_find_rename_set_admin_delete_round_trip() {
     repo.create(NewUser {
         id,
         name: "Repo Test",
+        real_name: "Repo Test",
         token: &token,
         is_admin: false,
         phone_number: Some("+490"),
@@ -104,6 +105,7 @@ async fn user_repo_set_jersey_persists() {
     repo.create(NewUser {
         id,
         name: "Jersey",
+        real_name: "Jersey",
         token: &token,
         is_admin: false,
         phone_number: None,
@@ -131,6 +133,7 @@ async fn user_repo_set_theme_defaults_to_dark_then_persists() {
     repo.create(NewUser {
         id,
         name: "Theme",
+        real_name: "Theme",
         token: &token,
         is_admin: false,
         phone_number: None,
@@ -209,6 +212,7 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
         .create(NewUser {
             id: user_id,
             name: "Pred",
+            real_name: "Pred",
             token: &token,
             is_admin: false,
             phone_number: None,
@@ -277,6 +281,7 @@ async fn special_prediction_repo_upsert_round_trip() {
         .create(NewUser {
             id: user_id,
             name: "Sp",
+            real_name: "Sp",
             token: &token,
             is_admin: false,
             phone_number: None,

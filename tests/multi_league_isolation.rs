@@ -50,6 +50,7 @@ fn user_full(id: Uuid, league_id: Uuid, name: &str, token: &str) -> UserFull {
     UserFull {
         id,
         name: name.into(),
+        real_name: name.into(),
         token: token.into(),
         phone_number: None,
         email: None,
@@ -637,6 +638,7 @@ async fn new_user_create_lands_in_specified_league() {
         .create(NewUser {
             id: new_id,
             name: "Newcomer",
+            real_name: "Newcomer",
             token: "tk-new",
             is_admin: false,
             phone_number: None,

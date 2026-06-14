@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+<defs>
+<radialGradient id="bg" cx="36%" cy="30%" r="80%">
+ <stop offset="0" stop-color="#357052"></stop><stop offset="0.55" stop-color="#1f4a36"></stop><stop offset="1" stop-color="#102e20"></stop>
+</radialGradient>
+<radialGradient id="gd" cx="40%" cy="32%" r="82%">
+ <stop offset="0" stop-color="#f7e09a"></stop><stop offset="0.5" stop-color="#e0b450"></stop><stop offset="1" stop-color="#b3811c"></stop>
+</radialGradient>
+<radialGradient id="gl" cx="33%" cy="25%" r="72%">
+ <stop offset="0" stop-color="#ffffff" stop-opacity="0.32"></stop><stop offset="0.6" stop-color="#ffffff" stop-opacity="0"></stop>
+</radialGradient>
+<radialGradient id="ibd" cx="50%" cy="36%" r="78%">
+ <stop offset="0" stop-color="#1b261f"></stop><stop offset="1" stop-color="#0d120f"></stop>
+</radialGradient>
+<radialGradient id="ibl" cx="50%" cy="34%" r="80%">
+ <stop offset="0" stop-color="#f6f4ee"></stop><stop offset="1" stop-color="#e9e5db"></stop>
+</radialGradient>
+<clipPath id="cp"><circle cx="50" cy="50" r="46"></circle></clipPath>
+</defs><rect x="0" y="0" width="100" height="100" fill="url(#ibd)"></rect>
+      <g transform="translate(50 50) scale(0.74) translate(-50 -50)"><g clip-path="url(#cp)">
+    <circle cx="50" cy="50" r="46" fill="url(#bg)"></circle>
+    <polygon points="50,35.5 63.79,45.52 79.36,38.59 81.15,21.64 67.36,11.62 51.78,18.55" fill="none" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="63.79,45.52 58.52,61.73 69.92,74.4 86.6,70.86 91.87,54.65 80.46,41.98" fill="none" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="58.52,61.73 41.48,61.73 32.96,76.49 41.48,91.24 58.52,91.24 67.04,76.49" fill="none" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="41.48,61.73 36.21,45.52 19.54,41.98 8.13,54.65 13.4,70.86 30.08,74.4" fill="none" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="36.21,45.52 50,35.5 48.22,18.55 32.64,11.62 18.85,21.64 20.64,38.59" fill="none" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon>
+    <polygon points="50,35.5 63.79,45.52 58.52,61.73 41.48,61.73 36.21,45.52" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="50,35.5 48.22,18.55 63.79,11.62 75.19,24.29 66.67,39.04" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="63.79,45.52 79.36,38.59 90.76,51.26 82.24,66.01 65.57,62.47" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="58.52,61.73 69.92,74.4 61.39,89.16 44.72,85.61 42.95,68.66" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="41.48,61.73 32.96,76.49 16.29,72.95 14.51,56 30.08,49.07" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon><polygon points="36.21,45.52 19.54,41.98 17.76,25.03 33.32,18.1 44.73,30.76" fill="url(#gd)" stroke="#e0b24c" stroke-width="2.3" stroke-linejoin="round"></polygon>
+    <circle cx="50" cy="50" r="46" fill="url(#gl)"></circle>
+  </g>
+  <circle cx="50" cy="50" r="46" fill="none" stroke="#e0b24c" stroke-width="2.3"></circle></g></svg>

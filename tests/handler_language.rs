@@ -41,6 +41,7 @@ async fn build_harness() -> Harness {
         .create(NewUser {
             id: user_id,
             name: "Tester",
+            real_name: "Tester",
             token: &token,
             is_admin: false,
             phone_number: None,
@@ -92,6 +93,7 @@ fn fake_user(id: Uuid) -> AuthenticatedUser {
     AuthenticatedUser {
         id,
         name: "Tester".into(),
+        real_name: "Tester".into(),
         is_admin: false,
         can_create_league: false,
         phone_number: None,

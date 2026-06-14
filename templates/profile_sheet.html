@@ -1,0 +1,38 @@
+<div class="pl-sheet-backdrop"
+     hx-get="/profile/jersey-picker/close" hx-trigger="click" hx-target="#sheet" hx-swap="innerHTML">
+  <div class="pl-sheet" onclick="event.stopPropagation()">
+    <div class="pl-sheet__handle"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:12px">
+      <div style="min-width:0">
+        <div class="pl-display" style="font-size:18px;line-height:1">{{ t.get("profile-title") }}</div>
+        <div class="pl-mono" style="font-size:9px;color:var(--pl-mute);letter-spacing:.12em;margin-top:4px">{{ t.get("profile-subtitle") }}</div>
+      </div>
+      <button type="button"
+              hx-get="/profile/jersey-picker/close" hx-target="#sheet" hx-swap="innerHTML"
+              class="pl-mono"
+              style="background:none;border:0;color:var(--pl-mute);font-size:11px;letter-spacing:.08em;cursor:pointer;padding:4px 6px;flex-shrink:0">{{ t.get("profile-done") }}</button>
+    </div>
+
+    {% if !error.is_empty() %}
+    <div style="background:rgba(255,107,107,.12);border:1px solid rgba(255,107,107,.4);border-radius:8px;padding:10px 12px;margin-bottom:14px;color:#ff9b9b;font-size:12px;line-height:1.4">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form hx-post="/profile/name" hx-target="#sheet" hx-swap="innerHTML" style="display:flex;flex-direction:column;gap:16px">
+      <div>
+        <label class="pl-mono" style="display:block;font-size:10px;color:var(--pl-mute);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">{{ t.get("profile-tip-name-label") }}</label>
+        <input type="text" name="name" value="{{ name }}" required maxlength="255" autocomplete="off"
+               style="width:100%;background:var(--pl-bg-2);border:1.5px solid var(--pl-line);color:var(--pl-fg);font-size:14px;border-radius:8px;padding:10px 12px;outline:none">
+        <p class="pl-mono" style="font-size:9px;color:var(--pl-mute);letter-spacing:.04em;margin-top:6px;line-height:1.4">{{ t.get("profile-tip-name-help") }}</p>
+      </div>
+      <div>
+        <label class="pl-mono" style="display:block;font-size:10px;color:var(--pl-mute);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">{{ t.get("profile-real-name-label") }}</label>
+        <input type="text" name="real_name" value="{{ real_name }}" maxlength="255" autocomplete="off"
+               style="width:100%;background:var(--pl-bg-2);border:1.5px solid var(--pl-line);color:var(--pl-fg);font-size:14px;border-radius:8px;padding:10px 12px;outline:none">
+        <p class="pl-mono" style="font-size:9px;color:var(--pl-mute);letter-spacing:.04em;margin-top:6px;line-height:1.4">🔒 {{ t.get("profile-real-name-help") }}</p>
+      </div>
+      <button type="submit" class="pl-btn pl-btn--primary" style="padding:10px 16px">{{ t.get("profile-save") }}</button>
+    </form>
+  </div>
+</div>

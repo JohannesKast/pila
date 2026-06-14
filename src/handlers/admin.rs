@@ -155,6 +155,7 @@ pub async fn league_users_page(
             is_self: r.id == admin.id,
             id: r.id,
             name: r.name,
+            real_name: r.real_name,
             phone_number: r.phone_number,
             email: r.email,
             is_admin: r.is_admin,
@@ -191,6 +192,8 @@ pub async fn league_users_page(
 pub struct AdminCreateForm {
     pub name: String,
     #[serde(default)]
+    pub real_name: String,
+    #[serde(default)]
     pub phone_number: String,
     #[serde(default)]
     pub email: String,
@@ -222,6 +225,13 @@ pub async fn admin_create_user(
             "error-name-empty",
         ));
     }
+    // Private real name; blank falls back to the tip name (production default).
+    let real_name = form.real_name.trim();
+    let real_name = if real_name.is_empty() {
+        name
+    } else {
+        real_name
+    };
     let phone = form.phone_number.trim();
     let phone_opt: Option<&str> = if phone.is_empty() { None } else { Some(phone) };
     let email = form.email.trim();
@@ -260,6 +270,7 @@ pub async fn admin_create_user(
         .create(repo::user::NewUser {
             id,
             name,
+            real_name,
             token: &token,
             is_admin: false,
             phone_number: phone_opt,
@@ -307,6 +318,7 @@ pub async fn admin_create_user(
     let view = AdminUserView {
         id,
         name: name.to_string(),
+        real_name: real_name.to_string(),
         phone_number: phone_opt.map(|s| s.to_string()),
         email: email_opt.map(|s| s.to_string()),
         is_admin: false,
@@ -440,6 +452,7 @@ pub async fn admin_toggle_admin(
         is_self: id == admin.id,
         id,
         name: target.name,
+        real_name: target.real_name,
         phone_number: target.phone_number,
         email: target.email,
         is_admin: new_admin,
@@ -504,7 +517,12 @@ pub async fn admin_rename_user(
         .users
         .rename(id, name)
         .await
-        .map_err(|_| db_err())?;
+        .map_err(|e| match e {
+            repo::RepoError::Conflict => {
+                t_err(&state, lang, StatusCode::CONFLICT, "error-name-taken")
+            }
+            _ => db_err(),
+        })?;
 
     let target = state
         .repos
@@ -519,6 +537,7 @@ pub async fn admin_rename_user(
         is_self: id == admin.id,
         id,
         name: target.name,
+        real_name: target.real_name,
         phone_number: target.phone_number,
         email: target.email,
         is_admin: target.is_admin,

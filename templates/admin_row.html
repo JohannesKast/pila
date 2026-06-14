@@ -6,6 +6,9 @@
             <button type="submit" title="Speichern" class="text-emerald-400 hover:text-emerald-300 text-xs px-1">💾</button>
         </form>
     </td>
+    <td class="px-2 py-2 align-top" data-label="{{ t.get("col-real-name") }}">
+        <span class="text-xs text-slate-300">{{ u.real_name }}</span>
+    </td>
     <td class="px-2 py-2 align-top" data-label="{{ t.get("col-phone") }}">
         <span class="text-xs text-slate-300">{% match u.phone_number %}{% when Some with (p) %}{{ p }}{% when None %}<span class="text-slate-600">—</span>{% endmatch %}</span>
     </td>

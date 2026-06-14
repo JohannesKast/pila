@@ -43,6 +43,7 @@ async fn build_harness() -> Harness {
         .create(NewUser {
             id: user_id,
             name: "Tester",
+            real_name: "Tester",
             token: &token,
             is_admin: false,
             phone_number: None,

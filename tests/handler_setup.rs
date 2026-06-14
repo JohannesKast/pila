@@ -71,6 +71,7 @@ fn build_harness() -> Harness {
 fn valid_form() -> SetupForm {
     SetupForm {
         name: "Alice".into(),
+        real_name: String::new(),
         phone_number: String::new(),
         email: String::new(),
         league_name: "Test Liga".into(),
@@ -86,6 +87,7 @@ async fn seed_one_user(users: &MemoryUserRepo) {
         .create(NewUser {
             id: Uuid::new_v4(),
             name: "Existing",
+            real_name: "Existing",
             token: "tok",
             is_admin: true,
             phone_number: None,

@@ -47,10 +47,11 @@ impl BootstrapRepo for PgBootstrapRepo {
         }
 
         sqlx::query!(
-            "INSERT INTO users (id, name, token, is_admin, phone_number, email, league_id, language) \
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+            "INSERT INTO users (id, name, real_name, token, is_admin, phone_number, email, league_id, language) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
             params.user_id,
             params.user_name,
+            params.user_real_name,
             params.token,
             true,
             params.phone_number,

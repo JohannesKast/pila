@@ -56,9 +56,18 @@
             <fieldset class="space-y-4 border-l-2 border-fifa-blue/40 pl-3">
                 <legend class="text-xs font-bold text-fifa-blue uppercase tracking-widest">Admin-Account</legend>
                 <div>
-                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Name</label>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">Tippname</label>
                     <input type="text" name="name" required maxlength="255"
                            class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+                    <p class="text-[11px] text-slate-500 mt-1">Öffentlich — wird in Tabelle &amp; Kommentaren angezeigt.</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+                        Echter Vorname <span class="text-slate-500 normal-case">(optional)</span>
+                    </label>
+                    <input type="text" name="real_name" maxlength="255"
+                           class="w-full bg-slate-900 border border-slate-600 focus:border-fifa-gold rounded p-2.5 text-white outline-none">
+                    <p class="text-[11px] text-slate-500 mt-1">🔒 Privat — sieht niemand außer dem Admin. Leer = wie Tippname.</p>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">

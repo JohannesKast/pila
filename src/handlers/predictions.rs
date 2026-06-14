@@ -10,6 +10,7 @@ use axum::{
     response::{Html, Redirect},
 };
 use serde::Deserialize;
+use uuid::Uuid;
 
 use crate::auth::AuthenticatedUser;
 use crate::handlers::util::{flag_url, render_template, t_err, HandlerError};
@@ -22,6 +23,8 @@ use crate::AppState;
 #[template(path = "predict_form.html")]
 struct PredictFormTemplate {
     t: T,
+    user_id: Uuid,
+    league_id: Uuid,
     match_id: i32,
     score_home: i32,
     score_away: i32,
@@ -35,6 +38,8 @@ struct PredictFormTemplate {
 
 #[derive(Deserialize)]
 pub struct PredictionForm {
+    pub user_id: Option<Uuid>,
+    pub league_id: Option<Uuid>,
     pub score_home: Option<i32>,
     pub score_away: Option<i32>,
     #[serde(default)]
@@ -49,6 +54,8 @@ pub async fn predict_match(
 ) -> Result<Html<String>, HandlerError> {
     let lang = &user.language;
     let t = crate::handlers::util::t_for(&state, lang);
+
+    ensure_form_session(&state, &user, form.user_id, form.league_id)?;
 
     let m = state
         .repos
@@ -129,6 +136,8 @@ pub async fn predict_match(
 
     let template = PredictFormTemplate {
         t,
+        user_id: user.id,
+        league_id: user.league_id,
         match_id,
         score_home,
         score_away,
@@ -140,6 +149,39 @@ pub async fn predict_match(
         away_flag: flag_url(&m.away_flag_code),
     };
     render_template(&template)
+}
+
+fn ensure_form_session(
+    state: &AppState,
+    user: &AuthenticatedUser,
+    form_user_id: Option<Uuid>,
+    form_league_id: Option<Uuid>,
+) -> Result<(), HandlerError> {
+    match (form_user_id, form_league_id) {
+        (Some(form_user_id), Some(form_league_id))
+            if form_user_id == user.id && form_league_id == user.league_id =>
+        {
+            return Ok(());
+        }
+        // Backward compatibility for pages that were already open during a
+        // deploy. New renders include both fields and get the stronger guard.
+        (None, None) => return Ok(()),
+        _ => {}
+    }
+
+    tracing::warn!(
+        authenticated_user_id = %user.id,
+        authenticated_league_id = %user.league_id,
+        form_user_id = ?form_user_id,
+        form_league_id = ?form_league_id,
+        "rejecting stale prediction form for a different session"
+    );
+    Err(t_err(
+        state,
+        &user.language,
+        StatusCode::CONFLICT,
+        "error-session-changed",
+    ))
 }
 
 fn normalize_prediction(
@@ -190,6 +232,8 @@ where
 
 #[derive(Deserialize)]
 pub struct SpecialPredictionForm {
+    pub user_id: Option<Uuid>,
+    pub league_id: Option<Uuid>,
     #[serde(default, deserialize_with = "deserialize_optional_int")]
     pub champion_id: Option<i32>,
 }
@@ -201,6 +245,8 @@ pub async fn predict_special(
 ) -> Result<Redirect, HandlerError> {
     let lang = &user.language;
     let now = crate::time::now(&state.mock_now);
+
+    ensure_form_session(&state, &user, form.user_id, form.league_id)?;
 
     let db_err = || {
         t_err(

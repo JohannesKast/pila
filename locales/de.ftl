@@ -447,6 +447,8 @@ error-not-authenticated = Nicht authentifiziert. Bitte nutze deinen Magic Link (
 error-invalid-or-expired-link = Ungültiger oder abgelaufener Link.
 # Returned when a regular admin tries to act on a different league.
 error-cross-league-forbidden = Cross-League-Aktionen erfordern can_create_league.
+# Returned when an old tab posts after another league/user login changed the browser session.
+error-session-changed = Deine aktive Anmeldung hat gewechselt. Bitte öffne diese Liga erneut über deinen Magic Link.
 # Generic "league does not exist" response for admin routes.
 error-league-not-found = Liga nicht gefunden.
 # Generic "user does not exist" response for admin routes.
@@ -631,3 +633,35 @@ join-done-continue = Weiter
 
 # Invite token in the join URL is unknown or was revoked.
 error-invalid-invite = Dieser Einladungslink ist ungültig oder wurde zurückgenommen.
+
+# ─── Profile editor & private real name ──────────────────────────────────────
+# Topbar button (👤) that opens the self-service profile editor.
+nav-profile = Profil
+# Title of the profile editor sheet.
+profile-title = Dein Profil
+# Sub-title under the profile editor title.
+profile-subtitle = NAMEN JEDERZEIT ÄNDERN
+# Button that closes the profile editor sheet.
+profile-done = FERTIG ✓
+# Label for the public tip-name input in the profile editor.
+profile-tip-name-label = Tippname
+# Help text under the tip-name input: where it is shown.
+profile-tip-name-help = Öffentlich — wird in Tabelle & Kommentaren angezeigt. Jederzeit änderbar.
+# Label for the private real-name input in the profile editor.
+profile-real-name-label = Echter Vorname
+# Help text under the real-name input: who can see it.
+profile-real-name-help = Privat — sieht niemand außer dem Admin.
+# Save button in the profile editor.
+profile-save = Speichern
+# Admin user-list column header for the private real name.
+col-real-name = Echter Name
+# Placeholder for the real-name field in the admin create-user form.
+admin-real-name-placeholder = Echter Vorname optional
+# Help text under the tip-name input on the public join form.
+join-name-help = Öffentlich — wird in Tabelle & Kommentaren angezeigt.
+# Label for the private real-name input on the public join form.
+join-real-name-label = Echter Vorname
+# Placeholder for the real-name input on the public join form.
+join-real-name-placeholder = z.B. Maximilian
+# Help text under the real-name input on the join form: who can see it.
+join-real-name-help = Privat — sieht niemand außer dem Admin. Leer = wie Tippname.
