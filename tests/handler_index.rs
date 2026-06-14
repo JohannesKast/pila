@@ -70,6 +70,7 @@ fn fake_user() -> pila::auth::AuthenticatedUser {
     pila::auth::AuthenticatedUser {
         id: Uuid::new_v4(),
         name: "Tester".into(),
+        real_name: "Tester".into(),
         is_admin: false,
         can_create_league: false,
         phone_number: None,
@@ -90,6 +91,7 @@ async fn index_renders_with_valid_csp_and_without_document_body_in_head() {
         UserFull {
             id: user.id,
             name: user.name.clone(),
+            real_name: user.name.clone(),
             token: "test-token".into(),
             phone_number: None,
             email: None,

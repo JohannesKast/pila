@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT id, name, is_admin, can_create_league, phone_number, email, jersey_preset, language, theme, league_id FROM users WHERE token = $1",
+  "query": "SELECT id, name, real_name, token, phone_number, email, is_admin, can_create_league FROM users WHERE league_id = $1 ORDER BY name",
   "describe": {
     "columns": [
       {
@@ -15,13 +15,13 @@
       },
       {
         "ordinal": 2,
-        "name": "is_admin",
-        "type_info": "Bool"
+        "name": "real_name",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 3,
-        "name": "can_create_league",
-        "type_info": "Bool"
+        "name": "token",
+        "type_info": "Varchar"
       },
       {
         "ordinal": 4,
@@ -35,28 +35,18 @@
       },
       {
         "ordinal": 6,
-        "name": "jersey_preset",
-        "type_info": "Text"
+        "name": "is_admin",
+        "type_info": "Bool"
       },
       {
         "ordinal": 7,
-        "name": "language",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 8,
-        "name": "theme",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 9,
-        "name": "league_id",
-        "type_info": "Uuid"
+        "name": "can_create_league",
+        "type_info": "Bool"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid"
       ]
     },
     "nullable": [
@@ -67,10 +57,8 @@
       true,
       true,
       false,
-      false,
-      false,
       false
     ]
   },
-  "hash": "5f0ecfc73a24683a6a8725068afbada3a845b92a35924f7e306240c9eb49514a"
+  "hash": "b0066e17734d47527de4e6d5ab268b02d54fad66f5c03d21fcba1e284db7ba4f"
 }

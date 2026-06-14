@@ -358,6 +358,8 @@ error-not-authenticated = Not authenticated. Please use your magic link (e.g. /p
 error-invalid-or-expired-link = Invalid or expired link.
 # Returned when a regular admin tries to act on a different league.
 error-cross-league-forbidden = Cross-league actions require can_create_league.
+# Returned when an old tab posts after another league/user login changed the browser session.
+error-session-changed = Your active login changed. Please reopen this league using your magic link.
 # Generic "league does not exist" response for admin routes.
 error-league-not-found = League not found.
 # Generic "user does not exist" response for admin routes.
@@ -542,3 +544,35 @@ join-done-continue = Continue
 
 # Invite token in the join URL is unknown or was revoked.
 error-invalid-invite = This invite link is invalid or has been revoked.
+
+# ─── Profile editor & private real name ──────────────────────────────────────
+# Topbar button (👤) that opens the self-service profile editor.
+nav-profile = Profile
+# Title of the profile editor sheet.
+profile-title = Your profile
+# Sub-title under the profile editor title.
+profile-subtitle = CHANGE YOUR NAMES ANYTIME
+# Button that closes the profile editor sheet.
+profile-done = DONE ✓
+# Label for the public tip-name input in the profile editor.
+profile-tip-name-label = Tip name
+# Help text under the tip-name input: where it is shown.
+profile-tip-name-help = Public — shown on the leaderboard & in comments. Changeable anytime.
+# Label for the private real-name input in the profile editor.
+profile-real-name-label = Real first name
+# Help text under the real-name input: who can see it.
+profile-real-name-help = Private — only admins can see it, never other players.
+# Save button in the profile editor.
+profile-save = Save
+# Admin user-list column header for the private real name.
+col-real-name = Real name
+# Placeholder for the real-name field in the admin create-user form.
+admin-real-name-placeholder = Real first name optional
+# Help text under the tip-name input on the public join form.
+join-name-help = Public — shown on the leaderboard & in comments.
+# Label for the private real-name input on the public join form.
+join-real-name-label = Real first name
+# Placeholder for the real-name input on the public join form.
+join-real-name-placeholder = e.g. Maximilian
+# Help text under the real-name input on the join form: who can see it.
+join-real-name-help = Private — only admins can see it. Blank = same as tip name.

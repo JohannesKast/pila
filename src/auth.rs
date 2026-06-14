@@ -14,6 +14,9 @@ use crate::AppState;
 pub struct AuthenticatedUser {
     pub id: Uuid,
     pub name: String,
+    /// Private real first name — only ever rendered back to the user in their
+    /// own profile editor, never exposed to other players.
+    pub real_name: String,
     pub is_admin: bool,
     /// Permission to create new leagues. A regular admin manages their own
     /// league; a super-admin (`can_create_league = true`) can spawn fresh
@@ -37,6 +40,7 @@ async fn lookup_user(
     Ok(row.map(|u| AuthenticatedUser {
         id: u.id,
         name: u.name,
+        real_name: u.real_name,
         is_admin: u.is_admin,
         can_create_league: u.can_create_league,
         phone_number: u.phone_number,

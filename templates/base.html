@@ -72,12 +72,12 @@
                 const a = form.querySelector('[name="score_away"]');
                 return (h ? h.value.trim() : '') + ':' + (a ? a.value.trim() : '');
             }
-            function setStatus(form, kind) {
+            function setStatus(form, kind, message) {
                 const el = form.querySelector('[data-tip-status]');
                 if (!el) return;
                 const glyph = { saving: '…', saved: '✓', error: '!' }[kind] || '';
                 const key = kind ? 'label' + kind[0].toUpperCase() + kind.slice(1) : '';
-                const label = (key && el.dataset[key]) || '';
+                const label = message || (key && el.dataset[key]) || '';
                 el.textContent = glyph;
                 if (kind) { el.dataset.state = kind; } else { delete el.dataset.state; }
                 if (label) { el.title = label; el.setAttribute('aria-label', label); }
@@ -161,7 +161,10 @@
                     clearTimeout(s.fade);
                     s.fade = setTimeout(() => setStatus(form, ''), 1800);
                 } else {
-                    setStatus(form, 'error');
+                    const message = e.detail.xhr && e.detail.xhr.responseText
+                        ? e.detail.xhr.responseText
+                        : '';
+                    setStatus(form, 'error', message);
                 }
             });
 

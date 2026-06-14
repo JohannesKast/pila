@@ -32,6 +32,7 @@ use crate::AppState;
 #[derive(Template)]
 #[template(path = "index.html")]
 struct IndexTemplate {
+    user_id: Uuid,
     user_name: String,
     user_total_points: i32,
     user_rank: usize,
@@ -377,6 +378,7 @@ pub async fn index(
         .unwrap_or_else(|| "WM 2026".to_string());
 
     let template = IndexTemplate {
+        user_id: user.id,
         user_name: user.name,
         user_total_points,
         user_rank,
