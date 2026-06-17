@@ -16,7 +16,7 @@ services:
       retries: 10
 
   app:
-    build: .
+    image: ${PILA_IMAGE:-ghcr.io/johanneskast/pila:latest}
     container_name: pila_app
     ports:
       - "8000:8000"

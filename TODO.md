@@ -312,14 +312,14 @@ Current CI runs clippy + test. Add:
 
 ### 3.8 — Release artefacts [Public-blocker]
 
-- [ ] GitHub Actions workflow `release.yml`:
-  - Trigger on tag push `v*.*.*`
+- [x] GitHub Actions workflow `release.yml`:
+  - Trigger on GitHub release publish (`published`)
   - Build multi-arch Docker image (`linux/amd64`, `linux/arm64`)
   - Push to `ghcr.io/johanneskast/pila:vX.Y.Z` + `:latest`
   - Generate SBOM with `anchore/sbom-action` (CycloneDX or SPDX)
   - Sign image with cosign (keyless via OIDC)
-- [ ] Update README install snippet to pull the image instead of building from source (or offer both)
-- [ ] Document the release process in `doc/release.md`: bump Cargo.toml version, update CHANGELOG, tag, push tag → workflow does the rest
+- [x] Update README install snippet to pull the image instead of building from source (or offer both)
+- [x] Document the release process in `doc/release.md`: bump Cargo.toml version, update CHANGELOG, publish GitHub release → workflow does the rest
 
 ### 3.9 — Final pre-public checklist [Public-blocker]
 
