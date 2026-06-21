@@ -8,7 +8,9 @@ use chrono::{DateTime, Utc};
 use std::sync::Mutex;
 use uuid::Uuid;
 
-use super::{EspnMatchUpsert, FinishedGroupMatch, IndexMatchRow, MatchLockInfo, MatchRepo};
+use super::{
+    EspnMatchUpsert, FinishedGroupMatch, IndexMatchRow, MatchLockInfo, MatchRepo, MatchSummary,
+};
 use crate::repo::RepoResult;
 use crate::stage::Stage;
 
@@ -198,6 +200,25 @@ impl MatchRepo for MemoryMatchRepo {
                 home_flag: m.home_flag.clone(),
                 away_name: m.away_name.clone(),
                 away_flag: m.away_flag.clone(),
+            })
+            .collect())
+    }
+
+    async fn list_all_summaries(&self) -> RepoResult<Vec<MatchSummary>> {
+        Ok(self
+            .matches
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|m| MatchSummary {
+                id: m.id,
+                stage: m.stage,
+                kickoff_time: m.kickoff_time,
+                status: m.status.clone(),
+                score_home: m.score_home,
+                score_away: m.score_away,
+                home_name: (!m.home_name.is_empty()).then(|| m.home_name.clone()),
+                away_name: (!m.away_name.is_empty()).then(|| m.away_name.clone()),
             })
             .collect())
     }

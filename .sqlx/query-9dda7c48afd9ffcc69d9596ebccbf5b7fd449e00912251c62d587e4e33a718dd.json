@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT league_id, matchday_date, language, content, model, generated_at FROM ai_matchday_reports WHERE league_id = $1 AND matchday_date = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "league_id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "matchday_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 2,
+        "name": "language",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "content",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "model",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "generated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "9dda7c48afd9ffcc69d9596ebccbf5b7fd449e00912251c62d587e4e33a718dd"
+}

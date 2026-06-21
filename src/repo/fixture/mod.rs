@@ -66,6 +66,22 @@ pub struct FinishedGroupMatch {
     pub away_flag: Option<String>,
 }
 
+/// Lightweight per-match snapshot used by the AI matchday-recap generator to
+/// (a) group matches into matchdays in the tournament timezone and (b) list a
+/// finished matchday's fixtures. Team names are optional because knockout slots
+/// can still be TBD.
+#[derive(Debug, Clone)]
+pub struct MatchSummary {
+    pub id: i32,
+    pub stage: Stage,
+    pub kickoff_time: Option<DateTime<Utc>>,
+    pub status: String,
+    pub score_home: Option<i32>,
+    pub score_away: Option<i32>,
+    pub home_name: Option<String>,
+    pub away_name: Option<String>,
+}
+
 /// Payload for upserting one match coming back from the ESPN scoreboard.
 /// All fields except `espn_event_id` and `stage` may flip back to `None`
 /// across worker ticks (e.g. when ESPN walks back a TBD bracket slot), so
@@ -103,6 +119,9 @@ pub trait MatchRepo: Send + Sync {
     /// All finished group-stage matches with team display data — input to
     /// the group standings calculator.
     async fn finished_group_rows(&self) -> RepoResult<Vec<FinishedGroupMatch>>;
+    /// Every match as a lightweight summary (stage, kickoff, status, score,
+    /// team names) — input to the AI matchday-recap generator.
+    async fn list_all_summaries(&self) -> RepoResult<Vec<MatchSummary>>;
     /// Count of matches with both teams known whose kickoff has already
     /// passed — used as the denominator of the "Tippmoral" badge.
     async fn started_with_both_teams_count(&self, now: DateTime<Utc>) -> RepoResult<i64>;

@@ -17,6 +17,7 @@ pub mod invite;
 pub mod league;
 pub mod notification;
 pub mod prediction;
+pub mod report;
 pub mod settings;
 pub mod special_prediction;
 pub mod team;
@@ -30,6 +31,9 @@ pub use league::{
 };
 pub use notification::{MemoryNotificationRepo, NotificationRepo, PgNotificationRepo};
 pub use prediction::{MemoryPredictionRepo, PgPredictionRepo, PredictionRepo};
+pub use report::{
+    MatchdayReport, MatchdayReportRepo, MemoryMatchdayReportRepo, PgMatchdayReportRepo,
+};
 pub use settings::{MemorySettingsRepo, PgSettingsRepo, SettingsRepo};
 pub use special_prediction::{
     MemorySpecialPredictionRepo, PgSpecialPredictionRepo, SpecialPredictionRepo,
@@ -55,6 +59,7 @@ pub struct Repos {
     pub teams: Arc<dyn TeamRepo>,
     pub settings: Arc<dyn SettingsRepo>,
     pub notifications: Arc<dyn NotificationRepo>,
+    pub reports: Arc<dyn MatchdayReportRepo>,
 }
 
 impl Repos {
@@ -70,7 +75,8 @@ impl Repos {
             special_predictions: Arc::new(PgSpecialPredictionRepo::new(pool.clone())),
             teams: Arc::new(PgTeamRepo::new(pool.clone())),
             settings: Arc::new(PgSettingsRepo::new(pool.clone())),
-            notifications: Arc::new(PgNotificationRepo::new(pool)),
+            notifications: Arc::new(PgNotificationRepo::new(pool.clone())),
+            reports: Arc::new(PgMatchdayReportRepo::new(pool)),
         }
     }
 }

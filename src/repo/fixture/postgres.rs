@@ -8,7 +8,9 @@ use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use super::{EspnMatchUpsert, FinishedGroupMatch, IndexMatchRow, MatchLockInfo, MatchRepo};
+use super::{
+    EspnMatchUpsert, FinishedGroupMatch, IndexMatchRow, MatchLockInfo, MatchRepo, MatchSummary,
+};
 use crate::repo::{RepoError, RepoResult};
 use crate::stage::Stage;
 
@@ -205,6 +207,43 @@ impl MatchRepo for PgMatchRepo {
                 home_flag: r.home_flag,
                 away_name: r.away_name,
                 away_flag: r.away_flag,
+            })
+            .collect())
+    }
+
+    async fn list_all_summaries(&self) -> RepoResult<Vec<MatchSummary>> {
+        let rows = sqlx::query!(
+            r#"
+            SELECT
+                m.id,
+                m.stage as "stage: Stage",
+                m.kickoff_time,
+                m.status,
+                m.score_home as "score_home?",
+                m.score_away as "score_away?",
+                th.name as "home_name?",
+                ta.name as "away_name?"
+            FROM matches m
+            LEFT JOIN teams th ON th.id = m.team_home_id
+            LEFT JOIN teams ta ON ta.id = m.team_away_id
+            ORDER BY m.kickoff_time
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RepoError::from)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| MatchSummary {
+                id: r.id,
+                stage: r.stage,
+                kickoff_time: r.kickoff_time,
+                status: r.status,
+                score_home: r.score_home,
+                score_away: r.score_away,
+                home_name: r.home_name,
+                away_name: r.away_name,
             })
             .collect())
     }

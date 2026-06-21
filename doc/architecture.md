@@ -138,6 +138,9 @@ The codebase is grouped by boundary, not by framework layer alone.
 - [`src/translations.rs`](../src/translations.rs): locale loading and string lookup
 - [`src/mail.rs`](../src/mail.rs): SMTP rendering and delivery
 - [`src/news.rs`](../src/news.rs): optional RSS cache and parsing
+- [`src/ai/`](../src/ai): AI matchday recaps — provider-agnostic model client
+  (`client.rs`), pure prompt-input assembly (`data.rs`), and the English prompt
+  (`prompt.rs`)
 
 ### Persistence and external providers
 
@@ -189,6 +192,7 @@ Migrations run automatically on startup.
 - `sent_notifications`: idempotency ledger for Signal and email sends
 - `settings`: global key/value settings for app-wide flags
 - `invite_links`: league-scoped shareable invite tokens for self-registration
+- `ai_matchday_reports`: one AI-generated matchday recap per `(league_id, matchday_date)`
 
 ### Important modeling choices
 
@@ -392,6 +396,41 @@ Because badges are visible next to "real" points, incorrect values are a trust
 problem. New badges should ship with focused tests that cover happy path, empty
 data, and the relevant edge condition.
 
+## AI Matchday Recaps
+
+The optional AI recap feature lives in [`src/ai/`](../src/ai) and is enabled
+only when `AI_PROVIDER`, `AI_MODEL` and `AI_API_KEY` are all set
+(`AiConfig::from_env`). The client intentionally avoids a provider SDK: it
+builds the small request shapes needed for Gemini and OpenAI-compatible chat
+completion endpoints directly with `reqwest`. `AI_BASE_URL` can override the
+endpoint for OpenAI-compatible providers not built in.
+
+Generation runs at the end of each worker tick, once per league:
+
+- a "matchday" is one calendar day in `AI_MATCHDAY_TZ` (default
+  `America/New_York`, since the 2026 World Cup is played across North America)
+- `data::latest_finished_matchday` returns only the **most recent** matchday
+  whose relevant matches have all finished; knockout-only leagues consider only
+  knockout matches. Returning just the latest day is what avoids backfilling
+  matchdays that finished before the feature existed — there is no migration for
+  history
+- if a recap already exists for `(league, day)` the league is skipped, so each
+  matchday is generated exactly once
+- `data::build_report_input` assembles the structured prompt input purely (it is
+  unit-tested without a DB or model): match results, plus per-player standings,
+  rank movement caused by the matchday, tendency/discipline/streak metrics,
+  earned badges, champion pick, and that day's tips. Only tips on matches that
+  have kicked off (and are therefore already public) are included, and players
+  are referenced by **display name only** — never the private real name
+- the prompt (`prompt.rs`) is entirely English and requests output in the
+  league's `default_language`; on failure the model call retries up to five
+  times and stores nothing, so the next tick retries
+
+The stored Markdown is rendered to sanitised HTML (`ai::markdown_to_safe_html`,
+raw HTML stripped) and shown at the top of the "Current" tab. The
+`GET /reports` route returns the recap-card partial for arrow navigation between
+matchdays.
+
 ## SQLx Offline Workflow
 
 Pila uses `sqlx::query!` and `query_as!` macros. Their compile-time metadata is
@@ -418,6 +457,10 @@ The most important env vars are:
 - `PILA_DEV_MODE`: enables dev-only routes and one-shot sync behaviour
 - `WC_WINDOW_START`, `WC_WINDOW_END`: scoreboard polling window override
 - SMTP vars: enable email delivery when all required values are present
+- `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`: enable AI matchday recaps when all
+  three are set; `AI_BASE_URL` optionally points at a custom OpenAI-compatible
+  endpoint; `AI_MATCHDAY_TZ` overrides the matchday grouping timezone (default
+  `America/New_York`)
 
 Signal configuration is intentionally split:
 

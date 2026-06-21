@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MAX(matchday_date) FROM ai_matchday_reports WHERE league_id = $1 AND matchday_date < $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "10eed1ac392c829f1a15ba3cf873cb489fd475b412eb1e8f19133b5a62d01bda"
+}

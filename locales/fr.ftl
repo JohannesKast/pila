@@ -63,6 +63,13 @@ col-points-table = Pts
 
 ## Onglet "En cours"
 
+# Heading of the AI-generated matchday recap card at the top of the "Current" tab
+matchday-report-heading = Résumé de la journée
+# Tooltip/aria-label for the arrow that opens the previous (older) matchday recap
+matchday-report-prev = Journée précédente
+# Tooltip/aria-label for the arrow that opens the next (newer) matchday recap
+matchday-report-next = Journée suivante
+
 no-match-started = Aucun match n'a encore commencé.
 in-progress = En cours
 finished = Terminé

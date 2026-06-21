@@ -390,6 +390,7 @@
 
     {# ===== TAB: AKTUELL ===== #}
     <section data-panel="started" class="tab-panel mt-3 hidden">
+        {% include "partials/matchday_report.html" %}
         {% if started_in_progress.is_empty() && started_finished.is_empty() %}
         <p class="text-pl-mute text-sm text-center py-12">{{ t.get("no-match-started") }}</p>
         {% else %}

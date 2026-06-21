@@ -238,6 +238,20 @@ pub struct LeaderboardEntry {
     pub achievements: Vec<EntryBadge>,
 }
 
+/// One AI matchday recap rendered for the dashboard, including the arrow-nav
+/// targets. `content_html` is pre-rendered, sanitised HTML; the template emits
+/// it with `|safe`.
+pub struct MatchdayReportView {
+    pub date_display: String,
+    pub content_html: String,
+    /// ISO date (`YYYY-MM-DD`) of the older neighbouring recap, if any.
+    pub prev_date: Option<String>,
+    /// ISO date of the newer neighbouring recap, if any.
+    pub next_date: Option<String>,
+    /// `/l/{league_id}` prefix the arrow buttons post their `hx-get` to.
+    pub scope_path: String,
+}
+
 /// Picker option for the jersey-customisation dialog.
 pub struct JerseyOption {
     pub key: String,

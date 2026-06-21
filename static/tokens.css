@@ -350,3 +350,35 @@ body.pl-app {
   margin: 0 auto 12px;
 }
 @keyframes pl-sheet-up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+
+/* Rendered Markdown for the AI matchday recap. Tailwind's preflight strips
+   heading/list/paragraph styling, so re-establish it scoped to the recap card. */
+.pl-report-prose > :first-child { margin-top: 0; }
+.pl-report-prose > :last-child { margin-bottom: 0; }
+.pl-report-prose h1,
+.pl-report-prose h2,
+.pl-report-prose h3 {
+  color: var(--pl-fg);
+  font-weight: 800;
+  line-height: 1.25;
+  margin: 1.1em 0 0.5em;
+}
+.pl-report-prose h1 { font-size: 1.35em; }
+.pl-report-prose h2 { font-size: 1.2em; }
+.pl-report-prose h3 { font-size: 1.05em; }
+.pl-report-prose p { margin: 0 0 0.85em; }
+.pl-report-prose strong { color: var(--pl-fg); font-weight: 700; }
+.pl-report-prose em { font-style: italic; }
+.pl-report-prose a { color: var(--pl-green); text-decoration: underline; }
+.pl-report-prose ul,
+.pl-report-prose ol { margin: 0 0 0.85em; padding-left: 1.4em; }
+.pl-report-prose ul { list-style: disc; }
+.pl-report-prose ol { list-style: decimal; }
+.pl-report-prose li { margin: 0.2em 0; }
+.pl-report-prose blockquote {
+  margin: 0 0 0.85em;
+  padding-left: 0.9em;
+  border-left: 3px solid var(--pl-line);
+  color: var(--pl-mute);
+  font-style: italic;
+}

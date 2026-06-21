@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Johannes Kast
 
+pub mod ai;
 pub mod auth;
 pub mod badges;
 pub mod handlers;

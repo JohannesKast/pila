@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO ai_matchday_reports (league_id, matchday_date, language, content, model, generated_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (league_id, matchday_date) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Varchar",
+        "Text",
+        "Varchar",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "1829cb189cdfa53dc02640d364e492f584951d9b9509ead2902d141a4c5e7b3c"
+}
