@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Template comments (Jinja/Askama `{# … #}`)
 - Test names and assertion messages
 - Documentation files (`.md`, `doc/`)
-- Commit messages, PR descriptions
+- Commit messages, PR titles and descriptions (always English, even though prompts are German)
 
 **UI strings are internationalised** — user-facing strings are NOT hardcoded in any language. They live in `locales/{de,en,es,fr}.ftl` (Mozilla Fluent format). Every new UI string must be added to **all four** locale files with a `# translator comment` explaining context. Signal notifications remain German (group is German-speaking).
 
