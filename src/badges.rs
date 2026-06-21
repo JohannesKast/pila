@@ -154,6 +154,73 @@ impl BadgeView {
     }
 }
 
+/// Compact achievement summary for one user, used to annotate leaderboard
+/// rows. Holds the localised strings directly so the template stays trivial.
+#[derive(Debug, Clone)]
+pub struct EntryBadge {
+    pub icon: &'static str,
+    pub title: String,
+    pub how_to_earn: String,
+    pub count: i32,
+}
+
+/// A single match-level award earned by one prediction, used to annotate the
+/// per-game tip rows. Derived from the exact/underdog/solo logic so the
+/// per-match markers always agree with the aggregate achievement counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MatchAward {
+    /// Exact score, but neither solo nor rare enough to be an underdog.
+    Exact,
+    /// Exact score on a match fewer than 30% of tippers hit exactly.
+    Underdog,
+    /// The only tipper to hit the exact score.
+    Solo,
+}
+
+impl MatchAward {
+    pub fn icon(self) -> &'static str {
+        match self {
+            MatchAward::Exact => "🎯",
+            MatchAward::Underdog => "🐺",
+            MatchAward::Solo => "💎",
+        }
+    }
+    /// FTL key for the award title — reuses the matching achievement badge.
+    pub fn title_key(self) -> &'static str {
+        match self {
+            MatchAward::Exact => "badge-exact-count-title",
+            MatchAward::Underdog => "badge-underdog-title",
+            MatchAward::Solo => "badge-solo-hit-title",
+        }
+    }
+    pub fn accent_css(self) -> &'static str {
+        match self {
+            MatchAward::Exact => BadgeAccent::Yellow.css_var(),
+            MatchAward::Underdog => BadgeAccent::Blue.css_var(),
+            MatchAward::Solo => BadgeAccent::Green.css_var(),
+        }
+    }
+}
+
+/// Pick the single most prestigious award an exact prediction earns, given how
+/// many of the match's `total` tippers were exact. Returns `None` for a
+/// non-exact tip or a match with no tippers. Solo (only exact) outranks
+/// Underdog (<30% exact) outranks a plain Exact hit.
+pub fn match_award(is_exact: bool, exact_count: i32, total: i32) -> Option<MatchAward> {
+    if !is_exact || total <= 0 {
+        return None;
+    }
+    if exact_count == 1 {
+        return Some(MatchAward::Solo);
+    }
+    let ratio = exact_count as f32 / total as f32;
+    if ratio < UNDERDOG_THRESHOLD {
+        Some(MatchAward::Underdog)
+    } else {
+        Some(MatchAward::Exact)
+    }
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -287,6 +354,25 @@ pub fn compute_all(ctx: &BadgeContext<'_>, t: &T) -> Vec<BadgeView> {
             how_to_earn: t.get(&b.how_to_earn_key()),
             display: b.compute(ctx),
             accent: b.accent(),
+        })
+        .collect()
+}
+
+/// Achievement badges the given user has actually earned (`times_earned > 0`),
+/// in registry order. Drives the compact icon strip on leaderboard rows. The
+/// shared context is reused across users — only `user_id` varies per call — so
+/// this is cheap to run for every entry.
+pub fn achievement_badges_for(ctx: &BadgeContext<'_>, t: &T) -> Vec<EntryBadge> {
+    registry()
+        .iter()
+        .filter_map(|b| match b.compute(ctx) {
+            BadgeDisplay::Achievement { times_earned } if times_earned > 0 => Some(EntryBadge {
+                icon: b.icon(),
+                title: t.get(&b.title_key()),
+                how_to_earn: t.get(&b.how_to_earn_key()),
+                count: times_earned,
+            }),
+            _ => None,
         })
         .collect()
 }
@@ -1249,6 +1335,74 @@ mod tests {
                 _ => 0,
             };
             assert!(cur <= lng, "current {cur} > longest {lng}");
+        }
+    }
+
+    // ─── MatchAward ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn match_award_none_for_non_exact() {
+        assert_eq!(match_award(false, 0, 5), None);
+    }
+
+    #[test]
+    fn match_award_none_without_tippers() {
+        assert_eq!(match_award(true, 1, 0), None);
+    }
+
+    #[test]
+    fn match_award_solo_when_only_exact() {
+        // Lone exact tip is always the headline award, regardless of field size.
+        assert_eq!(match_award(true, 1, 1), Some(MatchAward::Solo));
+        assert_eq!(match_award(true, 1, 8), Some(MatchAward::Solo));
+    }
+
+    #[test]
+    fn match_award_underdog_below_threshold() {
+        // 2 of 10 exact = 20% < 30% → underdog.
+        assert_eq!(match_award(true, 2, 10), Some(MatchAward::Underdog));
+    }
+
+    #[test]
+    fn match_award_plain_exact_above_threshold() {
+        // 5 of 10 exact = 50% → plain exact hit.
+        assert_eq!(match_award(true, 5, 10), Some(MatchAward::Exact));
+    }
+
+    #[test]
+    fn match_award_agrees_with_underdog_threshold() {
+        // Exactly at the 30% boundary is not an underdog (strict <).
+        assert_eq!(match_award(true, 3, 10), Some(MatchAward::Exact));
+        // Just below is.
+        assert_eq!(match_award(true, 2, 7), Some(MatchAward::Underdog));
+    }
+
+    // ─── achievement_badges_for ─────────────────────────────────────────────────
+
+    #[test]
+    fn achievement_badges_for_lists_only_earned() {
+        let me = uid(1);
+        let other = uid(2);
+        // me: one solo exact (1 of 2 exact) → exact_count + solo_hit + underdog?
+        // 1 of 2 = 50% not underdog. So exact_count=1, solo_hit=1.
+        let rows = vec![
+            pred(me, 1, ko(10, 18), (1, 0), (1, 0), Stage::Group), // exact
+            pred(other, 1, ko(10, 18), (1, 0), (2, 0), Stage::Group),
+        ];
+        let owned = base_owned(me, rows, vec![me, other]);
+        let t = crate::translations::load_all().remove("de").unwrap();
+        let earned = achievement_badges_for(&owned.as_ctx(), &t);
+        let keys: Vec<(&str, i32)> = earned.iter().map(|e| (e.icon, e.count)).collect();
+        // Earned: matchday_wins (🥇, day winner), exact_count (🎯), solo_hit (💎).
+        assert!(keys.contains(&("🎯", 1)));
+        assert!(keys.contains(&("💎", 1)));
+        // Underdog not earned (50% ≥ 30%).
+        assert!(!keys.iter().any(|(icon, _)| *icon == "🐺"));
+        // Every listed badge has a positive count and localised text.
+        for e in &earned {
+            assert!(e.count > 0);
+            assert!(!e.title.is_empty());
+            assert!(!e.how_to_earn.is_empty());
         }
     }
 

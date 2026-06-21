@@ -1,5 +1,5 @@
 {% import "partials/jersey.html" as j %}
-<span class="pl-num" style="font-size:14px; color:{% if rank <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center;">
+<span class="pl-num" style="font-size:14px; color:{% if rank <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
     {% if rank == 1 %}🥇
     {% else if rank == 2 %}🥈
     {% else if rank == 3 %}🥉
@@ -7,5 +7,13 @@
     {% endif %}
 </span>
 {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}
-<span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
-<span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} PKT</span>
+<div style="flex:1; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+    <span style="color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;">{{ entry.name }}</span>
+    {% for a in entry.achievements %}
+    <span title="{{ a.title }} ×{{ a.count }} — {{ a.how_to_earn }}"
+          style="display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--pl-fg-2); background:var(--pl-bg-2); border:1px solid var(--pl-line); border-radius:999px; padding:1px 8px 1px 6px; cursor:help; flex-shrink:0;">
+        <span style="font-size:12px; line-height:1;">{{ a.icon }}</span><span class="pl-mono">{{ a.count }}</span>
+    </span>
+    {% endfor %}
+</div>
+<span class="pl-num" style="color:var(--pl-fg-2); flex-shrink:0;">{{ entry.total_points }} PKT</span>

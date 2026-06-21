@@ -8,6 +8,7 @@
 //! easier to evolve the data passed to a view without churning every
 //! handler file.
 
+use crate::badges::{EntryBadge, MatchAward};
 use crate::jersey::JerseyPreset;
 use crate::stage::Stage;
 use uuid::Uuid;
@@ -57,6 +58,8 @@ pub struct MatchView {
     pub winner_only_mode: bool,
     pub allow_draw_prediction: bool,
     pub other_preds: Vec<UserPrediction>,
+    /// Match-level award the current user earned on this finished match.
+    pub own_award: Option<MatchAward>,
 }
 
 impl MatchView {
@@ -99,6 +102,8 @@ pub struct UserPrediction {
     pub name: String,
     pub label: String,
     pub points: Option<i32>,
+    /// Match-level award this user earned on this finished match, if any.
+    pub award: Option<MatchAward>,
 }
 
 /// Matches grouped by tournament stage so the template can iterate each
@@ -195,12 +200,16 @@ pub struct GroupStandingsTable {
 /// Leaderboard row — total points plus the user's chosen jersey colours.
 #[derive(Clone)]
 pub struct LeaderboardEntry {
+    pub id: Uuid,
     pub name: String,
     pub total_points: i32,
     pub max_potential_points: i32,
     pub jersey_body: String,
     pub jersey_accent: String,
     pub jersey_pattern: String,
+    /// Achievement badges this user has earned, for the compact row strip.
+    /// Empty unless the handler populated it (the dashboard does).
+    pub achievements: Vec<EntryBadge>,
 }
 
 /// Picker option for the jersey-customisation dialog.

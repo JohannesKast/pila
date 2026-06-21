@@ -567,7 +567,7 @@ Der Weltmeister-Tipp wird in weniger als 24 Stunden gesperrt (Anpfiff K.-o.-Rund
 # ─── Hero-panel badges ───────────────────────────────────────────────────────
 # Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
 badge-matchday-wins-title = Tagessieg
-badge-matchday-wins-how-to-earn = Höchste Tagespunktzahl an einem Spieltag (Berlin-Zeit). Bei Gleichstand teilen sich die Sieger den Tag.
+badge-matchday-wins-how-to-earn = Höchste Tagespunktzahl an einem Spieltag. Bei Gleichstand teilen sich die Sieger den Tag.
 badge-exact-count-title = Exakter Tipp
 badge-exact-count-how-to-earn = Tipp 100% korrekt: gleicher Heim- und Auswärtsscore wie das Endergebnis.
 badge-underdog-title = Underdog
