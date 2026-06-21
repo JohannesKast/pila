@@ -232,49 +232,26 @@ pub async fn index(
 
         let raw_others = preds_by_match.get(&r.id).cloned().unwrap_or_default();
 
-        // Per-match exact tally drives the underdog/solo/exact markers. Only
-        // meaningful for finished matches in exact-score leagues; the same
-        // threshold logic backs the aggregate achievement badges, so the
-        // per-game markers and the table counts always agree.
-        let exact_system =
-            league_config.match_scoring_system == MatchScoringSystem::ExactScore;
-        let award_inputs = if finished && exact_system {
-            r.score_home.zip(r.score_away)
+        // Per-match underdog/solo/exact markers. Only finished exact-score
+        // matches earn them: the same threshold logic backs the aggregate
+        // achievement badges, so per-game markers and table counts agree.
+        let exact_system = league_config.match_scoring_system == MatchScoringSystem::ExactScore;
+        let match_awards = if finished && exact_system {
+            r.score_home.zip(r.score_away).map(|score| {
+                let own = r.predicted_home.zip(r.predicted_away);
+                let others: Vec<(i32, i32)> = raw_others.iter().map(|(_, h, a)| (*h, *a)).collect();
+                badges::compute_match_awards(score, own, &others)
+            })
         } else {
             None
         };
-        let (exact_count, total_tippers) = match award_inputs {
-            Some((sh, sa)) => {
-                let own_tipped = r.predicted_home.is_some() && r.predicted_away.is_some();
-                let own_exact = matches!(
-                    (r.predicted_home, r.predicted_away),
-                    (Some(ph), Some(pa)) if ph == sh && pa == sa
-                );
-                let others_exact = raw_others
-                    .iter()
-                    .filter(|(_, home, away)| *home == sh && *away == sa)
-                    .count() as i32;
-                (
-                    others_exact + own_exact as i32,
-                    raw_others.len() as i32 + own_tipped as i32,
-                )
-            }
-            None => (0, 0),
-        };
-        let own_award = match award_inputs {
-            Some((sh, sa)) => match (r.predicted_home, r.predicted_away) {
-                (Some(ph), Some(pa)) => {
-                    badges::match_award(ph == sh && pa == sa, exact_count, total_tippers)
-                }
-                _ => None,
-            },
-            None => None,
-        };
+        let own_award = match_awards.as_ref().and_then(|m| m.own);
 
         let mut other_preds: Vec<UserPrediction> = if locked {
             raw_others
                 .into_iter()
-                .map(|(name, home, away)| {
+                .enumerate()
+                .map(|(idx, (name, home, away))| {
                     let points = if finished {
                         match (r.score_home, r.score_away) {
                             (Some(sh), Some(sa)) => {
@@ -292,12 +269,9 @@ pub async fn index(
                     } else {
                         None
                     };
-                    let award = match award_inputs {
-                        Some((sh, sa)) => {
-                            badges::match_award(home == sh && away == sa, exact_count, total_tippers)
-                        }
-                        None => None,
-                    };
+                    let award = match_awards
+                        .as_ref()
+                        .and_then(|m| m.others.get(idx).copied().flatten());
                     UserPrediction {
                         name,
                         label: format_prediction_label(

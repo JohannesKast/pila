@@ -221,6 +221,41 @@ pub fn match_award(is_exact: bool, exact_count: i32, total: i32) -> Option<Match
     }
 }
 
+/// Awards for one finished match: the current user's own marker plus a marker
+/// for every other tipper, in the same order as `others`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MatchAwards {
+    pub own: Option<MatchAward>,
+    pub others: Vec<Option<MatchAward>>,
+}
+
+/// Compute the per-tip awards for one finished match from its final `score`,
+/// the current user's own stored prediction (`own`, `None` if they did not
+/// tip) and the other tippers' `(home, away)` predictions.
+///
+/// Only call this for exact-score leagues: winner-only predictions encode an
+/// outcome rather than a literal score, so comparing them to the final score
+/// would be meaningless.
+pub fn compute_match_awards(
+    score: (i32, i32),
+    own: Option<(i32, i32)>,
+    others: &[(i32, i32)],
+) -> MatchAwards {
+    let (sh, sa) = score;
+    let exact = |p: &(i32, i32)| p.0 == sh && p.1 == sa;
+    let own_exact = own.as_ref().is_some_and(exact);
+    let others_exact = others.iter().filter(|p| exact(p)).count() as i32;
+    let exact_count = others_exact + own_exact as i32;
+    let total = others.len() as i32 + own.is_some() as i32;
+    MatchAwards {
+        own: match_award(own_exact, exact_count, total),
+        others: others
+            .iter()
+            .map(|p| match_award(exact(p), exact_count, total))
+            .collect(),
+    }
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
@@ -1375,6 +1410,59 @@ mod tests {
         assert_eq!(match_award(true, 3, 10), Some(MatchAward::Exact));
         // Just below is.
         assert_eq!(match_award(true, 2, 7), Some(MatchAward::Underdog));
+    }
+
+    #[test]
+    fn match_award_display_helpers_cover_all_variants() {
+        for a in [MatchAward::Exact, MatchAward::Underdog, MatchAward::Solo] {
+            assert!(!a.icon().is_empty());
+            assert!(a.title_key().starts_with("badge-"));
+            assert!(a.accent_css().starts_with("var("));
+        }
+        // Icons are distinct so the three markers never collide in the UI.
+        assert_ne!(MatchAward::Exact.icon(), MatchAward::Underdog.icon());
+        assert_ne!(MatchAward::Underdog.icon(), MatchAward::Solo.icon());
+    }
+
+    // ─── compute_match_awards ────────────────────────────────────────────────────
+
+    #[test]
+    fn compute_match_awards_own_solo_when_only_exact() {
+        // Final 2:1. Only the current user is exact among three tippers.
+        let awards = compute_match_awards((2, 1), Some((2, 1)), &[(1, 0), (0, 0)]);
+        assert_eq!(awards.own, Some(MatchAward::Solo));
+        assert_eq!(awards.others, vec![None, None]);
+    }
+
+    #[test]
+    fn compute_match_awards_underdog_for_rare_exact_others() {
+        // Final 1:0. 2 of 8 tippers exact (25% < 30%) → both underdogs; the
+        // current user did not tip.
+        let mut others = vec![(1, 0), (1, 0)];
+        others.extend(vec![(3, 3); 6]);
+        let awards = compute_match_awards((1, 0), None, &others);
+        assert_eq!(awards.own, None);
+        assert_eq!(awards.others[0], Some(MatchAward::Underdog));
+        assert_eq!(awards.others[1], Some(MatchAward::Underdog));
+        assert!(awards.others[2..].iter().all(|a| a.is_none()));
+    }
+
+    #[test]
+    fn compute_match_awards_plain_exact_when_many_hit() {
+        // Final 0:0, 3 of 4 exact (75%): exact hits but neither solo nor rare.
+        let awards = compute_match_awards((0, 0), Some((0, 0)), &[(0, 0), (0, 0), (1, 1)]);
+        assert_eq!(awards.own, Some(MatchAward::Exact));
+        assert_eq!(
+            awards.others,
+            vec![Some(MatchAward::Exact), Some(MatchAward::Exact), None]
+        );
+    }
+
+    #[test]
+    fn compute_match_awards_no_exact_no_awards() {
+        let awards = compute_match_awards((2, 2), Some((1, 0)), &[(0, 1)]);
+        assert_eq!(awards.own, None);
+        assert_eq!(awards.others, vec![None]);
     }
 
     // ─── achievement_badges_for ─────────────────────────────────────────────────

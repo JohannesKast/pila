@@ -100,7 +100,7 @@ pub async fn jersey_picker_close() -> Html<&'static str> {
 
 #[derive(Deserialize)]
 pub struct JerseyPostQuery {
-    preset: String,
+    pub preset: String,
 }
 
 pub async fn jersey_post(

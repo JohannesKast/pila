@@ -185,8 +185,7 @@ pub async fn fetch_leaderboard(
         .iter()
         .map(|u| (u.name.clone(), u.jersey_preset.clone()))
         .collect();
-    let user_ids: HashMap<String, Uuid> =
-        users.iter().map(|u| (u.name.clone(), u.id)).collect();
+    let user_ids: HashMap<String, Uuid> = users.iter().map(|u| (u.name.clone(), u.id)).collect();
 
     let mut leaderboard: Vec<LeaderboardEntry> = user_scores
         .into_iter()
