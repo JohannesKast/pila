@@ -7,11 +7,12 @@
 //! the end; the suite is meant to be safe to run repeatedly against the
 //! shared dev database.
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, NaiveDate, Utc};
 use pila::notifier::{NotificationEvent, Notifier, NotifierError};
 use pila::repo::fixture::{EspnMatchUpsert, MatchRepo, PgMatchRepo};
 use pila::repo::notification::{NotificationRepo, PgNotificationRepo};
 use pila::repo::prediction::{PgPredictionRepo, PredictionRepo};
+use pila::repo::report::{MatchdayReport, MatchdayReportRepo, PgMatchdayReportRepo};
 use pila::repo::settings::{PgSettingsRepo, SettingsRepo};
 use pila::repo::special_prediction::{PgSpecialPredictionRepo, SpecialPredictionRepo};
 use pila::repo::team::{EspnTeamUpsert, PgTeamRepo, TeamRepo};
@@ -49,6 +50,62 @@ async fn pool() -> PgPool {
     .expect("seed default test league");
 
     pool
+}
+
+#[tokio::test]
+async fn report_repo_insert_get_latest_and_neighbors_round_trip() {
+    let pool = pool().await;
+    let repo = PgMatchdayReportRepo::new(pool.clone());
+    let league_id = Uuid::new_v4();
+    sqlx::query("INSERT INTO leagues (id, name, notifications_bootstrapped) VALUES ($1, $2, true)")
+        .bind(league_id)
+        .bind(format!("Reports {league_id}"))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let d10 = NaiveDate::from_ymd_opt(2026, 6, 10).unwrap();
+    let d11 = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+    let d12 = NaiveDate::from_ymd_opt(2026, 6, 12).unwrap();
+    for date in [d10, d11, d12] {
+        repo.insert(&MatchdayReport {
+            league_id,
+            matchday_date: date,
+            language: "en".into(),
+            content: format!("Report {date}"),
+            model: "gemini::gemini-2.5-flash".into(),
+            generated_at: Utc::now(),
+        })
+        .await
+        .unwrap();
+    }
+
+    // The insert is idempotent for the same league/date.
+    repo.insert(&MatchdayReport {
+        league_id,
+        matchday_date: d11,
+        language: "en".into(),
+        content: "replacement must not win".into(),
+        model: "gemini::gemini-2.5-flash".into(),
+        generated_at: Utc::now(),
+    })
+    .await
+    .unwrap();
+
+    let middle = repo.get(league_id, d11).await.unwrap().unwrap();
+    assert_eq!(middle.content, "Report 2026-06-11");
+    assert!(repo.exists(league_id, d11).await.unwrap());
+    assert_eq!(repo.latest_date(league_id).await.unwrap(), Some(d12));
+    assert_eq!(
+        repo.neighbors(league_id, d11).await.unwrap(),
+        (Some(d10), Some(d12))
+    );
+
+    sqlx::query("DELETE FROM leagues WHERE id = $1")
+        .bind(league_id)
+        .execute(&pool)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

@@ -8,20 +8,21 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::{Duration, NaiveDate, Utc};
 use uuid::Uuid;
 
 use pila::handlers::services::{
-    build_badge_context, fetch_actual_champion, fetch_group_standings, fetch_leaderboard,
+    build_badge_context, build_matchday_report_view, fetch_actual_champion, fetch_group_standings,
+    fetch_leaderboard,
 };
 use pila::repo::fixture::{FakeMatch, MemoryMatchRepo};
 use pila::repo::league::{League, MemoryLeagueRepo};
 use pila::repo::prediction::{FakeFinishedRow, FakeLeaderboardRow};
 use pila::repo::user::UserFull;
 use pila::repo::{
-    MemoryBootstrapRepo, MemoryInviteRepo, MemoryNotificationRepo, MemoryPredictionRepo,
-    MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos,
-    DEFAULT_LEAGUE_ID,
+    MatchdayReport, MatchdayReportRepo, MemoryBootstrapRepo, MemoryInviteRepo,
+    MemoryMatchdayReportRepo, MemoryNotificationRepo, MemoryPredictionRepo, MemorySettingsRepo,
+    MemorySpecialPredictionRepo, MemoryTeamRepo, MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
 };
 use pila::stage::Stage;
 
@@ -32,12 +33,14 @@ struct Bag {
     users: Arc<MemoryUserRepo>,
     matches: Arc<MemoryMatchRepo>,
     predictions: Arc<MemoryPredictionRepo>,
+    reports: Arc<MemoryMatchdayReportRepo>,
 }
 
 fn build_bag() -> Bag {
     let users = Arc::new(MemoryUserRepo::new());
     let matches = Arc::new(MemoryMatchRepo::new());
     let predictions = Arc::new(MemoryPredictionRepo::new());
+    let reports = Arc::new(MemoryMatchdayReportRepo::new());
     let leagues = Arc::new(MemoryLeagueRepo::new());
     leagues.seed(League {
         id: DEFAULT_LEAGUE_ID,
@@ -56,7 +59,7 @@ fn build_bag() -> Bag {
         settings: Arc::new(MemorySettingsRepo::new()),
         invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
-        reports: Arc::new(pila::repo::MemoryMatchdayReportRepo::new()),
+        reports: reports.clone(),
     };
 
     Bag {
@@ -64,6 +67,7 @@ fn build_bag() -> Bag {
         users,
         matches,
         predictions,
+        reports,
     }
 }
 
@@ -89,6 +93,78 @@ fn seed_user(repo: &MemoryUserRepo, name: &str) -> Uuid {
         "classic",
     );
     id
+}
+
+fn report(date: NaiveDate, content: &str) -> MatchdayReport {
+    MatchdayReport {
+        league_id: DEFAULT_LEAGUE_ID,
+        matchday_date: date,
+        language: "en".into(),
+        content: content.into(),
+        model: "gemini::gemini-2.5-flash".into(),
+        generated_at: Utc::now(),
+    }
+}
+
+// ─── build_matchday_report_view ─────────────────────────────────────────────
+
+#[tokio::test]
+async fn build_matchday_report_view_renders_latest_sanitized_report() {
+    let bag = build_bag();
+    let older = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+    let latest = NaiveDate::from_ymd_opt(2026, 6, 12).unwrap();
+    bag.reports
+        .insert(&report(older, "## Older\n\nText"))
+        .await
+        .unwrap();
+    bag.reports
+        .insert(&report(
+            latest,
+            "## Latest\n\n**safe**\n\n<script>alert(1)</script>",
+        ))
+        .await
+        .unwrap();
+
+    let view = build_matchday_report_view(&bag.repos, DEFAULT_LEAGUE_ID, None)
+        .await
+        .unwrap();
+
+    assert_eq!(view.date_display, "12 Jun 2026");
+    assert!(view.content_html.contains("<h2>Latest</h2>"));
+    assert!(view.content_html.contains("<strong>safe</strong>"));
+    assert!(!view.content_html.contains("<script>"));
+    assert_eq!(view.prev_date, Some(older.to_string()));
+    assert_eq!(view.next_date, None);
+    assert_eq!(view.scope_path, format!("/l/{DEFAULT_LEAGUE_ID}"));
+}
+
+#[tokio::test]
+async fn build_matchday_report_view_returns_requested_report_with_neighbors() {
+    let bag = build_bag();
+    let older = NaiveDate::from_ymd_opt(2026, 6, 10).unwrap();
+    let middle = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+    let newer = NaiveDate::from_ymd_opt(2026, 6, 12).unwrap();
+    for date in [older, middle, newer] {
+        bag.reports
+            .insert(&report(date, &format!("## {date}")))
+            .await
+            .unwrap();
+    }
+
+    let view = build_matchday_report_view(&bag.repos, DEFAULT_LEAGUE_ID, Some(middle))
+        .await
+        .unwrap();
+
+    assert_eq!(view.date_display, "11 Jun 2026");
+    assert_eq!(view.prev_date, Some(older.to_string()));
+    assert_eq!(view.next_date, Some(newer.to_string()));
+}
+
+#[tokio::test]
+async fn build_matchday_report_view_returns_none_without_reports() {
+    let bag = build_bag();
+    let view = build_matchday_report_view(&bag.repos, DEFAULT_LEAGUE_ID, None).await;
+    assert!(view.is_none());
 }
 
 // ─── fetch_actual_champion ───────────────────────────────────────────────────

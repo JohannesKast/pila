@@ -28,5 +28,4 @@ unic-langid = "0.9"
 time = { version = "0.3.47", features = ["macros"] }
 rand = "0.10"
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "smtp-transport", "builder"] }
-genai = "0.6"
 pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }

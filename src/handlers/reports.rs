@@ -50,3 +50,124 @@ pub async fn matchday_report(
     render_template(&ReportPanelTemplate { report, t })
         .unwrap_or_else(|_| Html("Internal error".to_string()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::repo::{
+        League, MatchdayReport, MatchdayReportRepo, MemoryBootstrapRepo, MemoryInviteRepo,
+        MemoryLeagueRepo, MemoryMatchRepo, MemoryMatchdayReportRepo, MemoryNotificationRepo,
+        MemoryPredictionRepo, MemorySettingsRepo, MemorySpecialPredictionRepo, MemoryTeamRepo,
+        MemoryUserRepo, Repos, DEFAULT_LEAGUE_ID,
+    };
+    use std::sync::Arc;
+    use uuid::Uuid;
+
+    struct Harness {
+        state: AppState,
+        reports: Arc<MemoryMatchdayReportRepo>,
+        user: AuthenticatedUser,
+    }
+
+    fn harness() -> Harness {
+        let reports = Arc::new(MemoryMatchdayReportRepo::new());
+        let leagues = Arc::new(MemoryLeagueRepo::new());
+        leagues.seed(League {
+            id: DEFAULT_LEAGUE_ID,
+            name: "Default".into(),
+            notifications_bootstrapped: true,
+        });
+        let repos = Repos {
+            bootstrap: Arc::new(MemoryBootstrapRepo::new()),
+            users: Arc::new(MemoryUserRepo::new()),
+            leagues,
+            matches: Arc::new(MemoryMatchRepo::new()),
+            predictions: Arc::new(MemoryPredictionRepo::new()),
+            special_predictions: Arc::new(MemorySpecialPredictionRepo::new()),
+            teams: Arc::new(MemoryTeamRepo::new()),
+            settings: Arc::new(MemorySettingsRepo::new()),
+            invites: Arc::new(MemoryInviteRepo::new()),
+            notifications: Arc::new(MemoryNotificationRepo::new()),
+            reports: reports.clone(),
+        };
+        let state = AppState {
+            jerseys: crate::jersey::load(),
+            news: crate::news::NewsCache::from_env(),
+            repos,
+            translations: crate::translations::load_all(),
+            concurrency_limit: Arc::new(tokio::sync::Semaphore::new(100)),
+            base_url: "http://localhost:8000".into(),
+            signal_api_url: None,
+            signal_from_number: None,
+            signal_group_id: None,
+            http_client: reqwest::Client::new(),
+            smtp_config: None,
+            mock_now: crate::time::new_mock_time(),
+            dev_mode: false,
+        };
+        let user = AuthenticatedUser {
+            id: Uuid::new_v4(),
+            name: "Alice".into(),
+            real_name: "Alice".into(),
+            is_admin: false,
+            can_create_league: false,
+            phone_number: None,
+            email: None,
+            jersey_preset: "classic".into(),
+            language: "en".into(),
+            league_id: DEFAULT_LEAGUE_ID,
+        };
+        Harness {
+            state,
+            reports,
+            user,
+        }
+    }
+
+    fn report(date: NaiveDate, content: &str) -> MatchdayReport {
+        MatchdayReport {
+            league_id: DEFAULT_LEAGUE_ID,
+            matchday_date: date,
+            language: "en".into(),
+            content: content.into(),
+            model: "gemini::gemini-2.5-flash".into(),
+            generated_at: chrono::Utc::now(),
+        }
+    }
+
+    #[tokio::test]
+    async fn matchday_report_renders_requested_partial() {
+        let h = harness();
+        let older = NaiveDate::from_ymd_opt(2026, 6, 10).unwrap();
+        let requested = NaiveDate::from_ymd_opt(2026, 6, 11).unwrap();
+        h.reports.insert(&report(older, "## Older")).await.unwrap();
+        h.reports
+            .insert(&report(requested, "## Requested\n\n**recap**"))
+            .await
+            .unwrap();
+
+        let html = matchday_report(
+            State(h.state),
+            h.user,
+            Query(ReportQuery {
+                date: Some(requested.to_string()),
+            }),
+        )
+        .await
+        .0;
+
+        assert!(html.contains("id=\"matchday-report\""));
+        assert!(html.contains("<h2>Requested</h2>"));
+        assert!(html.contains("<strong>recap</strong>"));
+        assert!(html.contains(&format!("/reports?date={older}")));
+    }
+
+    #[tokio::test]
+    async fn matchday_report_renders_empty_when_no_report_exists() {
+        let h = harness();
+        let html = matchday_report(State(h.state), h.user, Query(ReportQuery { date: None }))
+            .await
+            .0;
+        assert!(!html.contains("id=\"matchday-report\""));
+    }
+}

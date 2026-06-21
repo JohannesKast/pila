@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- AI matchday recaps: after the last match of a matchday (grouped by the configurable tournament timezone `AI_MATCHDAY_TZ`) finishes, the worker generates one entertaining, league-scoped recap in the league's default language, stored in `ai_matchday_reports` and shown at the top of the "Current" tab with arrow navigation between matchdays. Provider-agnostic via the `genai` crate, configured with `AI_PROVIDER`/`AI_MODEL`/`AI_API_KEY` (feature off when unset); only public (post-lock) tips feed the prompt and players are referenced by display name only
+- AI matchday recaps: after the last match of a matchday (grouped by the configurable tournament timezone `AI_MATCHDAY_TZ`) finishes, the worker generates one entertaining, league-scoped recap in the league's default language, stored in `ai_matchday_reports` and shown at the top of the "Current" tab with arrow navigation between matchdays. Supports Gemini and OpenAI-compatible providers via `AI_PROVIDER`/`AI_MODEL`/`AI_API_KEY` plus optional `AI_BASE_URL` (feature off when unset); only public (post-lock) tips feed the prompt and players are referenced by display name only
 - Multi-tenancy (Tipp-Liga): every user belongs to exactly one league; aggregate reads (leaderboard, badges, tips panel, notifications) are fully scoped by `league_id`
 - Per-league configuration via `league_settings` k/v table (Signal group, default language, RSS feed, scoring system, knockout-only mode)
 - Super-admin `can_create_league` permission; first user created via `/setup` receives it

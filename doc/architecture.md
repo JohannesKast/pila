@@ -400,9 +400,10 @@ data, and the relevant edge condition.
 
 The optional AI recap feature lives in [`src/ai/`](../src/ai) and is enabled
 only when `AI_PROVIDER`, `AI_MODEL` and `AI_API_KEY` are all set
-(`AiConfig::from_env`). It is provider-agnostic via the `genai` crate: the
-single configured key is injected through an `AuthResolver` and the provider is
-forced with genai's `provider::model` namespace syntax.
+(`AiConfig::from_env`). The client intentionally avoids a provider SDK: it
+builds the small request shapes needed for Gemini and OpenAI-compatible chat
+completion endpoints directly with `reqwest`. `AI_BASE_URL` can override the
+endpoint for OpenAI-compatible providers not built in.
 
 Generation runs at the end of each worker tick, once per league:
 
@@ -457,8 +458,9 @@ The most important env vars are:
 - `WC_WINDOW_START`, `WC_WINDOW_END`: scoreboard polling window override
 - SMTP vars: enable email delivery when all required values are present
 - `AI_PROVIDER`, `AI_MODEL`, `AI_API_KEY`: enable AI matchday recaps when all
-  three are set; `AI_MATCHDAY_TZ` overrides the matchday grouping timezone
-  (default `America/New_York`)
+  three are set; `AI_BASE_URL` optionally points at a custom OpenAI-compatible
+  endpoint; `AI_MATCHDAY_TZ` overrides the matchday grouping timezone (default
+  `America/New_York`)
 
 Signal configuration is intentionally split:
 
