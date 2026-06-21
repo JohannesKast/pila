@@ -54,7 +54,7 @@ async fn generate_due_reports_with(
     repos: &Repos,
     cfg: &AiConfig,
     translations: &HashMap<String, T>,
-    generator: &(dyn RecapGenerator),
+    generator: &dyn RecapGenerator,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let leagues = repos.leagues.list().await?;
     for league in leagues {
@@ -75,7 +75,7 @@ async fn generate_for_league(
     cfg: &AiConfig,
     translations: &HashMap<String, T>,
     league_id: Uuid,
-    generator: &(dyn RecapGenerator),
+    generator: &dyn RecapGenerator,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let league_cfg = repos.leagues.get_config(league_id).await?;
     let summaries = repos.matches.list_all_summaries().await?;
