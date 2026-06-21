@@ -12,12 +12,15 @@ use chrono::{DateTime, Utc};
 use std::collections::{BTreeMap, HashMap};
 use uuid::Uuid;
 
+use chrono::NaiveDate;
+
+use crate::ai;
 use crate::badges;
-use crate::handlers::util::flag_url;
+use crate::handlers::util::{flag_url, league_scope_path};
 use crate::jersey::{self, JerseyPreset};
 use crate::repo::Repos;
 use crate::scoring;
-use crate::views::{GroupRow, GroupStandingsTable, LeaderboardEntry};
+use crate::views::{GroupRow, GroupStandingsTable, LeaderboardEntry, MatchdayReportView};
 
 /// Convenience wrapper — handlers reach for "who actually won the cup?" in
 /// several places.
@@ -209,6 +212,34 @@ pub async fn fetch_leaderboard(
         .collect();
     leaderboard.sort_by_key(|b| std::cmp::Reverse(b.total_points));
     leaderboard
+}
+
+/// Build the matchday-recap card for the dashboard. When `date` is `None` the
+/// latest recap is shown. Returns `None` when the league has no recap (yet, or
+/// for the requested date), so the caller can simply omit the card.
+pub async fn build_matchday_report_view(
+    repos: &Repos,
+    league_id: Uuid,
+    date: Option<NaiveDate>,
+) -> Option<MatchdayReportView> {
+    let date = match date {
+        Some(d) => d,
+        None => repos.reports.latest_date(league_id).await.ok().flatten()?,
+    };
+    let report = repos.reports.get(league_id, date).await.ok().flatten()?;
+    let (older, newer) = repos
+        .reports
+        .neighbors(league_id, date)
+        .await
+        .unwrap_or((None, None));
+
+    Some(MatchdayReportView {
+        date_display: date.format("%-d %b %Y").to_string(),
+        content_html: ai::markdown_to_safe_html(&report.content),
+        prev_date: older.map(|d| d.to_string()),
+        next_date: newer.map(|d| d.to_string()),
+        scope_path: league_scope_path(league_id),
+    })
 }
 
 pub async fn fetch_group_standings(repos: &Repos) -> Vec<GroupStandingsTable> {

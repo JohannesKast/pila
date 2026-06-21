@@ -50,6 +50,7 @@ fn build_harness() -> Harness {
         settings: Arc::new(MemorySettingsRepo::new()),
         invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
+        reports: Arc::new(pila::repo::MemoryMatchdayReportRepo::new()),
     };
 
     let state = AppState {
@@ -177,6 +178,7 @@ fn build_full_harness() -> FullHarness {
         settings: Arc::new(MemorySettingsRepo::new()),
         invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
+        reports: Arc::new(pila::repo::MemoryMatchdayReportRepo::new()),
     };
 
     let state = AppState {

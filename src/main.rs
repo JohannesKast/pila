@@ -67,6 +67,19 @@ async fn main() {
         tracing::info!("SMTP env vars not set — email delivery disabled");
     }
 
+    // AI matchday recaps. Enabled only when AI_PROVIDER/AI_MODEL/AI_API_KEY are
+    // all set; otherwise the worker simply skips recap generation.
+    let ai_config = pila::ai::AiConfig::from_env();
+    match &ai_config {
+        Some(cfg) => tracing::info!(
+            "AI matchday recaps enabled (provider={}, model={}, matchday_tz={})",
+            cfg.provider,
+            cfg.model,
+            cfg.matchday_tz
+        ),
+        None => tracing::info!("AI env vars not set — matchday recaps disabled"),
+    }
+
     // Dev mode enables the /dev/* routes for testing. Must be explicitly enabled.
     let dev_mode = std::env::var("PILA_DEV_MODE")
         .map(|v| v == "true" || v == "1")
@@ -126,6 +139,7 @@ async fn main() {
             signal_api_url,
             smtp_config,
             state.translations.clone(),
+            ai_config,
         )
         .await;
     }
@@ -311,6 +325,8 @@ fn build_router() -> Router<AppState> {
         )
         .route("/leaderboard", get(handlers::leaderboard))
         .route("/l/{league_id}/leaderboard", get(handlers::leaderboard))
+        .route("/reports", get(handlers::matchday_report))
+        .route("/l/{league_id}/reports", get(handlers::matchday_report))
         .route("/profile/jersey-picker", get(handlers::jersey_picker_get))
         .route(
             "/l/{league_id}/profile/jersey-picker",

@@ -115,6 +115,7 @@ fn setup_two_leagues() -> Two {
         settings: Arc::new(MemorySettingsRepo::new()),
         invites: Arc::new(MemoryInviteRepo::new()),
         notifications: notifications.clone(),
+        reports: Arc::new(pila::repo::MemoryMatchdayReportRepo::new()),
     };
 
     Two {

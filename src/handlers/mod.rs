@@ -18,6 +18,7 @@ pub mod leaderboard;
 pub mod leagues;
 pub mod predictions;
 pub mod profile;
+pub mod reports;
 pub mod services;
 pub mod setup;
 pub mod util;
@@ -45,6 +46,7 @@ pub use leagues::{
 };
 pub use predictions::{predict_match, predict_match_scoped, predict_special};
 pub use profile::{profile_editor_get, profile_name_post};
+pub use reports::matchday_report;
 pub use setup::{setup_get, setup_post};
 
 /// Simple liveness endpoint for container orchestrators.

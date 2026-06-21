@@ -63,6 +63,13 @@ col-points-table = Pts
 
 ## "Current" tab
 
+# Heading of the AI-generated matchday recap card at the top of the "Current" tab
+matchday-report-heading = Matchday Recap
+# Tooltip/aria-label for the arrow that opens the previous (older) matchday recap
+matchday-report-prev = Previous matchday
+# Tooltip/aria-label for the arrow that opens the next (newer) matchday recap
+matchday-report-next = Next matchday
+
 no-match-started = No match has kicked off yet.
 in-progress = In Progress
 finished = Finished

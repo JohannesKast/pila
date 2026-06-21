@@ -62,6 +62,7 @@ fn build_harness() -> Harness {
         settings,
         invites: Arc::new(MemoryInviteRepo::new()),
         notifications: Arc::new(MemoryNotificationRepo::new()),
+        reports: Arc::new(pila::repo::MemoryMatchdayReportRepo::new()),
     };
 
     let state = AppState {

@@ -63,6 +63,13 @@ col-points-table = Pts
 
 ## Pestaña "En curso"
 
+# Heading of the AI-generated matchday recap card at the top of the "Current" tab
+matchday-report-heading = Crónica de la jornada
+# Tooltip/aria-label for the arrow that opens the previous (older) matchday recap
+matchday-report-prev = Jornada anterior
+# Tooltip/aria-label for the arrow that opens the next (newer) matchday recap
+matchday-report-next = Jornada siguiente
+
 no-match-started = Ningún partido ha comenzado aún.
 in-progress = En curso
 finished = Finalizado

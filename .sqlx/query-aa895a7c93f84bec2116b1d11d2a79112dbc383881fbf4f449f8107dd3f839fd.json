@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MIN(matchday_date) FROM ai_matchday_reports WHERE league_id = $1 AND matchday_date > $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min",
+        "type_info": "Date"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "aa895a7c93f84bec2116b1d11d2a79112dbc383881fbf4f449f8107dd3f839fd"
+}

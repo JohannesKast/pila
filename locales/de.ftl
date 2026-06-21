@@ -105,6 +105,13 @@ col-points-table = Pkt
 
 ## "Aktuell" tab (started matches)
 
+# Heading of the AI-generated matchday recap card at the top of the "Aktuell" tab
+matchday-report-heading = Spieltagsbericht
+# Tooltip/aria-label for the arrow that opens the previous (older) matchday recap
+matchday-report-prev = Vorheriger Spieltag
+# Tooltip/aria-label for the arrow that opens the next (newer) matchday recap
+matchday-report-next = Nächster Spieltag
+
 # Shown when no match has kicked off yet
 no-match-started = Noch kein Spiel angepfiffen.
 

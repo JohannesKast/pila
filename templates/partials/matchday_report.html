@@ -1,0 +1,41 @@
+{# AI matchday recap card with arrow navigation between matchdays. Shared by
+   the dashboard (included in the "Current" tab) and the `/reports` HTMX route,
+   which swaps this whole element via `hx-target="#matchday-report"`. Renders
+   nothing when there is no recap to show. #}
+{% match report %}
+{% when Some with (report) %}
+<div id="matchday-report" class="pl-card" style="padding:16px; margin-bottom:16px; border-color:rgba(116,255,140,.25);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;">
+        <span class="pl-mono" style="font-size:11px; color:var(--pl-green); letter-spacing:.12em; text-transform:uppercase;">
+            🤖 {{ t.get("matchday-report-heading") }}
+        </span>
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            {% match report.prev_date %}
+            {% when Some with (prev) %}
+            <button type="button"
+                    hx-get="{{ report.scope_path }}/reports?date={{ prev }}"
+                    hx-target="#matchday-report" hx-swap="outerHTML"
+                    title='{{ t.get("matchday-report-prev") }}' aria-label='{{ t.get("matchday-report-prev") }}'
+                    style="background:none; border:1px solid var(--pl-line); border-radius:6px; color:var(--pl-fg-2); cursor:pointer; width:26px; height:26px; line-height:1;">←</button>
+            {% when None %}
+            <span aria-hidden="true" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; color:var(--pl-mute-2);">←</span>
+            {% endmatch %}
+            <span class="pl-mono" style="font-size:11px; color:var(--pl-mute); white-space:nowrap;">{{ report.date_display }}</span>
+            {% match report.next_date %}
+            {% when Some with (next) %}
+            <button type="button"
+                    hx-get="{{ report.scope_path }}/reports?date={{ next }}"
+                    hx-target="#matchday-report" hx-swap="outerHTML"
+                    title='{{ t.get("matchday-report-next") }}' aria-label='{{ t.get("matchday-report-next") }}'
+                    style="background:none; border:1px solid var(--pl-line); border-radius:6px; color:var(--pl-fg-2); cursor:pointer; width:26px; height:26px; line-height:1;">→</button>
+            {% when None %}
+            <span aria-hidden="true" style="width:26px; height:26px; display:inline-flex; align-items:center; justify-content:center; color:var(--pl-mute-2);">→</span>
+            {% endmatch %}
+        </div>
+    </div>
+    <div class="pl-report-prose" style="font-size:14px; line-height:1.6; color:var(--pl-fg-2);">
+        {{ report.content_html|safe }}
+    </div>
+</div>
+{% when None %}
+{% endmatch %}

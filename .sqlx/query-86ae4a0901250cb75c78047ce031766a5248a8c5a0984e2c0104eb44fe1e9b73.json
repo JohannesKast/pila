@@ -1,0 +1,77 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT\n                m.id,\n                m.stage as \"stage: Stage\",\n                m.kickoff_time,\n                m.status,\n                m.score_home as \"score_home?\",\n                m.score_away as \"score_away?\",\n                th.name as \"home_name?\",\n                ta.name as \"away_name?\"\n            FROM matches m\n            LEFT JOIN teams th ON th.id = m.team_home_id\n            LEFT JOIN teams ta ON ta.id = m.team_away_id\n            ORDER BY m.kickoff_time\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "stage: Stage",
+        "type_info": {
+          "Custom": {
+            "name": "match_stage",
+            "kind": {
+              "Enum": [
+                "group",
+                "round_of_32",
+                "round_of_16",
+                "quarter_final",
+                "semi_final",
+                "third_place",
+                "final"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kickoff_time",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 3,
+        "name": "status",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "score_home?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 5,
+        "name": "score_away?",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 6,
+        "name": "home_name?",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "away_name?",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      true,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "86ae4a0901250cb75c78047ce031766a5248a8c5a0984e2c0104eb44fe1e9b73"
+}

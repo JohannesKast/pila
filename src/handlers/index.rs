@@ -16,7 +16,8 @@ use uuid::Uuid;
 use crate::auth::MaybeAuthenticatedUser;
 use crate::badges;
 use crate::handlers::services::{
-    build_badge_context, fetch_actual_champion, fetch_group_standings, fetch_leaderboard,
+    build_badge_context, build_matchday_report_view, fetch_actual_champion, fetch_group_standings,
+    fetch_leaderboard,
 };
 use crate::handlers::util::{flag_url, format_kickoff, league_scope_path, render_template};
 use crate::news;
@@ -24,8 +25,8 @@ use crate::scoring;
 use crate::scoring::MatchScoringSystem;
 use crate::translations::T;
 use crate::views::{
-    ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView, SpecialPredictionsView,
-    StageGroups, TeamView, UserPrediction,
+    ChampPrediction, GroupStandingsTable, LeaderboardEntry, MatchView, MatchdayReportView,
+    SpecialPredictionsView, StageGroups, TeamView, UserPrediction,
 };
 use crate::AppState;
 
@@ -60,6 +61,8 @@ struct IndexTemplate {
     league_name: String,
     news_items: Vec<news::NewsItem>,
     badges: Vec<badges::BadgeView>,
+    /// Latest AI matchday recap shown at the top of the "Current" tab, if any.
+    report: Option<MatchdayReportView>,
     t: T,
     lang_code: String,
     dev_mode: bool,
@@ -390,6 +393,8 @@ pub async fn index(
 
     let news_items = state.news.get().await;
 
+    let report = build_matchday_report_view(&state.repos, user.league_id, None).await;
+
     let t = crate::handlers::util::t_for(&state, &user.language);
     let lang_code = user.language.clone();
 
@@ -441,6 +446,7 @@ pub async fn index(
         league_name,
         news_items,
         badges: badges_list,
+        report,
         t,
         lang_code,
         dev_mode: state.dev_mode,

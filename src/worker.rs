@@ -37,6 +37,7 @@ pub async fn start_background_worker(
     signal_api_url: Option<String>,
     smtp_config: Option<crate::mail::SmtpConfig>,
     translations: HashMap<String, T>,
+    ai_config: Option<crate::ai::AiConfig>,
 ) {
     tokio::spawn(async move {
         loop {
@@ -54,6 +55,12 @@ pub async fn start_background_worker(
             .await
             {
                 tracing::error!("Notification processing error: {:?}", e);
+            }
+            // AI matchday recaps: generate once per finished matchday per league.
+            if let Some(cfg) = &ai_config {
+                if let Err(e) = crate::ai::generate_due_reports(&repos, cfg, &translations).await {
+                    tracing::error!("AI recap processing error: {:?}", e);
+                }
             }
             tokio::time::sleep(Duration::from_secs(1800)).await;
         }
@@ -511,6 +518,7 @@ mod tests {
             settings: Arc::new(MemorySettingsRepo::new()),
             invites: Arc::new(crate::repo::MemoryInviteRepo::new()),
             notifications,
+            reports: Arc::new(crate::repo::MemoryMatchdayReportRepo::new()),
         }
     }
 
