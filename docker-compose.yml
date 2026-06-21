@@ -48,6 +48,11 @@ services:
       SIGNAL_FROM_NUMBER: ${SIGNAL_FROM_NUMBER:-}
       SIGNAL_GROUP_ID: ${SIGNAL_GROUP_ID:-}
       BASE_URL: ${BASE_URL:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_MATCHDAY_TZ: ${AI_MATCHDAY_TZ:-America/New_York}
     depends_on:
       db:
         condition: service_healthy
