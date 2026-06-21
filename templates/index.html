@@ -208,79 +208,42 @@
 </div>
 {% endmacro %}
 
+{# Renders one stage's header and its match cards. Shared by stage_section
+   (chronological, group → final) and stage_section_recent (reversed, so the
+   latest stage sits on top in the "Current" tab). #}
+{% macro stage_block(items, label, text_color, border_color, t, scope_path, user_id, league_id) %}
+{% if items.len() > 0 %}
+<div class="mb-5">
+    <div class="flex items-center gap-2 mb-2 px-1">
+        <span class="text-sm font-black {{ text_color }} uppercase tracking-widest">{{ label }}</span>
+        <span class="text-[10px] text-pl-mute font-mono">{{ items.len() }}</span>
+        <span class="flex-1 h-px bg-pl-line"></span>
+    </div>
+    <div class="pl-2 border-l-2 {{ border_color }}">{% for m in items %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
+</div>
+{% endif %}
+{% endmacro %}
+
 {% macro stage_section(sg, t, scope_path, user_id, league_id) %}
-{% if sg.groups.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-group") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.groups.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">
-        {% for m in sg.groups %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}
-    </div>
-</div>
-{% endif %}
-{% if sg.round_of_32.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-32") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_32.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_32 %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
-{% if sg.round_of_16.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-round-of-16") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.round_of_16.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.round_of_16 %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
-{% if sg.quarter_final.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-quarter-final") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.quarter_final.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.quarter_final %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
-{% if sg.semi_final.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-blue uppercase tracking-widest">{{ t.get("stage-semi-final") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.semi_final.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-blue/30">{% for m in sg.semi_final %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
-{% if sg.third_place.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-amber-500 uppercase tracking-widest">{{ t.get("stage-third-place") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.third_place.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-amber-500/30">{% for m in sg.third_place %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
-{% if sg.final_.len() > 0 %}
-<div class="mb-5">
-    <div class="flex items-center gap-2 mb-2 px-1">
-        <span class="text-sm font-black text-fifa-gold uppercase tracking-widest">{{ t.get("stage-final") }}</span>
-        <span class="text-[10px] text-pl-mute font-mono">{{ sg.final_.len() }}</span>
-        <span class="flex-1 h-px bg-pl-line"></span>
-    </div>
-    <div class="pl-2 border-l-2 border-fifa-gold/40">{% for m in sg.final_ %}{% call match_card(m, t, scope_path, user_id, league_id) %}{% endcall %}{% endfor %}</div>
-</div>
-{% endif %}
+{% call stage_block(sg.groups, t.get("stage-group"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.round_of_32, t.get("stage-round-of-32"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.round_of_16, t.get("stage-round-of-16"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.quarter_final, t.get("stage-quarter-final"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.semi_final, t.get("stage-semi-final"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.third_place, t.get("stage-third-place"), "text-amber-500", "border-amber-500/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.final_, t.get("stage-final"), "text-fifa-gold", "border-fifa-gold/40", t, scope_path, user_id, league_id) %}{% endcall %}
+{% endmacro %}
+
+{# Same stages as stage_section, but in reverse phase order so the latest
+   stage appears first — the "Current" tab wants recent matches on top. #}
+{% macro stage_section_recent(sg, t, scope_path, user_id, league_id) %}
+{% call stage_block(sg.final_, t.get("stage-final"), "text-fifa-gold", "border-fifa-gold/40", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.third_place, t.get("stage-third-place"), "text-amber-500", "border-amber-500/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.semi_final, t.get("stage-semi-final"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.quarter_final, t.get("stage-quarter-final"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.round_of_16, t.get("stage-round-of-16"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.round_of_32, t.get("stage-round-of-32"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
+{% call stage_block(sg.groups, t.get("stage-group"), "text-fifa-blue", "border-fifa-blue/30", t, scope_path, user_id, league_id) %}{% endcall %}
 {% endmacro %}
 
 {% block content %}
@@ -432,12 +395,12 @@
         {% else %}
             {% if !started_in_progress.is_empty() %}
             <h3 class="text-xs font-bold text-pl-green uppercase tracking-widest mb-2 px-1">{{ t.get("in-progress") }}</h3>
-            {% call stage_section(started_in_progress, t, scope_path, user_id, league_id) %}{% endcall %}
+            {% call stage_section_recent(started_in_progress, t, scope_path, user_id, league_id) %}{% endcall %}
             {% endif %}
 
             {% if !started_finished.is_empty() %}
             <h3 class="text-xs font-bold text-pl-mute uppercase tracking-widest mb-2 mt-6 px-1">{{ t.get("finished") }}</h3>
-            {% call stage_section(started_finished, t, scope_path, user_id, league_id) %}{% endcall %}
+            {% call stage_section_recent(started_finished, t, scope_path, user_id, league_id) %}{% endcall %}
             {% endif %}
         {% endif %}
     </section>

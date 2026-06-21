@@ -11,6 +11,8 @@
 use crate::badges::{EntryBadge, MatchAward};
 use crate::jersey::JerseyPreset;
 use crate::stage::Stage;
+use chrono::{DateTime, Utc};
+use std::cmp::Ordering;
 use uuid::Uuid;
 
 /// Admin-row projection for the admin panel partial.
@@ -49,6 +51,9 @@ pub struct MatchView {
     pub predicted_home: Option<i32>,
     pub predicted_away: Option<i32>,
     pub prediction_display: Option<String>,
+    /// Raw kickoff time, kept for sorting (the template renders
+    /// `kickoff_display` instead).
+    pub kickoff_time: Option<DateTime<Utc>>,
     pub kickoff_display: String,
     pub locked: bool,
     pub is_live: bool,
@@ -148,6 +153,27 @@ impl StageGroups {
             + self.semi_final.len()
             + self.third_place.len()
             + self.final_.len()
+    }
+
+    /// Reorder every stage so the most recent kickoff comes first. Used by the
+    /// "Current" tab, where live and just-finished matches should sit at the
+    /// top; matches without a kickoff time sink to the bottom.
+    pub fn sort_recent_first(&mut self) {
+        fn recent_first(a: &MatchView, b: &MatchView) -> Ordering {
+            match (a.kickoff_time, b.kickoff_time) {
+                (Some(x), Some(y)) => y.cmp(&x),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => Ordering::Equal,
+            }
+        }
+        self.groups.sort_by(recent_first);
+        self.round_of_32.sort_by(recent_first);
+        self.round_of_16.sort_by(recent_first);
+        self.quarter_final.sort_by(recent_first);
+        self.semi_final.sort_by(recent_first);
+        self.third_place.sort_by(recent_first);
+        self.final_.sort_by(recent_first);
     }
 }
 

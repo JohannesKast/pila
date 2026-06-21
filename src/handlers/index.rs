@@ -319,6 +319,7 @@ pub async fn index(
             predicted_home: r.predicted_home,
             predicted_away: r.predicted_away,
             prediction_display,
+            kickoff_time: r.kickoff_time,
             kickoff_display: format_kickoff(r.kickoff_time),
             locked,
             is_live,
@@ -345,6 +346,11 @@ pub async fn index(
         };
         target.push(mv);
     }
+
+    // The "Current" tab shows kicked-off matches; surface the most recent
+    // (live and just-finished) at the top instead of chronological order.
+    started_in_progress.sort_recent_first();
+    started_finished.sort_recent_first();
 
     let group_standings = fetch_group_standings(&state.repos).await;
     let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
