@@ -377,6 +377,17 @@ Each request builds one `BadgeContext`, and every registered badge derives its
 own `BadgeDisplay` from that shared snapshot. This keeps badge logic pure and
 ensures admin result corrections are reflected immediately.
 
+The same snapshot is reused to surface badges beyond the current user's hero
+panel:
+
+- **Per-game awards.** `match_award()` maps one finished prediction to the
+  single most prestigious match-level marker (`Solo` 💎 > `Underdog` 🐺 >
+  `Exact` 🎯), shown next to each player's tip on the match card. It shares the
+  underdog threshold with the aggregate badge, so markers and counts agree.
+- **Leaderboard chips.** `achievement_badges_for()` reruns the achievement
+  badges per user (only `user_id` varies across the shared context, so no extra
+  queries) to render the earned-count chips under each standings row.
+
 Because badges are visible next to "real" points, incorrect values are a trust
 problem. New badges should ship with focused tests that cover happy path, empty
 data, and the relevant edge condition.

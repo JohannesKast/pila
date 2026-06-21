@@ -15,7 +15,7 @@ use axum_extra::extract::CookieJar;
 use serde::Deserialize;
 
 use crate::auth::AuthenticatedUser;
-use crate::handlers::services::fetch_leaderboard;
+use crate::handlers::services::{build_badge_context, fetch_leaderboard};
 use crate::handlers::util::{
     html_escape, league_scope_path, make_theme_cookie, render_template, t_err, HandlerError,
 };
@@ -100,7 +100,7 @@ pub async fn jersey_picker_close() -> Html<&'static str> {
 
 #[derive(Deserialize)]
 pub struct JerseyPostQuery {
-    preset: String,
+    pub preset: String,
 }
 
 pub async fn jersey_post(
@@ -131,13 +131,8 @@ pub async fn jersey_post(
             )
         })?;
 
-    let leaderboard = fetch_leaderboard(
-        &state.repos,
-        &state.jerseys,
-        user.league_id,
-        crate::time::now(&state.mock_now),
-    )
-    .await;
+    let now = crate::time::now(&state.mock_now);
+    let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
     let user_rank = leaderboard
         .iter()
         .position(|e| e.name == user.name)
@@ -146,7 +141,13 @@ pub async fn jersey_post(
             StatusCode::INTERNAL_SERVER_ERROR,
             "User not in leaderboard".to_string(),
         ))?;
-    let user_entry = leaderboard[user_rank - 1].clone();
+    let mut user_entry = leaderboard[user_rank - 1].clone();
+
+    // The leaderboard row keeps the user's badge chips inline, so the OOB
+    // refresh must recompute them — fetch_leaderboard leaves them empty.
+    let t = crate::handlers::util::t_for(&state, &user.language);
+    let badge_ctx = build_badge_context(&state.repos, user.id, user.league_id, now).await;
+    user_entry.achievements = crate::badges::achievement_badges_for(&badge_ctx.as_ctx(), &t);
 
     let entry_template = LeaderboardEntryTemplate {
         entry: user_entry,

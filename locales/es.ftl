@@ -478,7 +478,7 @@ El pronóstico del campeón se bloquea en menos de 24 horas (inicio de la fase e
 # ─── Hero-panel badges ───────────────────────────────────────────────────────
 # Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
 badge-matchday-wins-title = Victoria del día
-badge-matchday-wins-how-to-earn = Máximo de puntos del día (hora de Berlín). En caso de empate, los ganadores comparten el día.
+badge-matchday-wins-how-to-earn = Máximo de puntos del día. En caso de empate, los ganadores comparten el día.
 badge-exact-count-title = Resultado exacto
 badge-exact-count-how-to-earn = Pronóstico 100% correcto: mismo marcador local y visitante que el resultado final.
 badge-underdog-title = Tapado

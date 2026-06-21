@@ -478,7 +478,7 @@ The champion pick locks in less than 24 hours (knockout kickoff). Get your tip i
 # ─── Hero-panel badges ───────────────────────────────────────────────────────
 # Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
 badge-matchday-wins-title = Matchday Win
-badge-matchday-wins-how-to-earn = Highest daily points total on a matchday (Berlin time). On ties the winners share the day.
+badge-matchday-wins-how-to-earn = Highest daily points total on a matchday. On ties the winners share the day.
 badge-exact-count-title = Exact Score
 badge-exact-count-how-to-earn = 100% correct tip: same home and away score as the final result.
 badge-underdog-title = Underdog

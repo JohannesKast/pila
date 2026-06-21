@@ -175,7 +175,7 @@
   {# sub-line for finished: kickoff date + user's tip #}
   {% if m.is_finished %}
   <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
-    {{ m.kickoff_display }} · {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}
+    {{ m.kickoff_display }} · {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}{% match m.own_award %}{% when Some with (a) %} <span title="{{ t.get(a.title_key()) }}" style="font-size:12px;">{{ a.icon() }}</span>{% when None %}{% endmatch %}
   </div>
   {% endif %}
 
@@ -191,7 +191,11 @@
   <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--pl-line); display:flex; flex-direction:column; gap:4px;">
     {% for pred in m.other_preds %}
     <div style="display:flex; align-items:center; gap:8px; font-size:11px;">
-      <span style="flex:1; color:var(--pl-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.name }}</span>
+      <span style="color:var(--pl-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.name }}</span>
+      {% match pred.award %}
+      {% when Some with (a) %}<span title="{{ t.get(a.title_key()) }}" style="font-size:12px; line-height:1; flex-shrink:0;">{{ a.icon() }}</span>
+      {% when None %}{% endmatch %}
+      <span style="flex:1;"></span>
       <span class="pl-mono" style="color:var(--pl-fg-2);">{{ pred.label }}</span>
       {% match pred.points %}
       {% when Some with (p) %}<span class="pl-num" style="width:28px; text-align:right; color:{% if p.is_positive() %}var(--pl-green){% else %}var(--pl-mute){% endif %};">+{{ p }}</span>
@@ -351,8 +355,12 @@
             {% else %}
             <div>
                 {% for entry in leaderboard %}
+                {# Name and badge chips share a wrapping flex group, so chips sit
+                   on the name's line and only spill to a second line when the
+                   row runs out of width. Chips live inside this div (the jersey
+                   OOB swap target), so jersey_post re-renders them too. #}
                 <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-line); {% if entry.name == user_name %}background:rgba(255,230,0,.04){% endif %}" id="leaderboard-entry-{{ entry.name|lower }}">
-                    <span class="pl-num" style="font-size:14px; color:{% if loop.index <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center;">
+                    <span class="pl-num" style="font-size:14px; color:{% if loop.index <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
                         {% if loop.index == 1 %}🥇
                         {% else if loop.index == 2 %}🥈
                         {% else if loop.index == 3 %}🥉
@@ -360,8 +368,16 @@
                         {% endif %}
                     </span>
                     {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}
-                    <span style="flex:1; color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ entry.name }}</span>
-                    <span class="pl-num" style="color:var(--pl-fg-2);">{{ entry.total_points }} {{ t.get("points-suffix") }}</span>
+                    <div style="flex:1; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px;">
+                        <span style="color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;">{{ entry.name }}</span>
+                        {% for a in entry.achievements %}
+                        <span title="{{ a.title }} ×{{ a.count }} — {{ a.how_to_earn }}"
+                              style="display:inline-flex; align-items:center; gap:3px; font-size:11px; color:var(--pl-fg-2); background:var(--pl-bg-2); border:1px solid var(--pl-line); border-radius:999px; padding:1px 8px 1px 6px; cursor:help; flex-shrink:0;">
+                            <span style="font-size:12px; line-height:1;">{{ a.icon }}</span><span class="pl-mono">{{ a.count }}</span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    <span class="pl-num" style="color:var(--pl-fg-2); flex-shrink:0;">{{ entry.total_points }} {{ t.get("points-suffix") }}</span>
                 </div>
                 {% endfor %}
             </div>

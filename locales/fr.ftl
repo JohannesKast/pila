@@ -478,7 +478,7 @@ Le pronostic du champion se verrouille dans moins de 24 heures (coup d'envoi de 
 # ─── Hero-panel badges ───────────────────────────────────────────────────────
 # Title shown under each badge card; the `how-to-earn` text becomes the tooltip.
 badge-matchday-wins-title = Victoire du jour
-badge-matchday-wins-how-to-earn = Plus haut total de points du jour (heure de Berlin). En cas d'égalité, les vainqueurs se partagent la journée.
+badge-matchday-wins-how-to-earn = Plus haut total de points du jour. En cas d'égalité, les vainqueurs se partagent la journée.
 badge-exact-count-title = Score exact
 badge-exact-count-how-to-earn = Pronostic 100% correct : même score domicile et extérieur que le résultat final.
 badge-underdog-title = Outsider

@@ -185,6 +185,7 @@ pub async fn fetch_leaderboard(
         .iter()
         .map(|u| (u.name.clone(), u.jersey_preset.clone()))
         .collect();
+    let user_ids: HashMap<String, Uuid> = users.iter().map(|u| (u.name.clone(), u.id)).collect();
 
     let mut leaderboard: Vec<LeaderboardEntry> = user_scores
         .into_iter()
@@ -194,12 +195,15 @@ pub async fn fetch_leaderboard(
                 .map(|p| jersey::get(jerseys, p))
                 .unwrap_or_else(|| jersey::get(jerseys, "classic"));
             LeaderboardEntry {
+                id: user_ids.get(&name).copied().unwrap_or_default(),
                 name,
                 total_points: total,
                 max_potential_points: total + potential,
                 jersey_body: jersey_preset.body.clone(),
                 jersey_accent: jersey_preset.accent.clone(),
                 jersey_pattern: jersey_preset.pattern.clone(),
+                // Populated by the dashboard handler from the shared badge context.
+                achievements: Vec::new(),
             }
         })
         .collect();

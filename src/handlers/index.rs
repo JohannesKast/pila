@@ -230,13 +230,28 @@ pub async fn index(
             None
         };
 
+        let raw_others = preds_by_match.get(&r.id).cloned().unwrap_or_default();
+
+        // Per-match underdog/solo/exact markers. Only finished exact-score
+        // matches earn them: the same threshold logic backs the aggregate
+        // achievement badges, so per-game markers and table counts agree.
+        let exact_system = league_config.match_scoring_system == MatchScoringSystem::ExactScore;
+        let match_awards = if finished && exact_system {
+            r.score_home.zip(r.score_away).map(|score| {
+                let own = r.predicted_home.zip(r.predicted_away);
+                let others: Vec<(i32, i32)> = raw_others.iter().map(|(_, h, a)| (*h, *a)).collect();
+                badges::compute_match_awards(score, own, &others)
+            })
+        } else {
+            None
+        };
+        let own_award = match_awards.as_ref().and_then(|m| m.own);
+
         let mut other_preds: Vec<UserPrediction> = if locked {
-            preds_by_match
-                .get(&r.id)
-                .cloned()
-                .unwrap_or_default()
+            raw_others
                 .into_iter()
-                .map(|(name, home, away)| {
+                .enumerate()
+                .map(|(idx, (name, home, away))| {
                     let points = if finished {
                         match (r.score_home, r.score_away) {
                             (Some(sh), Some(sa)) => {
@@ -254,6 +269,9 @@ pub async fn index(
                     } else {
                         None
                     };
+                    let award = match_awards
+                        .as_ref()
+                        .and_then(|m| m.others.get(idx).copied().flatten());
                     UserPrediction {
                         name,
                         label: format_prediction_label(
@@ -265,6 +283,7 @@ pub async fn index(
                             away,
                         ),
                         points,
+                        award,
                     }
                 })
                 .collect()
@@ -312,6 +331,7 @@ pub async fn index(
             winner_only_mode: league_config.match_scoring_system.is_winner_only(),
             allow_draw_prediction: r.stage == crate::stage::Stage::Group,
             other_preds,
+            own_award,
         };
 
         let target = if locked {
@@ -369,6 +389,16 @@ pub async fn index(
 
     let badge_ctx_owned = build_badge_context(&state.repos, user.id, user.league_id, now).await;
     let badges_list = badges::compute_all(&badge_ctx_owned.as_ctx(), &t);
+
+    // Annotate every leaderboard row with its user's earned achievement
+    // badges. The context is shared across users — only `user_id` varies — so
+    // this adds no extra queries.
+    let mut leaderboard = leaderboard;
+    for entry in &mut leaderboard {
+        let mut ctx = badge_ctx_owned.as_ctx();
+        ctx.user_id = entry.id;
+        entry.achievements = badges::achievement_badges_for(&ctx, &t);
+    }
 
     let tipprunden_name = state
         .repos
