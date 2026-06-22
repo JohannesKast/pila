@@ -228,6 +228,9 @@ pub struct GroupStandingsTable {
 pub struct LeaderboardEntry {
     pub id: Uuid,
     pub name: String,
+    /// Standard competition rank ("1224"): tied players share a rank and the
+    /// next rank skips. Assigned by `fetch_leaderboard` after sorting.
+    pub rank: i32,
     pub total_points: i32,
     pub max_potential_points: i32,
     pub jersey_body: String,

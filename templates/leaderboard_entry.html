@@ -1,9 +1,9 @@
 {% import "partials/jersey.html" as j %}
-<span class="pl-num" style="font-size:14px; color:{% if rank <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
-    {% if rank == 1 %}🥇
-    {% else if rank == 2 %}🥈
-    {% else if rank == 3 %}🥉
-    {% else %}{{ rank }}
+<span class="pl-num" style="font-size:14px; color:{% if entry.rank <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
+    {% if entry.rank == 1 %}🥇
+    {% else if entry.rank == 2 %}🥈
+    {% else if entry.rank == 3 %}🥉
+    {% else %}{{ entry.rank }}
     {% endif %}
 </span>
 {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}
