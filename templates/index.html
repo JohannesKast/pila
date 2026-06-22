@@ -323,11 +323,11 @@
                    row runs out of width. Chips live inside this div (the jersey
                    OOB swap target), so jersey_post re-renders them too. #}
                 <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--pl-line); {% if entry.name == user_name %}background:rgba(255,230,0,.04){% endif %}" id="leaderboard-entry-{{ entry.name|lower }}">
-                    <span class="pl-num" style="font-size:14px; color:{% if loop.index <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
-                        {% if loop.index == 1 %}🥇
-                        {% else if loop.index == 2 %}🥈
-                        {% else if loop.index == 3 %}🥉
-                        {% else %}{{ loop.index }}
+                    <span class="pl-num" style="font-size:14px; color:{% if entry.rank <= 3 %}var(--pl-yellow){% else %}var(--pl-mute){% endif %}; width:24px; text-align:center; flex-shrink:0;">
+                        {% if entry.rank == 1 %}🥇
+                        {% else if entry.rank == 2 %}🥈
+                        {% else if entry.rank == 3 %}🥉
+                        {% else %}{{ entry.rank }}
                         {% endif %}
                     </span>
                     {% call j::jersey_svg(entry.jersey_body.as_str(), entry.jersey_accent.as_str(), entry.jersey_pattern.as_str(), 28, entry.name|lower) %}{% endcall %}

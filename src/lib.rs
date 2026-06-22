@@ -9,6 +9,7 @@ pub mod jersey;
 pub mod mail;
 pub mod news;
 pub mod notifier;
+pub mod ranking;
 pub mod repo;
 pub mod scoreboard;
 pub mod scoring;

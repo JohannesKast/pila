@@ -200,6 +200,8 @@ pub async fn fetch_leaderboard(
             LeaderboardEntry {
                 id: user_ids.get(&name).copied().unwrap_or_default(),
                 name,
+                // Filled in below once every total is known.
+                rank: 0,
                 total_points: total,
                 max_potential_points: total + potential,
                 jersey_body: jersey_preset.body.clone(),
@@ -211,6 +213,15 @@ pub async fn fetch_leaderboard(
         })
         .collect();
     leaderboard.sort_by_key(|b| std::cmp::Reverse(b.total_points));
+
+    // Assign standard competition ranks so tied players share a rank — the same
+    // scheme the AI matchday reports use, so the table and the recap never
+    // disagree. See `crate::ranking`.
+    let all_points: Vec<i32> = leaderboard.iter().map(|e| e.total_points).collect();
+    for entry in &mut leaderboard {
+        entry.rank = crate::ranking::competition_rank(entry.total_points, &all_points);
+    }
+
     leaderboard
 }
 

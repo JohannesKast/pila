@@ -251,6 +251,57 @@ async fn fetch_leaderboard_sorts_by_total_points_descending() {
 }
 
 #[tokio::test]
+async fn fetch_leaderboard_assigns_standard_competition_ranks() {
+    let bag = build_bag();
+    seed_user(&bag.users, "Alice");
+    seed_user(&bag.users, "Bob");
+    seed_user(&bag.users, "Charlie");
+
+    let now = Utc::now();
+    let kickoff = Some(now - Duration::hours(2));
+
+    // Alice and Bob both nail the exact score → 4 points each (tied for first).
+    for name in ["Alice", "Bob"] {
+        bag.predictions.seed_leaderboard(FakeLeaderboardRow {
+            league_id: DEFAULT_LEAGUE_ID,
+            user_name: name.into(),
+            stage: Stage::Group,
+            kickoff_time: kickoff,
+            status: "finished".into(),
+            score_home: Some(2),
+            score_away: Some(1),
+            predicted_home: 2,
+            predicted_away: 1,
+        });
+    }
+    // Charlie: correct tendency only → 2 points.
+    bag.predictions.seed_leaderboard(FakeLeaderboardRow {
+        league_id: DEFAULT_LEAGUE_ID,
+        user_name: "Charlie".into(),
+        stage: Stage::Group,
+        kickoff_time: kickoff,
+        status: "finished".into(),
+        score_home: Some(2),
+        score_away: Some(1),
+        predicted_home: 3,
+        predicted_away: 0,
+    });
+
+    let lb = fetch_leaderboard(&bag.repos, &jerseys(), DEFAULT_LEAGUE_ID, now).await;
+
+    let alice = lb.iter().find(|e| e.name == "Alice").unwrap();
+    let bob = lb.iter().find(|e| e.name == "Bob").unwrap();
+    let charlie = lb.iter().find(|e| e.name == "Charlie").unwrap();
+
+    // Alice and Bob tie on 4 points → both rank 1. Standard competition ranking
+    // skips rank 2, so Charlie (2 pts) is rank 3 — the same number the AI recap
+    // reports for him.
+    assert_eq!(alice.rank, 1);
+    assert_eq!(bob.rank, 1);
+    assert_eq!(charlie.rank, 3);
+}
+
+#[tokio::test]
 async fn fetch_leaderboard_unfinished_tip_adds_to_max_potential() {
     let bag = build_bag();
     seed_user(&bag.users, "Alice");
