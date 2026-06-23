@@ -262,6 +262,7 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
     let pool = pool().await;
     let users = PgUserRepo::new(pool.clone());
     let preds = PgPredictionRepo::new(pool.clone());
+    let matches = PgMatchRepo::new(pool.clone());
 
     let user_id = Uuid::new_v4();
     let token = format!("repo-test-{}", Uuid::new_v4());
@@ -280,17 +281,29 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
         .await
         .unwrap();
 
-    // Need a real match id to insert a prediction; pick the lowest existing one.
-    let some_match: Option<i32> = sqlx::query_scalar("SELECT id FROM matches ORDER BY id LIMIT 1")
-        .fetch_optional(&pool)
+    // Create our own match so the test owns its fixture rather than racing
+    // other tests over a shared row (a concurrently deleted match would make
+    // the prediction insert violate its foreign key).
+    let espn_id: i64 = 9_999_800_000_001 + (std::process::id() as i64 % 1000);
+    matches
+        .upsert_from_espn(EspnMatchUpsert {
+            espn_event_id: espn_id,
+            stage: Stage::Group,
+            group_letter: Some("Y"),
+            team_home_id: None,
+            team_away_id: None,
+            score_home: None,
+            score_away: None,
+            kickoff_time: Some(Utc::now() + Duration::hours(24)),
+            status: "scheduled",
+        })
         .await
         .unwrap();
-
-    let Some(match_id) = some_match else {
-        // Empty matches table — skip rather than fail.
-        users.delete(user_id).await.unwrap();
-        return;
-    };
+    let match_id: i32 = sqlx::query_scalar("SELECT id FROM matches WHERE espn_event_id = $1")
+        .bind(espn_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     preds.upsert(user_id, match_id, 2, 1).await.unwrap();
     preds.upsert(user_id, match_id, 3, 0).await.unwrap();
@@ -302,6 +315,11 @@ async fn prediction_repo_upsert_overwrites_and_round_trips() {
 
     sqlx::query("DELETE FROM predictions WHERE user_id = $1")
         .bind(user_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("DELETE FROM matches WHERE espn_event_id = $1")
+        .bind(espn_id)
         .execute(&pool)
         .await
         .unwrap();
