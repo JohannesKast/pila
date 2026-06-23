@@ -25,9 +25,8 @@ tip-autosave-saved = Guardado
 # Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
 tip-autosave-error = No guardado
 points-abbr = PTS
-your-tip-live = TU PRONÓST.
+# Label of the user's own tip row, shown bold on top of the predictions list
 your-tip-finished = TU PRONÓST.
-no-tip-given = SIN PRONÓSTICO
 
 ## Encabezados de fase
 

@@ -25,9 +25,8 @@ tip-autosave-saved = Saved
 # Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
 tip-autosave-error = Not saved
 points-abbr = PTS
-your-tip-live = YOUR TIP
+# Label of the user's own tip row, shown bold on top of the predictions list
 your-tip-finished = YOUR TIP
-no-tip-given = NO TIP GIVEN
 
 ## Stage section headings
 
