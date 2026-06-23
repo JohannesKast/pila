@@ -165,32 +165,35 @@
   </div>
   {% endif %}
 
-  {# sub-line for live: user's tip #}
-  {% if m.is_live && m.has_prediction() %}
-  <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-yellow); letter-spacing:.06em; text-align:center;">
-    {{ t.get("your-tip-live") }} {{ m.predicted_str() }}
-  </div>
-  {% endif %}
-
-  {# sub-line for finished: kickoff date + user's tip #}
-  {% if m.is_finished %}
-  <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
-    {{ m.kickoff_display }} · {% if m.has_prediction() %}{{ t.get("your-tip-finished") }} {{ m.predicted_str() }}{% else %}{{ t.get("no-tip-given") }}{% endif %}{% match m.own_award %}{% when Some with (a) %} <span title="{{ t.get(a.title_key()) }}" style="font-size:12px;">{{ a.icon() }}</span>{% when None %}{% endmatch %}
-  </div>
-  {% endif %}
-
-  {# sub-line for locked-but-not-yet-finished: kickoff date #}
-  {% if m.locked && !m.is_finished && !m.is_live %}
+  {# sub-line: kickoff date for finished or locked-but-not-live matches #}
+  {% if m.is_finished || (m.locked && !m.is_live) %}
   <div class="pl-mono" style="margin-top:8px; font-size:10px; color:var(--pl-mute); letter-spacing:.06em; text-align:center;">
     {{ m.kickoff_display }}
   </div>
   {% endif %}
 
-  {# other users' predictions (when locked) #}
-  {% if m.locked && m.other_preds.len() > 0 %}
-  <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--pl-line); display:flex; flex-direction:column; gap:4px;">
+  {# predictions list (when locked): own tip on top in bold, then the others.
+     Rows alternate background — same elevated palette as the group tables. #}
+  {% if m.locked %}
+  <div style="margin-top:10px; border:1px solid var(--pl-line); border-radius:6px; overflow:hidden; display:flex; flex-direction:column;">
+    {# own tip — topmost row, bold #}
+    <div style="display:flex; align-items:center; gap:8px; font-size:11px; padding:5px 8px; background:var(--pl-bg-3); font-weight:700;">
+      <span style="color:var(--pl-fg); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.get("your-tip-finished") }}</span>
+      {% match m.own_award %}
+      {% when Some with (a) %}<span title="{{ t.get(a.title_key()) }}" style="font-size:12px; line-height:1; flex-shrink:0;">{{ a.icon() }}</span>
+      {% when None %}{% endmatch %}
+      <span style="flex:1;"></span>
+      <span class="pl-mono" style="color:var(--pl-fg);">{% if m.has_prediction() %}{{ m.predicted_str() }}{% else %}{{ t.get("status-no-tip") }}{% endif %}</span>
+      {% match m.own_points %}
+      {% when Some with (p) %}<span class="pl-num" style="width:28px; text-align:right; color:{% if p.is_positive() %}var(--pl-green){% else %}var(--pl-mute){% endif %};">+{{ p }}</span>
+      {% when None %}<span style="width:28px; text-align:right; color:var(--pl-mute-2);">—</span>
+      {% endmatch %}
+    </div>
+    {# divider to the other tips, then the others with alternating row background #}
+    {% if m.other_preds.len() > 0 %}
+    <div style="border-top:1px solid var(--pl-line);"></div>
     {% for pred in m.other_preds %}
-    <div style="display:flex; align-items:center; gap:8px; font-size:11px;">
+    <div style="display:flex; align-items:center; gap:8px; font-size:11px; padding:5px 8px; background:{% if loop.index0 % 2 == 0 %}var(--pl-bg-2){% else %}var(--pl-bg-3){% endif %};">
       <span style="color:var(--pl-mute); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ pred.name }}</span>
       {% match pred.award %}
       {% when Some with (a) %}<span title="{{ t.get(a.title_key()) }}" style="font-size:12px; line-height:1; flex-shrink:0;">{{ a.icon() }}</span>
@@ -203,6 +206,7 @@
       {% endmatch %}
     </div>
     {% endfor %}
+    {% endif %}
   </div>
   {% endif %}
 </div>
