@@ -406,12 +406,13 @@ fn totals<'a>(
     totals
 }
 
-/// 1-based dense rank of `user` in `totals` (ties share a rank).
+/// 1-based standard competition rank of `user` in `totals`: tied players share
+/// a rank and the next rank skips. Shares [`crate::ranking::competition_rank`]
+/// with the leaderboard so the recap and the table agree.
 fn rank_of(user: Uuid, totals: &HashMap<Uuid, i32>) -> Option<i32> {
     let user_pts = *totals.get(&user)?;
-    let distinct: HashSet<i32> = totals.values().copied().collect();
-    let higher = distinct.iter().filter(|&&p| p > user_pts).count() as i32;
-    Some(higher + 1)
+    let all_points: Vec<i32> = totals.values().copied().collect();
+    Some(crate::ranking::competition_rank(user_pts, &all_points))
 }
 
 #[cfg(test)]
@@ -557,6 +558,52 @@ mod tests {
         assert_eq!(ben.matchday_tips.len(), 1);
         assert_eq!(ben.matchday_tips[0].predicted, "2:1");
         assert_eq!(ben.matchday_tips[0].points, 4);
+    }
+
+    #[test]
+    fn build_report_input_shares_rank_on_ties() {
+        let a = uid(1);
+        let b = uid(2);
+        let c = uid(3);
+        let t = crate::translations::load_all().remove("en").unwrap();
+        // Single matchday (June 12), one match finishing 2:1. Anna and Bea both
+        // nail it (4 pts each, tied); Cara only gets the tendency (2 pts).
+        let summaries = vec![summary(1, 12, 18, "finished", Some((2, 1)))];
+        let finished = vec![
+            pred(a, 1, 12, (2, 1), (2, 1)),
+            pred(b, 1, 12, (2, 1), (2, 1)),
+            pred(c, 1, 12, (2, 1), (3, 0)),
+        ];
+        let src = ReportSource {
+            matchday_date: NaiveDate::from_ymd_opt(2026, 6, 12).unwrap(),
+            tz: ny(),
+            scoring_system: MatchScoringSystem::ExactScore,
+            summaries: &summaries,
+            finished,
+            users: vec![(a, "Anna".into()), (b, "Bea".into()), (c, "Cara".into())],
+            special_picks: vec![],
+            team_names: HashMap::new(),
+            actual_champion: None,
+            started_total: 1,
+            started_by_user: HashMap::from([(a, 1), (b, 1), (c, 1)]),
+            badge_t: &t,
+            now: Utc.with_ymd_and_hms(2026, 6, 12, 22, 0, 0).unwrap(),
+        };
+        let input = build_report_input(&src);
+
+        let anna = input.players.iter().find(|p| p.name == "Anna").unwrap();
+        let bea = input.players.iter().find(|p| p.name == "Bea").unwrap();
+        let cara = input.players.iter().find(|p| p.name == "Cara").unwrap();
+
+        assert_eq!(anna.total_points, 4);
+        assert_eq!(bea.total_points, 4);
+        assert_eq!(cara.total_points, 2);
+        // Anna and Bea tie on 4 points → both rank 1. Standard competition
+        // ranking skips rank 2, so Cara (2 pts) lands on rank 3, not rank 2 —
+        // matching what the leaderboard table shows.
+        assert_eq!(anna.rank, 1);
+        assert_eq!(bea.rank, 1);
+        assert_eq!(cara.rank, 3);
     }
 
     #[test]

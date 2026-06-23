@@ -37,7 +37,7 @@ struct IndexTemplate {
     user_id: Uuid,
     user_name: String,
     user_total_points: i32,
-    user_rank: usize,
+    user_rank: i32,
     tipprunden_name: String,
     default_tab: String,
     started_in_progress: StageGroups,
@@ -361,11 +361,13 @@ pub async fn index(
     let user_entry = leaderboard.iter().find(|e| e.name == user.name).cloned();
     let user_total_points = user_entry.as_ref().map(|e| e.total_points).unwrap_or(0);
 
-    let user_rank = leaderboard
-        .iter()
-        .position(|entry| entry.name == user.name)
-        .map(|pos| pos + 1)
-        .unwrap_or(leaderboard.len() + 1);
+    // Standard competition rank from the leaderboard, so the dashboard number
+    // matches the table and the AI recap (ties share a rank). See
+    // `crate::ranking`.
+    let user_rank = user_entry
+        .as_ref()
+        .map(|e| e.rank)
+        .unwrap_or((leaderboard.len() + 1) as i32);
 
     let open_count = open_matches.len();
     let next_deadline_iso = next_deadline.map(|dt| dt.to_rfc3339());

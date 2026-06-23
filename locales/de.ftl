@@ -50,14 +50,8 @@ tip-autosave-error = Nicht gespeichert
 # Points abbreviation shown after score in tags, e.g. "+3 PKT"
 points-abbr = PKT
 
-# Sub-line inside a live match card showing user's tip
-your-tip-live = DEIN TIPP
-
-# Sub-line inside a finished match card showing user's tip
+# Label of the user's own tip row, shown bold on top of the predictions list
 your-tip-finished = DEIN TIPP
-
-# Sub-line inside a finished match card when user had no tip
-no-tip-given = KEIN TIPP ABGEGEBEN
 
 ## Stage section headings
 

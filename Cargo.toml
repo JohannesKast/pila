@@ -20,7 +20,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-tower-http = { version = "0.6", features = ["fs"] }
+tower-http = { version = "0.7", features = ["fs"] }
 feed-rs = "2"
 thiserror = "2"
 fluent-bundle = "0.16"
@@ -28,4 +28,4 @@ unic-langid = "0.9"
 time = { version = "0.3.47", features = ["macros"] }
 rand = "0.10"
 lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "smtp-transport", "builder"] }
-pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
+pulldown-cmark = { version = "0.13", default-features = false, features = ["html"] }

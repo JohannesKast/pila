@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Leaderboard and AI matchday recaps now share one ranking scheme (standard competition ranking, "1224"): tied players get the same rank and the next rank skips accordingly. Previously the table used ordinal positions (1,2,3,4) while recaps used dense ranks (1,2,2,3), so a recap could report a different rank than the table for the same player
 - `MemoryUserRepo::find_by_token` returned hardcoded `language: "de"` instead of stored value
 - `MemoryUserRepo::set_language` was a no-op stub
 

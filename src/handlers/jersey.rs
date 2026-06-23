@@ -36,7 +36,6 @@ struct JerseyPickerTemplate {
 #[template(path = "leaderboard_entry.html")]
 struct LeaderboardEntryTemplate {
     entry: LeaderboardEntry,
-    rank: usize,
 }
 
 pub async fn jersey_picker_get(
@@ -133,15 +132,13 @@ pub async fn jersey_post(
 
     let now = crate::time::now(&state.mock_now);
     let leaderboard = fetch_leaderboard(&state.repos, &state.jerseys, user.league_id, now).await;
-    let user_rank = leaderboard
-        .iter()
-        .position(|e| e.name == user.name)
-        .map(|p| p + 1)
+    let mut user_entry = leaderboard
+        .into_iter()
+        .find(|e| e.name == user.name)
         .ok_or((
             StatusCode::INTERNAL_SERVER_ERROR,
             "User not in leaderboard".to_string(),
         ))?;
-    let mut user_entry = leaderboard[user_rank - 1].clone();
 
     // The leaderboard row keeps the user's badge chips inline, so the OOB
     // refresh must recompute them — fetch_leaderboard leaves them empty.
@@ -149,10 +146,7 @@ pub async fn jersey_post(
     let badge_ctx = build_badge_context(&state.repos, user.id, user.league_id, now).await;
     user_entry.achievements = crate::badges::achievement_badges_for(&badge_ctx.as_ctx(), &t);
 
-    let entry_template = LeaderboardEntryTemplate {
-        entry: user_entry,
-        rank: user_rank,
-    };
+    let entry_template = LeaderboardEntryTemplate { entry: user_entry };
     let entry_html = entry_template.render().map_err(|_| {
         (
             StatusCode::INTERNAL_SERVER_ERROR,
