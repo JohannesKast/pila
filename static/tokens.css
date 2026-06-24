@@ -100,7 +100,10 @@
 :root.light .pl-deadline-stripe {
   background: repeating-linear-gradient(135deg, var(--pl-yellow) 0 12px, #ffffff 12px 24px);
 }
-:root.light .pl-sheet-backdrop { background: rgba(16,21,18,.45); }
+:root.light .pl-sheet-backdrop { background: rgba(16,21,18,.7); }
+@supports ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  :root.light .pl-sheet-backdrop { background: rgba(16,21,18,.45); }
+}
 
 /* ----- Body bootstrap ----- */
 .pl,
@@ -331,11 +334,34 @@ body.pl-app {
   .pl-form-grid { grid-template-columns: 1fr !important; }
 }
 
+/* Legacy mobile engines (pre-backdrop-filter, e.g. old Android WebView) leave
+   repaint trails when page content scrolls under the sticky top bar — the
+   invalidation region is computed wrong and stale pixels smear across the
+   viewport. Promoting the bar to its own compositing layer makes the engine
+   repaint it cleanly. Scoped to old engines via the same backdrop-filter
+   probe so modern (incl. low-end) devices don't pay for extra layers. */
+@supports not ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  .pl-sticky-top {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
 /* ----- Bottom sheet ----- */
 .pl-sheet-backdrop {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+  /* Opaque fallback scrim for engines that can't composite a backdrop blur
+     (legacy Android WebView garbles it). The blurred, more translucent
+     variant is layered on only where it's supported, see @supports below. */
+  background: rgba(0,0,0,.85);
   z-index: 50; display: flex; align-items: flex-end;
+}
+@supports ((backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px))) {
+  .pl-sheet-backdrop {
+    background: rgba(0,0,0,.7);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
 }
 .pl-sheet {
   width: 100%; background: var(--pl-bg-2);

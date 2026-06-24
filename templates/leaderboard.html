@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block topbar %}
-<header style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; background:var(--pl-bg);">
+<header class="pl-sticky-top" style="padding:14px 16px; border-bottom:1px solid var(--pl-line); display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:40; background:var(--pl-bg);">
     <a href="{{ scope_path }}" class="pl-btn pl-btn--ghost" style="height:36px; padding:0 12px; font-size:13px;">← {{ t.get("back-to-tips") }}</a>
     <div style="position:relative;" id="lang-menu">
         <button type="button"
