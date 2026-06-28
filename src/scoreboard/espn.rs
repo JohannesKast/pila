@@ -648,13 +648,19 @@ mod tests {
 
     #[test]
     fn no_shootout_leaves_regulation_score_untouched() {
-        assert_eq!(fold_shootout(Some(2), Some(0), None, None), (Some(2), Some(0)));
+        assert_eq!(
+            fold_shootout(Some(2), Some(0), None, None),
+            (Some(2), Some(0))
+        );
     }
 
     #[test]
     fn partial_shootout_data_is_ignored() {
         // A lone shoot-out value (no opponent tally) must not corrupt the score.
-        assert_eq!(fold_shootout(Some(1), Some(1), Some(4), None), (Some(1), Some(1)));
+        assert_eq!(
+            fold_shootout(Some(1), Some(1), Some(4), None),
+            (Some(1), Some(1))
+        );
     }
 
     #[test]
