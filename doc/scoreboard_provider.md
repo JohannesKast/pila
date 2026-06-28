@@ -113,10 +113,14 @@ The seven values match the WC 2026 bracket exactly:
 | `Final`           | 6         | The single final fixture. |
 
 **Knockout score rule (DB-side, but worth surfacing here):** scores must
-reflect the result *before* a penalty shoot-out — i.e. the result after
-90 minutes plus extra time. A draw at that point is a valid stored value
-and counts for "exact result" points in the scoring engine. Providers
-that report a separate `penalty_shootout_score` field must drop it.
+reflect the *absolute* final result of the fixture, i.e. the result after
+90 minutes plus extra time **plus the full penalty shoot-out tally**
+(kicktipp convention). A fixture that stands 1:1 after extra time and is
+won 4:3 on penalties is stored — and scored — as `5:4`. Providers that
+expose the shoot-out as a separate field (e.g. ESPN's `shootoutScore`)
+must add it onto each side's regulation goals before reporting the score.
+A knockout draw is therefore never a valid stored result; only the
+group stage may store level scores.
 
 ---
 

@@ -27,4 +27,7 @@
     <span class="tip-status" data-tip-status role="status" data-label-saving="{{ t.get("tip-autosave-saving") }}" data-label-saved="{{ t.get("tip-autosave-saved") }}" data-label-error="{{ t.get("tip-autosave-error") }}"></span>
   </form>
   {% endif %}
+  {% if allow_draw_prediction == false %}
+  <p class="pl-mute" style="margin:4px 2px 0; font-size:11px; line-height:1.3; color:var(--pl-mute);">{{ t.get("tip-knockout-penalty-hint") }}</p>
+  {% endif %}
 </div>

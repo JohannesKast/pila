@@ -145,6 +145,12 @@ struct Competitor {
     home_away: String,
     team: EspnTeam,
     score: Option<String>,
+    /// Penalty shoot-out tally, present only when a knockout fixture was
+    /// decided from the spot. ESPN keeps it separate from `score` (which
+    /// stays level after extra time); we fold the full tally into the
+    /// stored result so it reflects the absolute final score.
+    #[serde(rename = "shootoutScore", default)]
+    shootout_score: Option<i32>,
 }
 
 #[derive(Deserialize)]
@@ -187,6 +193,22 @@ struct StandingsEntryTeam {
 }
 
 // ─── Mapping ESPN → SportsEvent ──────────────────────────────────────────────
+
+/// Folds a penalty shoot-out into the regulation score. When both shoot-out
+/// tallies are present the fixture was decided from the spot, so each side's
+/// shoot-out goals are added to its regulation goals; otherwise the regulation
+/// score is returned unchanged. A missing regulation score stays `None`.
+fn fold_shootout(
+    reg_home: Option<i32>,
+    reg_away: Option<i32>,
+    shootout_home: Option<i32>,
+    shootout_away: Option<i32>,
+) -> (Option<i32>, Option<i32>) {
+    match (reg_home, reg_away, shootout_home, shootout_away) {
+        (Some(rh), Some(ra), Some(sh), Some(sa)) => (Some(rh + sh), Some(ra + sa)),
+        _ => (reg_home, reg_away),
+    }
+}
 
 fn event_to_sports_event(
     event: EspnEvent,
@@ -240,12 +262,22 @@ fn event_to_sports_event(
     let home_team = team_for(home, home_id);
     let away_team = team_for(away, away_id);
 
-    let score_home = home
+    let reg_home = home
         .and_then(|c| c.score.as_deref())
         .and_then(|s| s.parse::<i32>().ok());
-    let score_away = away
+    let reg_away = away
         .and_then(|c| c.score.as_deref())
         .and_then(|s| s.parse::<i32>().ok());
+    // Knockout penalty shoot-out: the regulation `score` stays level, but the
+    // shoot-out decides the tie. Following the kicktipp convention the stored
+    // result is the *absolute* final score, i.e. regulation goals plus the
+    // full shoot-out tally (1:1 a.e.t. won 4:3 on penalties → 5:4).
+    let (score_home, score_away) = fold_shootout(
+        reg_home,
+        reg_away,
+        home.and_then(|c| c.shootout_score),
+        away.and_then(|c| c.shootout_score),
+    );
 
     let kickoff = parse_espn_datetime(&comp.start_date);
     let status = comp
@@ -604,6 +636,37 @@ fn flag_code_for_abbr(abbr: &str) -> Option<&'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shootout_adds_full_tally_to_regulation_score() {
+        // 1:1 after extra time, home wins the shoot-out 4:3 → absolute 5:4.
+        assert_eq!(
+            fold_shootout(Some(1), Some(1), Some(4), Some(3)),
+            (Some(5), Some(4))
+        );
+    }
+
+    #[test]
+    fn no_shootout_leaves_regulation_score_untouched() {
+        assert_eq!(
+            fold_shootout(Some(2), Some(0), None, None),
+            (Some(2), Some(0))
+        );
+    }
+
+    #[test]
+    fn partial_shootout_data_is_ignored() {
+        // A lone shoot-out value (no opponent tally) must not corrupt the score.
+        assert_eq!(
+            fold_shootout(Some(1), Some(1), Some(4), None),
+            (Some(1), Some(1))
+        );
+    }
+
+    #[test]
+    fn missing_regulation_score_stays_none() {
+        assert_eq!(fold_shootout(None, None, Some(4), Some(3)), (None, None));
+    }
 
     #[test]
     fn classify_group_stage() {

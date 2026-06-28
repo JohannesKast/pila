@@ -24,6 +24,10 @@ tip-autosave-saving = Enregistrement…
 tip-autosave-saved = Enregistré
 # Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
 tip-autosave-error = Non enregistré
+# Hint shown under the tip inputs for knockout matches: the stored/scored
+# result is the absolute final score including the penalty shoot-out tally
+# (e.g. 1:1 a.e.t. won 4:3 on penalties counts as 5:4).
+tip-knockout-penalty-hint = Match à élimination directe : le score final, séance de tirs au but comprise, compte (p. ex. 5:4).
 points-abbr = PTS
 # Label of the user's own tip row, shown bold on top of the predictions list
 your-tip-finished = TON PRONOSTIC

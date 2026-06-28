@@ -47,6 +47,11 @@ tip-autosave-saved = Gespeichert
 # Tooltip/aria-label on the inline auto-save indicator when storing the tip failed
 tip-autosave-error = Nicht gespeichert
 
+# Hint shown under the tip inputs for knockout matches: the stored/scored
+# result is the absolute final score including the penalty shoot-out tally
+# (e.g. 1:1 a.e.t. won 4:3 on penalties counts as 5:4).
+tip-knockout-penalty-hint = K.-o.-Spiel: Endergebnis inkl. Elfmeterschießen zählt (z. B. 5:4).
+
 # Points abbreviation shown after score in tags, e.g. "+3 PKT"
 points-abbr = PKT
 
